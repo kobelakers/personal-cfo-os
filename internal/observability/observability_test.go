@@ -26,6 +26,21 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 	}
 	log := observability.EventLog{}
 	log.Append(observability.LogEntry{TraceID: "trace-1", CorrelationID: "trace-1", Category: "checkpoint", Message: "before act", OccurredAt: now})
+	agentTrace := &observability.AgentTraceLog{}
+	agentTrace.Append(observability.AgentExecutionRecord{
+		DispatchID:         "dispatch-1",
+		TraceID:            "trace-1",
+		Recipient:          "verification_agent",
+		RequestKind:        "verification_request",
+		ResultKind:         "verification_result",
+		Lifecycle:          observability.AgentLifecycleCompleted,
+		CorrelationID:      "trace-1",
+		CausationID:        "msg-1",
+		RequestMessageID:   "msg-1",
+		ResultMessageID:    "msg-2",
+		WorkflowEventTypes: []string{"verification_failed"},
+		OccurredAt:         now,
+	})
 	memoryRecords := memory.ToObservabilityRecords([]memory.MemoryAccessAudit{
 		{MemoryID: "memory-1", Accessor: "hybrid_retriever", Purpose: "monthly review", Action: "retrieve", AccessedAt: now},
 	})
@@ -33,16 +48,16 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 		{ID: "audit-1", Actor: "governance_agent", Action: "approval", Resource: "task-1", Outcome: "require_approval", Reason: "high risk", OccurredAt: now, CorrelationID: "trace-1"},
 	})
 
-	dump := observability.BuildWorkflowTraceDump("workflow-1", "trace-1", timeline.Records(), journal.Records(), log.Entries(), memoryRecords, policyRecords)
+	dump := observability.BuildWorkflowTraceDump("workflow-1", "trace-1", timeline.Records(), journal.Records(), agentTrace.Records(), log.Entries(), memoryRecords, policyRecords)
 	payload, err := dump.JSONDump()
 	if err != nil {
 		t.Fatalf("json dump trace: %v", err)
 	}
-	if dump.WorkflowID != "workflow-1" || len(dump.Timeline) != 1 || len(dump.Checkpoints) != 1 || len(dump.MemoryAccess) != 1 || len(dump.PolicyDecisions) != 1 {
+	if dump.WorkflowID != "workflow-1" || len(dump.Timeline) != 1 || len(dump.Checkpoints) != 1 || len(dump.AgentExecutions) != 1 || len(dump.MemoryAccess) != 1 || len(dump.PolicyDecisions) != 1 {
 		t.Fatalf("unexpected dump shape: %+v", dump)
 	}
 	replay := observability.NewReplayBundle("monthly-review", dump, map[string]string{"phase": "phase2"})
-	if replay.Scenario == "" || payload == "" {
+	if replay.Scenario == "" || payload == "" || len(replay.Trace.AgentExecutions) != 1 {
 		t.Fatalf("expected replay bundle and dump payload")
 	}
 }

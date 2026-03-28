@@ -5,32 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
-	"github.com/kobelakers/personal-cfo-os/internal/memory"
-	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
-	"github.com/kobelakers/personal-cfo-os/internal/tools"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
 
 type DebtVsInvestWorkflow struct {
-	Intake               taskspec.DeterministicIntakeService
-	DecisionService      DebtVsInvestService
-	MemoryService        memory.WorkflowMemoryService
-	MemoryWritePolicy    governance.MemoryWritePolicy
-	ContextAssembler     contextview.ContextAssembler
-	Planner              *planning.DeterministicPlanner
-	Skill                skills.DebtOptimizationSkill
-	ComputeMetrics       tools.ComputeDebtDecisionMetricsTool
-	ArtifactService      ArtifactService
-	VerificationPipeline verification.Pipeline
-	ApprovalService      governance.ApprovalService
-	Runtime              runtimepkg.WorkflowRuntime
-	Now                  func() time.Time
+	Intake          taskspec.DeterministicIntakeService
+	DecisionService DebtVsInvestService
+	SystemSteps     agents.SystemStepBus
+	Runtime         runtimepkg.WorkflowRuntime
+	Now             func() time.Time
 }
 
 func (w DebtVsInvestWorkflow) Run(
@@ -68,162 +56,136 @@ func (w DebtVsInvestWorkflow) Run(
 		return DebtDecisionRunResult{}, err
 	}
 
-	assembler := w.contextAssembler()
-	planningContext, err := assembler.Assemble(spec, observed.UpdatedState, nil, observed.Evidence, contextview.ContextViewPlanning)
-	if err != nil {
-		return DebtDecisionRunResult{}, err
-	}
-	planner := w.planner()
-	plan := planner.CreatePlan(spec, planningContext, workflowID)
-	if _, err = assembler.Assemble(spec, observed.UpdatedState, nil, observed.Evidence, contextview.ContextViewExecution); err != nil {
-		return DebtDecisionRunResult{}, err
+	steps := w.systemSteps()
+	if steps == nil {
+		return DebtDecisionRunResult{}, fmt.Errorf("debt-vs-invest workflow requires system step bus")
 	}
 
-	skillOutput := w.Skill.Analyze(observed.UpdatedState)
-	report := DebtDecisionReport{
-		TaskID:           spec.ID,
-		WorkflowID:       workflowID,
-		Conclusion:       skillOutput.Conclusion,
-		Reasons:          skillOutput.Reasons,
-		Actions:          skillOutput.Actions,
-		Metrics:          w.ComputeMetrics.Compute(observed.UpdatedState),
-		EvidenceIDs:      collectEvidenceIDs(observed.Evidence),
-		ApprovalRequired: observed.UpdatedState.RiskState.OverallRisk == "high",
-		Confidence:       skillOutput.Confidence,
-		GeneratedAt:      now,
-	}
+	meta := systemStepMeta(workflowID, "debt_vs_invest_workflow", spec, observed.UpdatedState, workflowID, workflowID)
 
-	memoryResult, err := w.memoryService(workflowID).SyncDebtDecision(ctx, spec, workflowID, observed.UpdatedState, observed.Evidence, report.Conclusion)
+	planStep, err := steps.DispatchPlan(ctx, meta, observed.UpdatedState, nil, observed.Evidence)
 	if err != nil {
-		return DebtDecisionRunResult{}, err
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStatePlanning, err, "planner agent failed")
 	}
-	if _, err = assembler.Assemble(spec, observed.UpdatedState, memoryResult.Retrieved, observed.Evidence, contextview.ContextViewVerification); err != nil {
-		return DebtDecisionRunResult{}, err
-	}
+	meta = updateCausation(meta, planStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
-	reportArtifact, err := w.artifacts().Produce(workflowID, spec.ID, ArtifactKindDebtDecisionReport, report, report.Conclusion, w.Skill.Name())
+	memoryStep, err := steps.DispatchMemorySync(ctx, meta, observed.UpdatedState, observed.Evidence, "")
 	if err != nil {
-		return DebtDecisionRunResult{}, err
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "memory steward failed")
 	}
-	verificationResult, err := w.verificationPipeline().VerifyDebtDecision(ctx, spec, observed.UpdatedState, observed.Evidence, report)
-	if err != nil {
-		return DebtDecisionRunResult{}, err
-	}
+	meta = updateCausation(meta, memoryStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
-	approvalEvaluation, err := w.approvals().EvaluateAction(observed.UpdatedState, workflowID, "debt_vs_invest_recommendation", report.TaskID, "governance_agent", []string{"analyst"}, report.ApprovalRequired)
+	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan)
+	if err != nil {
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "report draft generation failed")
+	}
+	report, err := debtDecisionReportFromPayload(reportDraftStep.Draft)
 	if err != nil {
 		return DebtDecisionRunResult{}, err
 	}
-	if approvalEvaluation.Decision != nil && approvalEvaluation.Decision.Outcome == governance.PolicyDecisionRequireApproval {
-		report.ApprovalRequired = true
-	}
-	reportEvaluation, err := w.approvals().EvaluateReport(workflowID, "report_agent", "user", false)
+	meta = updateCausation(meta, reportDraftStep.Metadata.ResponseMetadata, observed.UpdatedState)
+
+	verificationStep, err := steps.DispatchVerification(ctx, meta, observed.UpdatedState, observed.Evidence, reportDraftStep.Draft)
 	if err != nil {
-		return DebtDecisionRunResult{}, err
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "verification agent failed")
 	}
-	if reportEvaluation.Decision.Outcome == governance.PolicyDecisionRedact {
-		report.Conclusion = "[REDACTED] " + report.Conclusion
-	}
+	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
 	runtimeState := runtimepkg.WorkflowStateCompleted
-	if verification.NeedsReplan(verificationResult.Results) {
+	shouldReplan := verification.NeedsReplan(verificationStep.Result.Results)
+	if shouldReplan {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "decision verification failed; workflow should replan")
 		if err != nil {
 			return DebtDecisionRunResult{}, err
 		}
 		runtimeState = nextState
+		return DebtDecisionRunResult{
+			WorkflowID:     workflowID,
+			Intake:         intake,
+			TaskSpec:       spec,
+			Plan:           planStep.Plan,
+			Evidence:       observed.Evidence,
+			UpdatedState:   observed.UpdatedState,
+			Report:         report,
+			CoverageReport: verificationStep.Result.CoverageReport,
+			Verification:   verificationStep.Result.Results,
+			Oracle:         verificationStep.Result.OracleVerdict,
+			RuntimeState:   runtimeState,
+		}, nil
 	}
-	if approvalEvaluation.Decision != nil && approvalEvaluation.Decision.Outcome == governance.PolicyDecisionRequireApproval {
+
+	governanceStep, err := steps.DispatchGovernance(ctx, meta, observed.UpdatedState, reportDraftStep.Draft)
+	if err != nil {
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "governance agent failed")
+	}
+	meta = updateCausation(meta, governanceStep.Metadata.ResponseMetadata, observed.UpdatedState)
+
+	var artifacts []WorkflowArtifact
+	var approvalDecision *governance.PolicyDecision
+	var approvalAudit *governance.AuditEvent
+	if governanceStep.Approval.Decision != nil {
+		approvalDecision = governanceStep.Approval.Decision
+	}
+	if governanceStep.Approval.Audit != nil {
+		approvalAudit = governanceStep.Approval.Audit
+	}
+
+	switch {
+	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionRequireApproval:
 		nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.HumanApprovalPending{
 			ApprovalID:      workflowID + "-approval",
 			WorkflowID:      workflowID,
 			RequestedAction: "debt_vs_invest_recommendation",
-			RequiredRoles:   w.approvals().ApprovalPolicy.RequiredRoles,
+			RequiredRoles:   approvalRoles(governanceStep.Approval),
 			RequestedAt:     now,
 		})
 		if err != nil {
 			return DebtDecisionRunResult{}, err
 		}
 		runtimeState = nextState
+		report.ApprovalRequired = true
+	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied debt decision publication")
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		runtimeState = nextState
+	case governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionAllow || governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionRedact:
+		finalizeStep, err := steps.DispatchReportFinalize(ctx, meta, reportDraftStep.Draft, governanceStep.Disclosure.Decision)
+		if err != nil {
+			return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "report finalization failed")
+		}
+		finalReport, err := debtDecisionReportFromPayload(finalizeStep.Report)
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		report = finalReport
+		artifacts = finalizeStep.Artifacts
+	default:
+		runtimeState = runtimepkg.WorkflowStateFailed
 	}
 
 	return DebtDecisionRunResult{
 		WorkflowID:       workflowID,
 		Intake:           intake,
 		TaskSpec:         spec,
-		Plan:             plan,
+		Plan:             planStep.Plan,
 		Evidence:         observed.Evidence,
 		UpdatedState:     observed.UpdatedState,
 		Report:           report,
-		Artifacts:        []WorkflowArtifact{reportArtifact},
-		CoverageReport:   verificationResult.CoverageReport,
-		Verification:     verificationResult.Results,
-		Oracle:           verificationResult.OracleVerdict,
-		RiskAssessment:   approvalEvaluation.RiskAssessment,
-		ApprovalDecision: approvalEvaluation.Decision,
-		ApprovalAudit:    approvalEvaluation.Audit,
+		Artifacts:        artifacts,
+		CoverageReport:   verificationStep.Result.CoverageReport,
+		Verification:     verificationStep.Result.Results,
+		Oracle:           verificationStep.Result.OracleVerdict,
+		RiskAssessment:   governanceStep.Approval.RiskAssessment,
+		ApprovalDecision: approvalDecision,
+		ApprovalAudit:    approvalAudit,
 		RuntimeState:     runtimeState,
 	}, nil
 }
 
-func (w DebtVsInvestWorkflow) contextAssembler() contextview.ContextAssembler {
-	if w.ContextAssembler != nil {
-		return w.ContextAssembler
-	}
-	return contextview.DefaultContextAssembler{}
-}
-
-func (w DebtVsInvestWorkflow) planner() *planning.DeterministicPlanner {
-	if w.Planner != nil {
-		return w.Planner
-	}
-	return &planning.DeterministicPlanner{}
-}
-
-func (w DebtVsInvestWorkflow) artifacts() ArtifactService {
-	service := w.ArtifactService
-	if service.Now == nil {
-		service.Now = w.Now
-	}
-	return service
-}
-
-func (w DebtVsInvestWorkflow) approvals() governance.ApprovalService {
-	return w.ApprovalService
-}
-
-func (w DebtVsInvestWorkflow) verificationPipeline() verification.Pipeline {
-	return w.VerificationPipeline
-}
-
-func (w DebtVsInvestWorkflow) memoryService(workflowID string) memory.WorkflowMemoryService {
-	service := w.MemoryService
-	if service.Now == nil {
-		service.Now = w.Now
-	}
-	if service.Gate == nil {
-		service.Gate = governance.MemoryWriteGateService{
-			PolicyEngine:  w.ApprovalService.PolicyEngine,
-			Policy:        w.memoryWritePolicy(),
-			CorrelationID: workflowID,
-		}
-	}
-	return service
-}
-
-func (w DebtVsInvestWorkflow) memoryWritePolicy() governance.MemoryWritePolicy {
-	if w.MemoryWritePolicy.MinConfidence != 0 || w.MemoryWritePolicy.RequireEvidence || len(w.MemoryWritePolicy.AllowKinds) > 0 {
-		return w.MemoryWritePolicy
-	}
-	return governance.MemoryWritePolicy{
-		MinConfidence:   0.7,
-		RequireEvidence: false,
-		AllowKinds: []memory.MemoryKind{
-			memory.MemoryKindEpisodic,
-			memory.MemoryKindSemantic,
-			memory.MemoryKindProcedural,
-		},
-	}
+func (w DebtVsInvestWorkflow) systemSteps() agents.SystemStepBus {
+	return w.SystemSteps
 }
 
 func (w DebtVsInvestWorkflow) now() time.Time {

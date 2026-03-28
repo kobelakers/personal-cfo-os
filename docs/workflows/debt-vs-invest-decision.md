@@ -1,27 +1,27 @@
 # Workflow B: Debt vs Invest Decision
 
-## Phase 2 MVP Scope
+## Current MVP Scope
 
-Phase 2 only implements the first evidence-backed MVP, not the full future strategy workflow.
+The workflow is still intentionally scoped as an evidence-backed MVP, but it is no longer a direct service chain. It now runs through the same system-agent execution backbone as Monthly Review.
 
 Current path:
 
 1. request enters deterministic intake and becomes a `TaskSpec`
 2. `DebtVsInvestService` orchestrates debt, cashflow, and portfolio evidence collection plus reducer application
 3. reducers update state
-4. memory service performs debt-decision memory write/read
-5. planner creates a minimal comparison plan
-6. execution and verification contexts are both assembled
-7. `DebtOptimizationSkill` produces an evidence-backed conclusion
-8. verification pipeline checks coverage, business rules, success criteria, and oracle outcome
-9. approval service evaluates risk classification, action approval, and report disclosure
-10. runtime decides whether the workflow completes or pauses for approval
+4. workflow dispatches `plan_request` to `PlannerAgent`
+5. workflow dispatches `memory_sync_request` to `MemorySteward`
+6. workflow dispatches `report_draft_request` to `ReportAgent`, which produces a draft debt decision payload
+7. workflow dispatches `verification_request` to `VerificationAgent`
+8. workflow dispatches `governance_evaluation_request` to `GovernanceAgent`
+9. if governance allows or redacts, workflow dispatches `report_finalize_request` to `ReportAgent`
+10. runtime decides whether the workflow completes, replans, or pauses for approval
 
 ## What This MVP Already Proves
 
 - the system does not answer debt-vs-invest from chat history
 - the conclusion is rooted in typed evidence and deterministic metrics
-- memory, verification, risk classification, approval decision, and report disclosure are already separate subsystem steps
+- planning, memory, reporting, verification, and governance are now separate system-agent steps
 - the workflow file is now orchestration only rather than a second monolith
 
 ## What Is Deferred
@@ -30,4 +30,4 @@ Current path:
 - richer liquidity stress testing
 - explicit tax-adjusted investment return modeling
 - multi-step replan loops for alternative decision paths
-- strong actor-style system agent execution boundaries
+- domain-agent execution boundaries and remote/durable agent dispatch

@@ -43,6 +43,7 @@ type WorkflowTraceDump struct {
 	TraceID         string                 `json:"trace_id"`
 	Timeline        []TimelineRecord       `json:"timeline,omitempty"`
 	Checkpoints     []CheckpointRecord     `json:"checkpoints,omitempty"`
+	AgentExecutions []AgentExecutionRecord `json:"agent_executions,omitempty"`
 	Events          []LogEntry             `json:"events,omitempty"`
 	MemoryAccess    []MemoryAccessRecord   `json:"memory_access,omitempty"`
 	PolicyDecisions []PolicyDecisionRecord `json:"policy_decisions,omitempty"`

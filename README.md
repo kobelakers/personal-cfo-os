@@ -12,36 +12,36 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 - Governance and verification are front-loaded. The system models approval policy, tool policy, memory write policy, disclosure policy, audit events, evidence coverage, and oracle verdicts.
 - Protocols are explicit. Internal agent envelopes and workflow UI events include correlation and causation identifiers so the system can be replayed and traced.
 
-## What Phase 2 Now Runs End-to-End
+## What Now Runs End-to-End
 
-Phase 2 now runs one real executable path and has already been structurally remediated so the logic is no longer trapped inside workflow files:
+The repository now runs a real governed finance workflow backbone with partial system-agent execution:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
 3. workflow services orchestrate evidence collection and deterministic reducers build `EvidencePatch`
 4. `FinancialWorldState` is updated with versioning, snapshot, and diff semantics
-5. `memory.WorkflowMemoryService` derives memories, enforces write gates, and performs hybrid retrieval
-6. `context.DefaultContextAssembler` builds planning / execution / verification views with real budgets and compaction
-7. `MonthlyReviewWorkflow` now acts as a thin orchestrator over workflow service, memory service, verification pipeline, approval service, artifact service, and runtime
-8. verification, governance, checkpoints, approval waiting, timeline dumps, and replay-ready outputs all produce structured artifacts
+5. `SystemStepBus` dispatches typed protocol envelopes to `PlannerAgent`, `MemorySteward`, `ReportAgent`, `VerificationAgent`, and `GovernanceAgent`
+6. `ReportAgent` is split into draft and finalize stages so final artifacts are produced only after verification and governance
+7. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
+8. observability and replay outputs now include agent dispatch lifecycle, checkpoint timeline, memory access, and policy decisions
 
-## Current Phase 2 Positioning
+## Current Positioning
 
-The codebase is currently best described as a **systemized workflow engine with agent-ready substrate**, not a strong multi-agent execution system yet.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **partial system-agent execution architecture on top of a governed workflow backbone**.
 
-- The current strength is system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability now have real executable boundaries.
-- Domain agents and system agents are still part of the long-term design, but strong actor/envelope/handler execution boundaries are intentionally deferred to Phase 3.
-- This is a deliberate narrative choice: the project is more defensible in interviews as a finance agent system with solid runtime and governance foundations than as a premature “many agents talking to each other” demo.
+- The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
+- `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
+- This is still not a fully realized strong multi-agent finance operating system.
+- Domain agents remain future-facing. Their execution boundary is intentionally deferred so the current implementation does not collapse into a fake “many agents chatting” story.
 
-## Structural Remediation Highlights
+## Phase 3A Highlights
 
-- `internal/workflows/monthly_review.go` and `internal/workflows/debt_vs_invest.go` are now thin orchestrators.
-- Evidence collection and state reduction live in dedicated workflow services.
-- Derived memory generation and memory write gating live in the memory/governance boundary instead of inside workflows.
-- Verification is assembled by `internal/verification/pipeline.go`, not by workflow-local validator chains.
-- Approval and disclosure decisions are assembled by `internal/governance/approval_service.go`.
-- Runtime concrete implementations now live in dedicated runtime files and are obtained through runtime constructors instead of workflow-local object graphs.
-- Context engineering is now its own concrete subsystem with assembler, selection, budget, and compactor files.
+- `internal/protocol` is now execution-first: typed request/result message kinds, oneof-style request/result bodies, and response envelopes participate in real dispatch.
+- `internal/agents` now contains a concrete execution plane: registry, dispatcher, executor, system-step bus, typed execution errors, and registered system-agent handlers.
+- `MonthlyReviewWorkflow` and `DebtVsInvestWorkflow` no longer directly call planner, memory, verification, governance, or report generation services.
+- `ReportAgent` now follows `draft -> verification -> governance -> finalize`; final report artifacts and `report_ready` are not emitted before governance.
+- runtime now has an explicit bridge from typed agent failure categories to workflow recovery semantics.
+- observability and replay now expose agent dispatch / handler started / handler completed / handler failed lifecycle records.
 
 ## Repository Layout
 
@@ -68,10 +68,12 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 
 - agentic document parsing is still a deterministic stub behind a formal adapter boundary
 - semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
-- runtime is a local Temporal-aligned implementation, not a live Temporal cluster
+- runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
+- system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
+- domain agents are registration-ready only; they are not yet in the execution backbone
 - no real Postgres / pgvector / MinIO / provider service is required yet
 
-These are deliberate trade-offs. The important part is that business logic already talks to stable interfaces and typed contracts, so replacing the stubbed pieces in Phase 3 does not require rewriting workflow logic or collapsing the 12-layer structure.
+These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.
 
 ## Architecture Priorities
 
@@ -79,4 +81,4 @@ These are deliberate trade-offs. The important part is that business logic alrea
 2. Keep financial calculations deterministic and outside of the LLM path.
 3. Model runtime, protocol, governance, verification, and memory as first-class surfaces from day one.
 4. Use stubs only behind durable interfaces so the system stays interview-defensible and production-shaped.
-5. Keep workflows thin; when logic grows, it must move down into reusable subsystems rather than staying in orchestration files.
+5. Keep workflows thin; when logic grows, it must move down into reusable subsystems or system-agent handlers rather than staying in orchestration files.

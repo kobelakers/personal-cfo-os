@@ -29,6 +29,13 @@ func TestDebtVsInvestWorkflowMVPPath(t *testing.T) {
 	if result.ApprovalDecision.Outcome != governance.PolicyDecisionAllow && result.ApprovalDecision.Outcome != governance.PolicyDecisionRequireApproval {
 		t.Fatalf("unexpected approval outcome: %+v", result.ApprovalDecision)
 	}
+	if !agentRecipientSeen(deps.AgentTrace.Records(), "planner_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "memory_steward") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "report_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "verification_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "governance_agent") {
+		t.Fatalf("expected debt workflow to dispatch all system agents, got %+v", deps.AgentTrace.Records())
+	}
 	records, err := deps.Store.List(t.Context())
 	if err != nil {
 		t.Fatalf("list written memories: %v", err)

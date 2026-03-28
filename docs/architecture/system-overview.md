@@ -7,43 +7,36 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 1. Natural language first enters deterministic task intake and becomes a `TaskSpec`.
 2. Ledger and document adapters ingest raw inputs and emit typed `EvidenceRecord` values.
 3. Deterministic reducers convert evidence into state patches and update `FinancialWorldState`.
-4. Structured memory writes store episodic / semantic / procedural / policy memories with provenance, confidence, conflict, and audit semantics.
-5. Hybrid retrieval feeds context assembly for planning, execution, and verification views.
-6. Planning drives `plan -> act -> verify -> replan/escalate/abort`.
-7. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, and recovery.
-8. Governance evaluates memory writes, report disclosure, and high-risk actions before the workflow can complete.
-9. Verification checks evidence coverage, structure, business rules, success criteria, and oracle outcomes.
+4. Workflow services keep observation/reducer orchestration thin and hand system steps to a workflow-facing `SystemStepBus`.
+5. `SystemStepBus` constructs typed envelopes and dispatches them to `PlannerAgent`, `MemorySteward`, `ReportAgent`, `VerificationAgent`, and `GovernanceAgent`.
+6. Structured memory writes store episodic / semantic / procedural / policy memories with provenance, confidence, conflict, and audit semantics.
+7. Hybrid retrieval and context assembly feed the planning stage through the `PlannerAgent`.
+8. `ReportAgent` follows `draft -> verification -> governance -> finalize`, so final artifacts are gated behind verification and disclosure/approval decisions.
+9. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, and recovery.
+10. Observability and replay record workflow timeline plus agent dispatch lifecycle.
 
-## Phase 2 Real Data Path
+## Real Data Path With System Agents
 
-Phase 2 already runs one real chain:
+The current chain now looks like:
 
 - raw ledger transactions / debt rows / holdings / payslip / tax text
 - typed evidence generation and normalization
 - evidence-driven state update
-- derived memory write and hybrid read
-- Monthly Review workflow execution
-- verification, approval decision, checkpointing, and timeline output
-
-## What Structural Remediation Changed
-
-The original Phase 2 code proved the end-to-end path, but too much system logic still lived inside workflow files. Structural remediation changed that:
-
-- workflow files now keep orchestration only
-- evidence collection and state reduction are handled by dedicated workflow services
-- derived memory generation and write gating moved into the memory/governance boundary
-- verification moved into a reusable verification pipeline
-- approval and disclosure logic moved into a reusable governance approval service
-- runtime concrete implementations now live behind runtime constructors and interfaces instead of workflow-local object assembly
-- context engineering now has clearer package-level boundaries for assembler, selection, budget, and compaction
+- planner dispatch through typed `plan_request`
+- memory sync dispatch through typed `memory_sync_request`
+- report draft dispatch through typed `report_draft_request`
+- verification dispatch through typed `verification_request`
+- governance dispatch through typed `governance_evaluation_request`
+- report finalize dispatch through typed `report_finalize_request`
+- runtime state transition driven by structured verification/governance outcomes and typed agent failure categories
 
 ## Current Narrative Boundary
 
-The repository is currently closer to a **systemized workflow engine with agent-ready substrate** than a strong multi-agent execution system.
+The repository is now best described as a **partial system-agent execution architecture**.
 
-- This is intentional for Phase 2.
-- The current code is already protocol-oriented and system-agent-ready.
-- Strong actor-style execution boundaries for `VerificationAgent`, `GovernanceAgent`, `MemorySteward`, and `ReportAgent` are deferred to Phase 3 instead of being faked early.
+- It is stronger than a workflow engine that merely has “agent interfaces on paper”.
+- It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
+- This is intentional: system-agent boundaries for planning, memory, reporting, verification, and governance are now real, while domain-agent execution remains deferred.
 
 ## Current Stubs
 
@@ -51,5 +44,7 @@ The repository is currently closer to a **systemized workflow engine with agent-
 - semantic retrieval still uses a fake backend behind embedding/vector interfaces
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
 - observability is structured dump / replay ready, but not yet backed by full tracing infrastructure
+- system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
+- domain agents are still capability placeholders, not main-path executors
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

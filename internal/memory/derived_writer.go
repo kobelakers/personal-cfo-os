@@ -106,7 +106,7 @@ func (s WorkflowMemoryService) writeRecords(ctx context.Context, records []Memor
 	for _, record := range records {
 		if s.Gate != nil {
 			if err := s.Gate.AllowWrite(ctx, record); err != nil {
-				return nil, fmt.Errorf("memory write denied for %s: %w", record.ID, err)
+				return nil, &PolicyDeniedError{Reason: fmt.Sprintf("%s for %s", err.Error(), record.ID)}
 			}
 		}
 		if err := s.Writer.Write(ctx, record); err != nil {

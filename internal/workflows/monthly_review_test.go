@@ -6,6 +6,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
+	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
@@ -33,6 +34,13 @@ func TestMonthlyReviewWorkflowHappyPath(t *testing.T) {
 	}
 	if len(result.GeneratedMemories) == 0 {
 		t.Fatalf("expected generated memories")
+	}
+	if !agentRecipientSeen(deps.AgentTrace.Records(), "planner_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "memory_steward") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "report_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "verification_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "governance_agent") {
+		t.Fatalf("expected workflow to dispatch all system agents, got %+v", deps.AgentTrace.Records())
 	}
 	if result.CoverageReport.CoverageRatio < 1 {
 		t.Fatalf("expected full coverage, got %.2f", result.CoverageReport.CoverageRatio)
@@ -83,11 +91,11 @@ func TestMonthlyReviewWorkflowHighRiskRequiresApproval(t *testing.T) {
 func TestMonthlyReviewWorkflowGovernanceDeniesInvalidMemoryWrite(t *testing.T) {
 	deps := buildPhase2Deps(t, safeHoldingsCSV, true, true)
 	workflow := buildMonthlyReviewWorkflow(t, deps)
-	workflow.MemoryWritePolicy = governance.MemoryWritePolicy{
+	workflow.SystemSteps = buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
 		MinConfidence:   0.95,
 		RequireEvidence: true,
 		AllowKinds:      []memory.MemoryKind{memory.MemoryKindSemantic},
-	}
+	})
 
 	_, err := workflow.Run(t.Context(), "user-1", "请帮我做一份月度财务复盘", stateZero())
 	if err == nil {
@@ -105,6 +113,15 @@ func stateZero() state.FinancialWorldState {
 func hasVerificationStatus(results []verification.VerificationResult, status verification.VerificationStatus) bool {
 	for _, result := range results {
 		if result.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+func agentRecipientSeen(records []observability.AgentExecutionRecord, recipient string) bool {
+	for _, record := range records {
+		if record.Recipient == recipient && record.Lifecycle == observability.AgentLifecycleCompleted {
 			return true
 		}
 	}

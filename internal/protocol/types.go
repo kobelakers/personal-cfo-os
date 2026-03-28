@@ -28,6 +28,8 @@ type AgentEnvelope struct {
 	RequiredEvidence []taskspec.RequiredEvidenceRef `json:"required_evidence"`
 	Deadline         *time.Time                     `json:"deadline,omitempty"`
 	RiskLevel        taskspec.RiskLevel             `json:"risk_level"`
+	Kind             MessageKind                    `json:"kind"`
+	Payload          AgentRequestBody               `json:"payload"`
 }
 
 type WorkflowEventType string

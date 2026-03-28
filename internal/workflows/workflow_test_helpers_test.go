@@ -6,11 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/agents"
+	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
+	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/reducers"
+	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
@@ -24,6 +28,8 @@ type phase2Deps struct {
 	Store                *memory.InMemoryMemoryStore
 	Writer               memory.DefaultMemoryWriter
 	Retriever            memory.HybridMemoryRetriever
+	EventLog             *observability.EventLog
+	AgentTrace           *observability.AgentTraceLog
 	Now                  time.Time
 }
 
@@ -120,6 +126,8 @@ func buildPhase2Deps(t *testing.T, holdingsCSV string, includeDebt bool, include
 		Store:                store,
 		Writer:               writer,
 		Retriever:            retriever,
+		EventLog:             &observability.EventLog{},
+		AgentTrace:           &observability.AgentTraceLog{},
 		Now:                  now,
 	}
 }
@@ -138,41 +146,7 @@ func buildMonthlyReviewWorkflow(t *testing.T, deps phase2Deps) MonthlyReviewWork
 			},
 			ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
 		},
-		MemoryService: memory.WorkflowMemoryService{
-			Writer:    deps.Writer,
-			Retriever: deps.Retriever,
-			Now:       func() time.Time { return deps.Now },
-		},
-		CashflowMetrics: tools.ComputeCashflowMetricsTool{},
-		TaxSignals:      tools.ComputeTaxSignalTool{},
-		Planner:         &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
-		Skill:           skills.MonthlyReviewSkill{},
-		ArtifactService: ArtifactService{
-			Tool:     tools.GenerateTaskArtifactTool{},
-			Producer: StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
-			Now:      func() time.Time { return deps.Now },
-		},
-		VerificationPipeline: verification.Pipeline{
-			CoverageChecker:        verification.DefaultEvidenceCoverageChecker{},
-			DeterministicValidator: verification.MonthlyReviewDeterministicValidator{},
-			BusinessValidator:      verification.MonthlyReviewBusinessValidator{},
-			SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
-			Oracle:                 verification.BaselineTrajectoryOracle{},
-			Now:                    func() time.Time { return deps.Now },
-		},
-		ApprovalService: governance.ApprovalService{
-			Classifier:   governance.DefaultRiskClassifier{},
-			Decider:      governance.ApprovalDecider{},
-			PolicyEngine: governance.StaticPolicyEngine{},
-			ApprovalPolicy: governance.ApprovalPolicy{
-				Name:          "monthly-review-approval",
-				MinRiskLevel:  governance.ActionRiskHigh,
-				RequiredRoles: []string{"operator"},
-				AutoApprove:   false,
-			},
-			ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
-		},
-		MemoryWritePolicy: governance.MemoryWritePolicy{
+		SystemSteps: buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
 			MinConfidence:   0.7,
 			RequireEvidence: false,
 			AllowKinds: []memory.MemoryKind{
@@ -180,7 +154,7 @@ func buildMonthlyReviewWorkflow(t *testing.T, deps phase2Deps) MonthlyReviewWork
 				memory.MemoryKindSemantic,
 				memory.MemoryKindProcedural,
 			},
-		},
+		}),
 		Now: func() time.Time { return deps.Now },
 	}
 }
@@ -195,39 +169,7 @@ func buildDebtWorkflow(t *testing.T, deps phase2Deps) DebtVsInvestWorkflow {
 			QueryPortfolio:   tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
 			ReducerEngine:    reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
 		},
-		MemoryService: memory.WorkflowMemoryService{
-			Writer:    deps.Writer,
-			Retriever: deps.Retriever,
-			Now:       func() time.Time { return deps.Now },
-		},
-		ComputeMetrics: tools.ComputeDebtDecisionMetricsTool{},
-		Planner:        &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
-		Skill:          skills.DebtOptimizationSkill{},
-		ArtifactService: ArtifactService{
-			Tool:     tools.GenerateTaskArtifactTool{},
-			Producer: StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
-			Now:      func() time.Time { return deps.Now },
-		},
-		VerificationPipeline: verification.Pipeline{
-			CoverageChecker:   verification.DefaultEvidenceCoverageChecker{},
-			BusinessValidator: verification.DebtDecisionBusinessValidator{},
-			SuccessChecker:    verification.DefaultSuccessCriteriaChecker{},
-			Oracle:            verification.BaselineTrajectoryOracle{},
-			Now:               func() time.Time { return deps.Now },
-		},
-		ApprovalService: governance.ApprovalService{
-			Classifier:   governance.DefaultRiskClassifier{},
-			Decider:      governance.ApprovalDecider{},
-			PolicyEngine: governance.StaticPolicyEngine{},
-			ApprovalPolicy: governance.ApprovalPolicy{
-				Name:          "debt-vs-invest-approval",
-				MinRiskLevel:  governance.ActionRiskHigh,
-				RequiredRoles: []string{"operator"},
-				AutoApprove:   false,
-			},
-			ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
-		},
-		MemoryWritePolicy: governance.MemoryWritePolicy{
+		SystemSteps: buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
 			MinConfidence:   0.7,
 			RequireEvidence: false,
 			AllowKinds: []memory.MemoryKind{
@@ -235,9 +177,91 @@ func buildDebtWorkflow(t *testing.T, deps phase2Deps) DebtVsInvestWorkflow {
 				memory.MemoryKindSemantic,
 				memory.MemoryKindProcedural,
 			},
+		}),
+		Now: func() time.Time { return deps.Now },
+	}
+}
+
+func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governance.MemoryWritePolicy) agents.SystemStepBus {
+	t.Helper()
+	memoryService := memory.WorkflowMemoryService{
+		Writer:    deps.Writer,
+		Retriever: deps.Retriever,
+		Gate: governance.MemoryWriteGateService{
+			PolicyEngine:  governance.StaticPolicyEngine{},
+			Policy:        memoryWritePolicy,
+			CorrelationID: "agent-memory-gate",
 		},
 		Now: func() time.Time { return deps.Now },
 	}
+	reportService := reporting.Service{
+		MonthlyReviewBuilder: reporting.MonthlyReviewDraftBuilder{
+			Skill:           skills.MonthlyReviewSkill{},
+			CashflowMetrics: tools.ComputeCashflowMetricsTool{},
+			TaxSignals:      tools.ComputeTaxSignalTool{},
+			Now:             func() time.Time { return deps.Now },
+		},
+		DebtDecisionBuilder: reporting.DebtDecisionDraftBuilder{
+			Skill:          skills.DebtOptimizationSkill{},
+			ComputeMetrics: tools.ComputeDebtDecisionMetricsTool{},
+			Now:            func() time.Time { return deps.Now },
+		},
+		Artifacts: reporting.ArtifactService{
+			Tool:     tools.GenerateTaskArtifactTool{},
+			Producer: reporting.StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
+			Now:      func() time.Time { return deps.Now },
+		},
+	}
+	verificationPipeline := verification.Pipeline{
+		CoverageChecker:        verification.DefaultEvidenceCoverageChecker{},
+		DeterministicValidator: verification.MonthlyReviewDeterministicValidator{},
+		BusinessValidator:      verification.MonthlyReviewBusinessValidator{},
+		SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
+		Oracle:                 verification.BaselineTrajectoryOracle{},
+		Now:                    func() time.Time { return deps.Now },
+	}
+	approvalService := governance.ApprovalService{
+		Classifier:   governance.DefaultRiskClassifier{},
+		Decider:      governance.ApprovalDecider{},
+		PolicyEngine: governance.StaticPolicyEngine{},
+		ApprovalPolicy: governance.ApprovalPolicy{
+			Name:          "system-agent-approval",
+			MinRiskLevel:  governance.ActionRiskHigh,
+			RequiredRoles: []string{"operator"},
+			AutoApprove:   false,
+		},
+		ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
+	}
+
+	registry := agents.NewInMemoryAgentRegistry()
+	registered := []agents.RegisteredSystemAgent{
+		agents.PlannerAgentHandler{
+			Assembler: contextview.DefaultContextAssembler{},
+			Planner:   &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
+		},
+		agents.MemoryStewardHandler{Service: memoryService},
+		agents.ReportDraftAgentHandler{Service: reportService},
+		agents.ReportFinalizeAgentHandler{Service: reportService},
+		agents.VerificationAgentHandler{Pipeline: verificationPipeline},
+		agents.GovernanceAgentHandler{Service: approvalService},
+	}
+	for _, agent := range registered {
+		if err := registry.Register(agent); err != nil {
+			t.Fatalf("register system agent: %v", err)
+		}
+	}
+
+	dispatcher := agents.NewLocalAgentDispatcher(agents.LocalDispatcherOptions{
+		Registry:   registry,
+		Executor:   agents.LocalAgentExecutor{},
+		AgentTrace: deps.AgentTrace,
+		EventLog:   deps.EventLog,
+		Now:        func() time.Time { return deps.Now },
+	})
+	return agents.NewLocalSystemStepBus(agents.SystemStepBusOptions{
+		Dispatcher: dispatcher,
+		Now:        func() time.Time { return deps.Now },
+	})
 }
 
 func readWorkflowFixture(t *testing.T, name string) []byte {

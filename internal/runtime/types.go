@@ -25,6 +25,7 @@ const (
 	FailureCategoryTimeout       FailureCategory = "timeout"
 	FailureCategoryValidation    FailureCategory = "validation"
 	FailureCategoryPolicy        FailureCategory = "policy"
+	FailureCategoryProtocol      FailureCategory = "protocol"
 	FailureCategoryUnrecoverable FailureCategory = "unrecoverable"
 )
 

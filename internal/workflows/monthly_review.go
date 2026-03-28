@@ -5,33 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
-	"github.com/kobelakers/personal-cfo-os/internal/memory"
-	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
-	"github.com/kobelakers/personal-cfo-os/internal/tools"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
 
 type MonthlyReviewWorkflow struct {
-	Intake               taskspec.DeterministicIntakeService
-	ReviewService        MonthlyReviewService
-	MemoryService        memory.WorkflowMemoryService
-	MemoryWritePolicy    governance.MemoryWritePolicy
-	ContextAssembler     contextview.ContextAssembler
-	Planner              *planning.DeterministicPlanner
-	Skill                skills.MonthlyReviewSkill
-	CashflowMetrics      tools.ComputeCashflowMetricsTool
-	TaxSignals           tools.ComputeTaxSignalTool
-	ArtifactService      ArtifactService
-	VerificationPipeline verification.Pipeline
-	ApprovalService      governance.ApprovalService
-	Runtime              runtimepkg.WorkflowRuntime
-	Now                  func() time.Time
+	Intake        taskspec.DeterministicIntakeService
+	ReviewService MonthlyReviewService
+	SystemSteps   agents.SystemStepBus
+	Runtime       runtimepkg.WorkflowRuntime
+	Now           func() time.Time
 }
 
 func (w MonthlyReviewWorkflow) Run(
@@ -70,181 +57,142 @@ func (w MonthlyReviewWorkflow) Run(
 		return MonthlyReviewRunResult{}, err
 	}
 
-	memoryResult, err := w.memoryService(workflowID).SyncMonthlyReview(ctx, spec, workflowID, observed.UpdatedState, observed.Evidence)
+	steps := w.systemSteps()
+	if steps == nil {
+		return MonthlyReviewRunResult{}, fmt.Errorf("monthly review workflow requires system step bus")
+	}
+
+	meta := systemStepMeta(workflowID, "monthly_review_workflow", spec, observed.UpdatedState, workflowID, workflowID)
+
+	planStep, err := steps.DispatchPlan(ctx, meta, observed.UpdatedState, nil, observed.Evidence)
+	if err != nil {
+		return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStatePlanning, err, "planner agent failed")
+	}
+	meta = updateCausation(meta, planStep.Metadata.ResponseMetadata, observed.UpdatedState)
+
+	memoryStep, err := steps.DispatchMemorySync(ctx, meta, observed.UpdatedState, observed.Evidence, "")
+	if err != nil {
+		return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "memory steward failed")
+	}
+	meta = updateCausation(meta, memoryStep.Metadata.ResponseMetadata, observed.UpdatedState)
+
+	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan)
+	if err != nil {
+		return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "report agent draft failed")
+	}
+	report, err := monthlyReviewReportFromPayload(reportDraftStep.Draft)
 	if err != nil {
 		return MonthlyReviewRunResult{}, err
 	}
+	meta = updateCausation(meta, reportDraftStep.Metadata.ResponseMetadata, observed.UpdatedState)
+	if _, _, err = workflowRuntime.Checkpoint(execCtx, runtimepkg.WorkflowStateActing, runtimepkg.WorkflowStateVerifying, observed.UpdatedState.Version.Sequence, "system agent draft completed"); err != nil {
+		return MonthlyReviewRunResult{}, err
+	}
 
-	assembler := w.contextAssembler()
-	planningContext, err := assembler.Assemble(spec, observed.UpdatedState, memoryResult.Retrieved, observed.Evidence, contextview.ContextViewPlanning)
+	verificationStep, err := steps.DispatchVerification(ctx, meta, observed.UpdatedState, observed.Evidence, reportDraftStep.Draft)
 	if err != nil {
-		return MonthlyReviewRunResult{}, err
+		return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "verification agent failed")
 	}
-	planner := w.planner()
-	plan := planner.CreatePlan(spec, planningContext, workflowID)
-	if _, err = assembler.Assemble(spec, observed.UpdatedState, memoryResult.Retrieved, observed.Evidence, contextview.ContextViewExecution); err != nil {
-		return MonthlyReviewRunResult{}, err
-	}
-	if _, _, err = workflowRuntime.Checkpoint(execCtx, runtimepkg.WorkflowStateActing, runtimepkg.WorkflowStateActing, observed.UpdatedState.Version.Sequence, "execution context assembled"); err != nil {
-		return MonthlyReviewRunResult{}, err
-	}
-
-	skillOutput := w.Skill.Generate(observed.UpdatedState, observed.Evidence)
-	report := MonthlyReviewReport{
-		TaskID:                  spec.ID,
-		WorkflowID:              workflowID,
-		Summary:                 skillOutput.Summary,
-		CashflowMetrics:         w.CashflowMetrics.Compute(observed.UpdatedState),
-		TaxSignals:              w.TaxSignals.Compute(observed.UpdatedState),
-		RiskItems:               skillOutput.RiskItems,
-		OptimizationSuggestions: skillOutput.Suggestions,
-		TodoItems:               skillOutput.TodoItems,
-		ApprovalRequired:        observed.UpdatedState.RiskState.OverallRisk == "high",
-		Confidence:              skillOutput.Confidence,
-		GeneratedAt:             now,
-	}
-
-	artifactService := w.artifacts()
-	reportArtifact, err := artifactService.Produce(workflowID, spec.ID, ArtifactKindMonthlyReviewReport, report, report.Summary, w.Skill.Name())
-	if err != nil {
-		return MonthlyReviewRunResult{}, err
-	}
-
-	if _, err = assembler.Assemble(spec, observed.UpdatedState, memoryResult.Retrieved, observed.Evidence, contextview.ContextViewVerification); err != nil {
-		return MonthlyReviewRunResult{}, err
-	}
-	verificationResult, err := w.verificationPipeline().VerifyMonthlyReview(ctx, spec, observed.UpdatedState, observed.Evidence, report)
-	if err != nil {
-		return MonthlyReviewRunResult{}, err
-	}
+	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
 	runtimeState := runtimepkg.WorkflowStateCompleted
-	shouldReplan := verification.NeedsReplan(verificationResult.Results)
+	shouldReplan := verification.NeedsReplan(verificationStep.Result.Results)
 	if shouldReplan {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "verification failed; workflow should replan")
 		if err != nil {
 			return MonthlyReviewRunResult{}, err
 		}
 		runtimeState = nextState
+		return MonthlyReviewRunResult{
+			WorkflowID:        workflowID,
+			Intake:            intake,
+			TaskSpec:          spec,
+			Plan:              planStep.Plan,
+			Evidence:          observed.Evidence,
+			UpdatedState:      observed.UpdatedState,
+			Report:            report,
+			Artifacts:         nil,
+			GeneratedMemories: memoryStep.Result.GeneratedIDs,
+			CoverageReport:    verificationStep.Result.CoverageReport,
+			Verification:      verificationStep.Result.Results,
+			Oracle:            verificationStep.Result.OracleVerdict,
+			RuntimeState:      runtimeState,
+		}, nil
 	}
+
+	governanceStep, err := steps.DispatchGovernance(ctx, meta, observed.UpdatedState, reportDraftStep.Draft)
+	if err != nil {
+		return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "governance agent failed")
+	}
+	meta = updateCausation(meta, governanceStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
 	var approvalDecision *governance.PolicyDecision
 	var approvalAudit *governance.AuditEvent
-	approvalService := w.approvals()
-	approvalEvaluation, err := approvalService.EvaluateAction(observed.UpdatedState, workflowID, "monthly_review_report", report.TaskID, "governance_agent", []string{"analyst"}, report.ApprovalRequired)
-	if err != nil {
-		return MonthlyReviewRunResult{}, err
+	if governanceStep.Approval.Decision != nil {
+		approvalDecision = governanceStep.Approval.Decision
 	}
-	if approvalEvaluation.Decision != nil {
-		approvalDecision = approvalEvaluation.Decision
-	}
-	if approvalEvaluation.Audit != nil {
-		approvalAudit = approvalEvaluation.Audit
+	if governanceStep.Approval.Audit != nil {
+		approvalAudit = governanceStep.Approval.Audit
 	}
 
-	if !shouldReplan {
-		reportEvaluation, err := approvalService.EvaluateReport(workflowID, "report_agent", "user", false)
+	var artifacts []WorkflowArtifact
+	switch {
+	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionRequireApproval:
+		nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.HumanApprovalPending{
+			ApprovalID:      workflowID + "-approval",
+			WorkflowID:      workflowID,
+			RequestedAction: "monthly_review_report",
+			RequiredRoles:   approvalRoles(governanceStep.Approval),
+			RequestedAt:     now,
+		})
 		if err != nil {
 			return MonthlyReviewRunResult{}, err
 		}
-		if reportEvaluation.Decision.Outcome == governance.PolicyDecisionRedact {
-			report.Summary = "[REDACTED] " + report.Summary
+		runtimeState = nextState
+		report.ApprovalRequired = true
+	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied report publication")
+		if err != nil {
+			return MonthlyReviewRunResult{}, err
 		}
-		if approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionRequireApproval {
-			nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.HumanApprovalPending{
-				ApprovalID:      workflowID + "-approval",
-				WorkflowID:      workflowID,
-				RequestedAction: "monthly_review_report",
-				RequiredRoles:   approvalService.ApprovalPolicy.RequiredRoles,
-				RequestedAt:     now,
-			})
-			if err != nil {
-				return MonthlyReviewRunResult{}, err
-			}
-			runtimeState = nextState
-			report.ApprovalRequired = true
+		runtimeState = nextState
+	case governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionAllow || governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionRedact:
+		finalizeStep, err := steps.DispatchReportFinalize(ctx, meta, reportDraftStep.Draft, governanceStep.Disclosure.Decision)
+		if err != nil {
+			return MonthlyReviewRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "report finalization failed")
 		}
+		finalReport, err := monthlyReviewReportFromPayload(finalizeStep.Report)
+		if err != nil {
+			return MonthlyReviewRunResult{}, err
+		}
+		report = finalReport
+		artifacts = finalizeStep.Artifacts
+	default:
+		runtimeState = runtimepkg.WorkflowStateFailed
 	}
 
 	return MonthlyReviewRunResult{
 		WorkflowID:        workflowID,
 		Intake:            intake,
 		TaskSpec:          spec,
-		Plan:              plan,
+		Plan:              planStep.Plan,
 		Evidence:          observed.Evidence,
 		UpdatedState:      observed.UpdatedState,
 		Report:            report,
-		Artifacts:         []WorkflowArtifact{reportArtifact},
-		GeneratedMemories: memoryResult.GeneratedIDs,
-		CoverageReport:    verificationResult.CoverageReport,
-		Verification:      verificationResult.Results,
-		Oracle:            verificationResult.OracleVerdict,
-		RiskAssessment:    approvalEvaluation.RiskAssessment,
+		Artifacts:         artifacts,
+		GeneratedMemories: memoryStep.Result.GeneratedIDs,
+		CoverageReport:    verificationStep.Result.CoverageReport,
+		Verification:      verificationStep.Result.Results,
+		Oracle:            verificationStep.Result.OracleVerdict,
+		RiskAssessment:    governanceStep.Approval.RiskAssessment,
 		ApprovalDecision:  approvalDecision,
 		ApprovalAudit:     approvalAudit,
 		RuntimeState:      runtimeState,
 	}, nil
 }
 
-func (w MonthlyReviewWorkflow) contextAssembler() contextview.ContextAssembler {
-	if w.ContextAssembler != nil {
-		return w.ContextAssembler
-	}
-	return contextview.DefaultContextAssembler{}
-}
-
-func (w MonthlyReviewWorkflow) planner() *planning.DeterministicPlanner {
-	if w.Planner != nil {
-		return w.Planner
-	}
-	return &planning.DeterministicPlanner{}
-}
-
-func (w MonthlyReviewWorkflow) artifacts() ArtifactService {
-	service := w.ArtifactService
-	if service.Now == nil {
-		service.Now = w.Now
-	}
-	return service
-}
-
-func (w MonthlyReviewWorkflow) verificationPipeline() verification.Pipeline {
-	return w.VerificationPipeline
-}
-
-func (w MonthlyReviewWorkflow) approvals() governance.ApprovalService {
-	return w.ApprovalService
-}
-
-func (w MonthlyReviewWorkflow) memoryService(workflowID string) memory.WorkflowMemoryService {
-	service := w.MemoryService
-	if service.Now == nil {
-		service.Now = w.Now
-	}
-	if service.Gate == nil {
-		service.Gate = governance.MemoryWriteGateService{
-			PolicyEngine:  w.ApprovalService.PolicyEngine,
-			Policy:        w.memoryWritePolicy(),
-			CorrelationID: workflowID,
-		}
-	}
-	return service
-}
-
-func (w MonthlyReviewWorkflow) memoryWritePolicy() governance.MemoryWritePolicy {
-	if w.MemoryWritePolicy.MinConfidence != 0 || w.MemoryWritePolicy.RequireEvidence || len(w.MemoryWritePolicy.AllowKinds) > 0 {
-		return w.MemoryWritePolicy
-	}
-	return governance.MemoryWritePolicy{
-		MinConfidence:   0.7,
-		RequireEvidence: false,
-		AllowKinds: []memory.MemoryKind{
-			memory.MemoryKindEpisodic,
-			memory.MemoryKindSemantic,
-			memory.MemoryKindProcedural,
-			memory.MemoryKindPolicy,
-		},
-	}
+func (w MonthlyReviewWorkflow) systemSteps() agents.SystemStepBus {
+	return w.SystemSteps
 }
 
 func (w MonthlyReviewWorkflow) now() time.Time {
@@ -252,4 +200,11 @@ func (w MonthlyReviewWorkflow) now() time.Time {
 		return w.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func approvalRoles(evaluation governance.ApprovalEvaluation) []string {
+	if evaluation.Decision == nil {
+		return nil
+	}
+	return []string{"operator"}
 }

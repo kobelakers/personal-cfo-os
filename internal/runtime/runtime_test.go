@@ -3,6 +3,8 @@ package runtime
 import (
 	"testing"
 	"time"
+
+	"github.com/kobelakers/personal-cfo-os/internal/protocol"
 )
 
 func TestRuntimeFailureTransitions(t *testing.T) {
@@ -90,4 +92,38 @@ func TestResolveWorkflowRuntimeProvidesDefaultRuntime(t *testing.T) {
 	if local.CheckpointStore == nil || local.Timeline == nil || local.Journal == nil {
 		t.Fatalf("expected default runtime dependencies to be initialized")
 	}
+}
+
+func TestHandleAgentExecutionFailureMapsTypedCategory(t *testing.T) {
+	now := time.Date(2026, 3, 28, 17, 0, 0, 0, time.UTC)
+	local := NewLocalWorkflowRuntime("workflow-1", LocalRuntimeOptions{
+		Now: func() time.Time { return now },
+	})
+	execCtx := ExecutionContext{
+		WorkflowID:    "workflow-1",
+		TaskID:        "task-1",
+		CorrelationID: "corr-1",
+		Attempt:       1,
+	}
+	next, strategy, err := HandleAgentExecutionFailure(local, execCtx, WorkflowStateVerifying, categorizedAgentError{
+		failure: protocol.AgentFailure{Category: protocol.AgentFailurePolicy, Message: "governance requires approval"},
+	}, "governance agent failed")
+	if err != nil {
+		t.Fatalf("map categorized agent error: %v", err)
+	}
+	if next != WorkflowStateWaitingApproval || strategy != RecoveryStrategyWaitForApproval {
+		t.Fatalf("unexpected runtime mapping: %q %q", next, strategy)
+	}
+}
+
+type categorizedAgentError struct {
+	failure protocol.AgentFailure
+}
+
+func (e categorizedAgentError) Error() string {
+	return e.failure.Message
+}
+
+func (e categorizedAgentError) AgentFailure() protocol.AgentFailure {
+	return e.failure
 }
