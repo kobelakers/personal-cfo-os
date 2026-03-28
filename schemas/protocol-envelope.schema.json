@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentEnvelope",
+  "type": "object",
+  "required": ["metadata", "sender", "recipient", "task", "state_ref", "required_evidence", "risk_level"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["message_id", "correlation_id", "causation_id", "emitted_at"],
+      "properties": {
+        "message_id": { "type": "string" },
+        "correlation_id": { "type": "string" },
+        "causation_id": { "type": "string" },
+        "emitted_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "sender": { "type": "string" },
+    "recipient": { "type": "string" },
+    "task": { "$ref": "./taskspec.schema.json" },
+    "state_ref": {
+      "type": "object",
+      "required": ["user_id", "snapshot_id", "version"],
+      "properties": {
+        "user_id": { "type": "string" },
+        "snapshot_id": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "required_evidence": { "type": "array" },
+    "deadline": { "type": "string", "format": "date-time" },
+    "risk_level": { "type": "string" }
+  }
+}

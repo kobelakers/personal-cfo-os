@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VerificationResult",
+  "type": "object",
+  "required": ["status", "validator", "message", "evidence_coverage", "checked_at"],
+  "properties": {
+    "status": { "type": "string", "enum": ["pass", "fail", "needs_replan", "blocked"] },
+    "validator": { "type": "string" },
+    "message": { "type": "string" },
+    "evidence_coverage": {
+      "type": "object",
+      "required": ["task_id", "coverage_ratio", "items"],
+      "properties": {
+        "task_id": { "type": "string" },
+        "coverage_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["requirement_id", "covered"],
+            "properties": {
+              "requirement_id": { "type": "string" },
+              "covered": { "type": "boolean" },
+              "evidence_ids": { "type": "array", "items": { "type": "string" } },
+              "gap_reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "checked_at": { "type": "string", "format": "date-time" }
+  }
+}

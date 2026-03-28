@@ -1,0 +1,45 @@
+package verification
+
+import (
+	"time"
+
+	"github.com/kobelakers/personal-cfo-os/internal/observation"
+)
+
+type VerificationStatus string
+
+const (
+	VerificationStatusPass        VerificationStatus = "pass"
+	VerificationStatusFail        VerificationStatus = "fail"
+	VerificationStatusNeedsReplan VerificationStatus = "needs_replan"
+	VerificationStatusBlocked     VerificationStatus = "blocked"
+)
+
+type EvidenceCoverageItem struct {
+	RequirementID string                   `json:"requirement_id"`
+	Covered       bool                     `json:"covered"`
+	EvidenceIDs   []observation.EvidenceID `json:"evidence_ids,omitempty"`
+	GapReason     string                   `json:"gap_reason,omitempty"`
+}
+
+type EvidenceCoverageReport struct {
+	TaskID        string                 `json:"task_id"`
+	CoverageRatio float64                `json:"coverage_ratio"`
+	Items         []EvidenceCoverageItem `json:"items"`
+}
+
+type VerificationResult struct {
+	Status           VerificationStatus     `json:"status"`
+	Validator        string                 `json:"validator"`
+	Message          string                 `json:"message"`
+	EvidenceCoverage EvidenceCoverageReport `json:"evidence_coverage"`
+	CheckedAt        time.Time              `json:"checked_at"`
+}
+
+type OracleVerdict struct {
+	Scenario  string    `json:"scenario"`
+	Passed    bool      `json:"passed"`
+	Score     float64   `json:"score"`
+	Reasons   []string  `json:"reasons,omitempty"`
+	CheckedAt time.Time `json:"checked_at"`
+}

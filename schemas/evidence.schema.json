@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvidenceRecord",
+  "type": "object",
+  "required": ["id", "type", "source", "time_range", "confidence", "claims", "normalization", "summary", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "type": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["kind", "adapter", "reference", "provenance"],
+      "properties": {
+        "kind": { "type": "string" },
+        "adapter": { "type": "string" },
+        "reference": { "type": "string" },
+        "provenance": { "type": "string" }
+      }
+    },
+    "time_range": {
+      "type": "object",
+      "required": ["observed_at"],
+      "properties": {
+        "observed_at": { "type": "string", "format": "date-time" },
+        "start": { "type": "string", "format": "date-time" },
+        "end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["score", "reason"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["object_key", "media_type", "checksum"],
+      "properties": {
+        "object_key": { "type": "string" },
+        "media_type": { "type": "string" },
+        "checksum": { "type": "string" }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["subject", "predicate", "object"],
+        "properties": {
+          "subject": { "type": "string" },
+          "predicate": { "type": "string" },
+          "object": { "type": "string" },
+          "value_json": { "type": "string" }
+        }
+      }
+    },
+    "normalization": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["normalized", "partial", "rejected"] },
+        "canonical_unit": { "type": "string" },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "rejected_reason": { "type": "string" }
+      }
+    },
+    "summary": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

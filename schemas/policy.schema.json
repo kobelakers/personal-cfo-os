@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PolicyDecision",
+  "type": "object",
+  "required": ["outcome", "reason", "applied_policy", "evaluated_at", "audit_ref"],
+  "properties": {
+    "outcome": { "type": "string", "enum": ["allow", "deny", "require_approval", "redact", "escalate"] },
+    "reason": { "type": "string" },
+    "applied_policy": { "type": "string" },
+    "evaluated_at": { "type": "string", "format": "date-time" },
+    "audit_ref": { "type": "string" }
+  }
+}

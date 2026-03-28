@@ -1,0 +1,85 @@
+package governance
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+
+	"github.com/kobelakers/personal-cfo-os/internal/memory"
+	"github.com/kobelakers/personal-cfo-os/internal/observation"
+)
+
+func TestPolicySchemaRoundTrip(t *testing.T) {
+	policy := ApprovalPolicy{
+		Name:          "high-risk-approval",
+		MinRiskLevel:  ActionRiskHigh,
+		RequiredRoles: []string{"operator", "analyst"},
+		AutoApprove:   false,
+	}
+	data, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatalf("marshal policy: %v", err)
+	}
+	var decoded ApprovalPolicy
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal policy: %v", err)
+	}
+	if err := decoded.Validate(); err != nil {
+		t.Fatalf("decoded policy should validate: %v", err)
+	}
+}
+
+func TestHighRiskActionRequiresApproval(t *testing.T) {
+	engine := StaticPolicyEngine{}
+	decision, audit, err := engine.EvaluateAction(
+		ActionRequest{
+			Actor:         "planner-agent",
+			ActorRoles:    []string{"analyst"},
+			Action:        "single_stock_recommendation",
+			Resource:      "AAPL",
+			RiskLevel:     ActionRiskHigh,
+			CorrelationID: "corr-001",
+		},
+		ApprovalPolicy{Name: "high-risk", MinRiskLevel: ActionRiskHigh, RequiredRoles: []string{"operator"}, AutoApprove: false},
+		&ToolExecutionPolicy{ToolName: "advisor", AllowedRoles: []string{"analyst"}, MaxCallsPerTask: 1, RequiresApprovalAbove: ActionRiskHigh},
+	)
+	if err != nil {
+		t.Fatalf("evaluate action: %v", err)
+	}
+	if decision.Outcome != PolicyDecisionRequireApproval {
+		t.Fatalf("expected require approval, got %+v", decision)
+	}
+	if audit.Outcome != string(PolicyDecisionRequireApproval) {
+		t.Fatalf("expected audit outcome to track decision")
+	}
+}
+
+func TestLowConfidenceMemoryWriteRejected(t *testing.T) {
+	engine := StaticPolicyEngine{}
+	now := time.Now().UTC()
+	record := memory.MemoryRecord{
+		ID:      "memory-low-confidence",
+		Kind:    memory.MemoryKindSemantic,
+		Summary: "Potential tax preference.",
+		Facts:   []memory.MemoryFact{{Key: "tax_bracket", Value: "uncertain", EvidenceID: observation.EvidenceID("evidence-1")}},
+		Source:  memory.MemorySource{TaskID: "task-1", Actor: "memory-steward"},
+		Confidence: memory.MemoryConfidence{
+			Score:     0.3,
+			Rationale: "weak extraction",
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	decision, _, err := engine.EvaluateMemoryWrite(record, MemoryWritePolicy{
+		MinConfidence:   0.8,
+		RequireEvidence: false,
+		AllowKinds:      []memory.MemoryKind{memory.MemoryKindSemantic},
+	}, "corr-memory-1")
+	if err != nil {
+		t.Fatalf("evaluate memory write: %v", err)
+	}
+	if decision.Outcome != PolicyDecisionDeny {
+		t.Fatalf("expected memory write to be denied, got %+v", decision)
+	}
+}

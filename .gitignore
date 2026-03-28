@@ -1,0 +1,13 @@
+.DS_Store
+.idea/
+node_modules/
+dist/
+.vite/
+coverage/
+tmp/
+.env
+.env.*
+*.log
+*.out
+*.test
+web/node_modules/

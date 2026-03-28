@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkflowEvent",
+  "type": "object",
+  "required": ["metadata", "workflow_id", "task_id", "type", "summary", "state_ref"],
+  "properties": {
+    "metadata": { "$ref": "./protocol-envelope.schema.json#/properties/metadata" },
+    "workflow_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "type": { "type": "string", "enum": ["plan_created", "state_updated", "tool_called", "approval_required", "verification_failed", "report_ready"] },
+    "summary": { "type": "string" },
+    "state_ref": { "$ref": "./protocol-envelope.schema.json#/properties/state_ref" },
+    "details": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MemoryRecord",
+  "type": "object",
+  "required": ["id", "kind", "summary", "facts", "source", "confidence", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "kind": { "type": "string", "enum": ["episodic", "semantic", "procedural", "policy"] },
+    "summary": { "type": "string" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "value"],
+        "properties": {
+          "key": { "type": "string" },
+          "value": { "type": "string" },
+          "evidence_id": { "type": "string" }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "evidence_ids": { "type": "array", "items": { "type": "string" } },
+        "task_id": { "type": "string" },
+        "workflow_id": { "type": "string" },
+        "actor": { "type": "string" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "required": ["score", "rationale"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string" }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}
