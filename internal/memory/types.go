@@ -67,6 +67,7 @@ type MemoryAccessAudit struct {
 	MemoryID   string    `json:"memory_id"`
 	Accessor   string    `json:"accessor"`
 	Purpose    string    `json:"purpose"`
+	Action     string    `json:"action"`
 	AccessedAt time.Time `json:"accessed_at"`
 }
 
@@ -78,8 +79,9 @@ type RetrievalQuery struct {
 }
 
 type RetrievalResult struct {
-	MemoryID string  `json:"memory_id"`
-	Score    float64 `json:"score"`
-	Reason   string  `json:"reason"`
-	Rejected bool    `json:"rejected"`
+	MemoryID string       `json:"memory_id"`
+	Score    float64      `json:"score"`
+	Reason   string       `json:"reason"`
+	Rejected bool         `json:"rejected"`
+	Memory   MemoryRecord `json:"memory"`
 }

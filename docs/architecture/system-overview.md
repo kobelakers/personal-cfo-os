@@ -4,27 +4,25 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 
 ## Core Loop
 
-1. User input is transformed into a `TaskSpec`.
-2. Observation adapters collect and normalize external inputs into typed `EvidenceRecord` values.
-3. Evidence-driven reducers update `FinancialWorldState`.
-4. Context assembly selects the right state, memory, evidence, and skill slices for the current phase.
-5. Planning drives `plan -> act -> verify -> replan/escalate/abort`.
-6. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, and recovery.
-7. Governance policies evaluate sensitive actions, memory writes, tool execution, and report disclosure.
-8. Verification checks evidence coverage, business rules, success criteria, and end-to-end oracle outcomes.
+1. Natural language first enters deterministic task intake and becomes a `TaskSpec`.
+2. Ledger and document adapters ingest raw inputs and emit typed `EvidenceRecord` values.
+3. Deterministic reducers convert evidence into state patches and update `FinancialWorldState`.
+4. Structured memory writes store episodic / semantic / procedural / policy memories with provenance, confidence, conflict, and audit semantics.
+5. Hybrid retrieval feeds context assembly for planning, execution, and verification views.
+6. Planning drives `plan -> act -> verify -> replan/escalate/abort`.
+7. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, and recovery.
+8. Governance evaluates memory writes, report disclosure, and high-risk actions before the workflow can complete.
+9. Verification checks evidence coverage, structure, business rules, success criteria, and oracle outcomes.
 
-## Phase 1 Focus
+## Phase 2 Real Data Path
 
-Phase 1 locks down the contracts that define the system boundary:
+Phase 2 already runs one real chain:
 
-- `TaskSpec`
-- `EvidenceRecord`
-- `FinancialWorldState`
-- `MemoryRecord`
-- `AgentEnvelope`
-- `WorkflowEvent`
-- runtime failure and recovery types
-- governance policy models
-- verification result and coverage models
+- raw ledger transactions / debt rows / holdings / payslip / tax text
+- typed evidence generation and normalization
+- evidence-driven state update
+- derived memory write and hybrid read
+- Monthly Review workflow execution
+- verification, approval decision, checkpointing, and timeline output
 
-This keeps later phases free to build adapters, workflows, and UI on top of stable contracts instead of rewriting the foundation.
+The current system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

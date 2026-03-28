@@ -47,3 +47,34 @@ func TestRuntimeResumeRejectsInvalidToken(t *testing.T) {
 		t.Fatalf("expected resume with mismatched checkpoint to fail")
 	}
 }
+
+func TestLocalWorkflowRuntimeCheckpointAndResume(t *testing.T) {
+	now := time.Date(2026, 3, 28, 15, 0, 0, 0, time.UTC)
+	local := LocalWorkflowRuntime{
+		Controller:      DefaultWorkflowController{},
+		CheckpointStore: NewInMemoryCheckpointStore(),
+		Journal:         &CheckpointJournal{},
+		Timeline:        &WorkflowTimeline{WorkflowID: "workflow-1", TraceID: "trace-1"},
+		Now:             func() time.Time { return now },
+	}
+	execCtx := ExecutionContext{
+		WorkflowID:    "workflow-1",
+		TaskID:        "task-1",
+		CorrelationID: "corr-1",
+		Attempt:       1,
+	}
+	checkpoint, token, err := local.Checkpoint(execCtx, WorkflowStatePlanning, WorkflowStateActing, 2, "before act")
+	if err != nil {
+		t.Fatalf("create checkpoint: %v", err)
+	}
+	next, err := local.Resume(execCtx, checkpoint.ID, token)
+	if err != nil {
+		t.Fatalf("resume workflow: %v", err)
+	}
+	if next != WorkflowStateActing {
+		t.Fatalf("expected acting state after resume, got %q", next)
+	}
+	if len(local.Journal.Checkpoints) != 1 || len(local.Timeline.Entries) < 2 {
+		t.Fatalf("expected checkpoint journal and timeline to record events")
+	}
+}

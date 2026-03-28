@@ -9,3 +9,5 @@
 - Personal CFO OS should be positioned as a 2026-style personal finance agent system, not a toy multi-agent demo.
 - The system narrative should prioritize goal-driven execution, typed evidence, state-first design, structured memory, protocol-oriented coordination, runtime durability, governance, verification, and observability.
 - For this project, preserving architectural layers is more important than reducing complexity for convenience.
+- Phase 2 has already crossed from contract scaffold into a real executable path: raw ledger/document inputs can now flow through typed evidence, deterministic state update, structured memory write/read, Monthly Review workflow execution, verification, governance, and local durable runtime semantics.
+- Current acceptable stubs for project narrative: agentic document parsing is still a deterministic stub behind a formal adapter boundary, semantic retrieval still uses a fake backend behind embedding/vector interfaces, and runtime is local Temporal-aligned rather than backed by a live Temporal cluster.

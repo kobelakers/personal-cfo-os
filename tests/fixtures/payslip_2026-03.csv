@@ -1,0 +1,2 @@
+user_id,pay_period,gross_pay_cents,net_pay_cents,tax_withheld_cents,childcare_benefit_cents
+user-1,2026-03,1000000,800000,180000,50000

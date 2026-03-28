@@ -1,0 +1,2 @@
+user_id,statement_month,issuer,total_due_cents,minimum_due_cents,late_fee_cents
+user-1,2026-03,UnionBank,150000,12000,0

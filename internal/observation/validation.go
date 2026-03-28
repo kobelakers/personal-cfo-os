@@ -98,7 +98,22 @@ func (n EvidenceNormalizationResult) Validate() error {
 
 func validEvidenceType(t EvidenceType) bool {
 	switch t {
-	case EvidenceTypeLedgerTransaction, EvidenceTypeDocumentStatement, EvidenceTypeEventSignal, EvidenceTypeMarketPolicy, EvidenceTypeCalendarDeadline, EvidenceTypeExtractedTable, EvidenceTypeAgenticParse:
+	case EvidenceTypeLedgerTransaction,
+		EvidenceTypeDocumentStatement,
+		EvidenceTypeEventSignal,
+		EvidenceTypeMarketPolicy,
+		EvidenceTypeCalendarDeadline,
+		EvidenceTypeExtractedTable,
+		EvidenceTypeAgenticParse,
+		EvidenceTypeTransactionBatch,
+		EvidenceTypeRecurringSubscription,
+		EvidenceTypeLateNightSpendingSignal,
+		EvidenceTypeDebtObligationSnapshot,
+		EvidenceTypePortfolioAllocationSnap,
+		EvidenceTypePayslipStatement,
+		EvidenceTypeCreditCardStatement,
+		EvidenceTypeTaxDocument,
+		EvidenceTypeBrokerStatement:
 		return true
 	default:
 		return false

@@ -1,6 +1,6 @@
 # Personal CFO OS
 
-Personal CFO OS is a 2026-style personal finance agent system scaffold. It is intentionally designed as a goal-driven, stateful, memory-aware, protocol-oriented, verifiable, governed, and observable system rather than a toy "LLM routes to an agent and calls a few tools" demo.
+Personal CFO OS is a 2026-style personal finance agent system. It is intentionally designed as a goal-driven, stateful, memory-aware, protocol-oriented, verifiable, governed, and observable system rather than a toy "LLM routes to an agent and calls a few tools" demo.
 
 ## Why This Is Not a Toy Multi-Agent Demo
 
@@ -12,14 +12,30 @@ Personal CFO OS is a 2026-style personal finance agent system scaffold. It is in
 - Governance and verification are front-loaded. The system models approval policy, tool policy, memory write policy, disclosure policy, audit events, evidence coverage, and oracle verdicts.
 - Protocols are explicit. Internal agent envelopes and workflow UI events include correlation and causation identifiers so the system can be replayed and traced.
 
-## Phase 1 Deliverables
+## What Phase 2 Now Runs End-to-End
 
-- Monorepo scaffold with Go as the primary backend language
-- Core packages for task specification, observation, state, context, memory, planning, runtime, protocol, verification, governance, agents, skills, and tools
-- JSON schemas for the main contracts
-- Architecture documentation and ADRs
-- Deterministic unit tests for typed evidence, policies, runtime transitions, state integration, memory invariants, and verification artifacts
-- Minimal frontend and infrastructure placeholders without spending Phase 1 time on full infrastructure bring-up
+Phase 2 turns the Phase 1 contracts into the first real executable data path:
+
+1. raw ledger and document fixtures are ingested by observation adapters
+2. adapters emit typed `EvidenceRecord` values
+3. deterministic reducers turn evidence into `EvidencePatch`
+4. `FinancialWorldState` is updated with versioning, snapshot, and diff semantics
+5. derived structured memories are written through policy-aware memory rules
+6. hybrid memory retrieval feeds the context assembler
+7. `MonthlyReviewWorkflow` runs `task intake -> observe -> state update -> memory -> plan -> act -> verify`
+8. verification, governance, checkpoints, approval waiting, and timeline logging all produce structured outputs
+
+## Phase 2 Deliverables
+
+- task intake objects and deterministic intake service
+- real ledger and document observation adapters
+- structured parsing and agentic parsing stub pipelines that both emit typed evidence
+- deterministic reducers for cashflow, liability, portfolio, tax, behavior, risk, and workflow state
+- runnable memory writer, hybrid retriever, fusion, rerank, rejection, and access audit
+- runnable context assembler with planning / execution / verification views
+- concrete Monthly Review workflow and Debt vs Invest MVP workflow
+- concrete verification, governance, local durable runtime, timeline, checkpoint, and audit logic
+- deterministic workflow tests covering happy path, evidence gaps, approval requirement, and governance denial
 
 ## Repository Layout
 
@@ -42,9 +58,18 @@ go test ./...
 
 The `web/` directory is intentionally minimal in Phase 1. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 
+## What Is Still Stubbed
+
+- agentic document parsing is still a deterministic stub behind a formal adapter boundary
+- semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
+- runtime is a local Temporal-aligned implementation, not a live Temporal cluster
+- no real Postgres / pgvector / MinIO / provider service is required yet
+
+These are deliberate Phase 2 trade-offs. The important part is that business logic already talks to stable interfaces and typed contracts, so replacing the stubbed pieces in Phase 3 does not require rewriting workflow logic.
+
 ## Architecture Priorities
 
 1. Preserve the 12-layer structure so later workflows can plug into stable contracts.
 2. Keep financial calculations deterministic and outside of the LLM path.
 3. Model runtime, protocol, governance, verification, and memory as first-class surfaces from day one.
-4. Optimize for interview defensibility and real engineering extensibility over short-term demo speed.
+4. Use stubs only behind durable interfaces so the system stays interview-defensible and production-shaped.

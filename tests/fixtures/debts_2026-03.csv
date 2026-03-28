@@ -1,0 +1,3 @@
+user_id,account_id,name,balance_cents,annual_rate,minimum_due_cents,snapshot_at
+user-1,cc-1,UnionBank Card,150000,0.219,12000,2026-03-28T00:00:00Z
+user-1,loan-1,Student Loan,600000,0.045,15000,2026-03-28T00:00:00Z

@@ -14,39 +14,53 @@ type LiabilityAccount struct {
 }
 
 type CashflowState struct {
+	MonthlyInflowCents          int64   `json:"monthly_inflow_cents"`
+	MonthlyOutflowCents         int64   `json:"monthly_outflow_cents"`
 	MonthlyNetIncomeCents       int64   `json:"monthly_net_income_cents"`
 	MonthlyFixedExpenseCents    int64   `json:"monthly_fixed_expense_cents"`
 	MonthlyVariableExpenseCents int64   `json:"monthly_variable_expense_cents"`
 	SavingsRate                 float64 `json:"savings_rate"`
+	LastComputedMonth           string  `json:"last_computed_month,omitempty"`
 }
 
 type LiabilityState struct {
-	TotalDebtCents int64              `json:"total_debt_cents"`
-	AverageAPR     float64            `json:"average_apr"`
-	Accounts       []LiabilityAccount `json:"accounts,omitempty"`
+	TotalDebtCents         int64              `json:"total_debt_cents"`
+	AverageAPR             float64            `json:"average_apr"`
+	DebtBurdenRatio        float64            `json:"debt_burden_ratio"`
+	MinimumPaymentPressure float64            `json:"minimum_payment_pressure"`
+	Accounts               []LiabilityAccount `json:"accounts,omitempty"`
 }
 
 type PortfolioState struct {
 	TotalInvestableAssetsCents int64              `json:"total_investable_assets_cents"`
 	AssetAllocations           map[string]float64 `json:"asset_allocations,omitempty"`
+	TargetAllocations          map[string]float64 `json:"target_allocations,omitempty"`
+	AllocationDrift            map[string]float64 `json:"allocation_drift,omitempty"`
 	EmergencyFundMonths        float64            `json:"emergency_fund_months"`
 }
 
 type TaxState struct {
 	EffectiveTaxRate               float64  `json:"effective_tax_rate"`
 	TaxAdvantagedContributionCents int64    `json:"tax_advantaged_contribution_cents"`
+	ChildcareTaxSignal             bool     `json:"childcare_tax_signal"`
+	FamilyTaxNotes                 []string `json:"family_tax_notes,omitempty"`
 	UpcomingDeadlines              []string `json:"upcoming_deadlines,omitempty"`
 }
 
 type BehaviorState struct {
-	AnomalyFlags      []string `json:"anomaly_flags,omitempty"`
-	InterventionQueue []string `json:"intervention_queue,omitempty"`
+	AnomalyFlags               []string `json:"anomaly_flags,omitempty"`
+	InterventionQueue          []string `json:"intervention_queue,omitempty"`
+	LateNightSpendingFrequency float64  `json:"late_night_spending_frequency"`
+	DuplicateSubscriptionCount int      `json:"duplicate_subscription_count"`
+	RecurringSubscriptions     []string `json:"recurring_subscriptions,omitempty"`
 }
 
 type WorkflowState struct {
 	ActiveWorkflowID string    `json:"active_workflow_id,omitempty"`
+	LastTaskID       string    `json:"last_task_id,omitempty"`
 	Phase            string    `json:"phase"`
 	PendingApprovals []string  `json:"pending_approvals,omitempty"`
+	EvidenceStatus   string    `json:"evidence_status,omitempty"`
 	LastUpdatedAt    time.Time `json:"last_updated_at"`
 }
 
@@ -54,6 +68,7 @@ type RiskState struct {
 	LiquidityRisk     string   `json:"liquidity_risk"`
 	ConcentrationRisk string   `json:"concentration_risk"`
 	DebtStressLevel   string   `json:"debt_stress_level"`
+	OverallRisk       string   `json:"overall_risk"`
 	ComplianceFlags   []string `json:"compliance_flags,omitempty"`
 }
 

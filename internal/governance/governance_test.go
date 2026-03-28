@@ -7,6 +7,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/state"
 )
 
 func TestPolicySchemaRoundTrip(t *testing.T) {
@@ -81,5 +82,22 @@ func TestLowConfidenceMemoryWriteRejected(t *testing.T) {
 	}
 	if decision.Outcome != PolicyDecisionDeny {
 		t.Fatalf("expected memory write to be denied, got %+v", decision)
+	}
+}
+
+func TestDefaultRiskClassifierClassifiesHighRisk(t *testing.T) {
+	classifier := DefaultRiskClassifier{}
+	assessment := classifier.Classify(state.FinancialWorldState{
+		UserID: "user-1",
+		LiabilityState: state.LiabilityState{
+			DebtBurdenRatio:        0.4,
+			MinimumPaymentPressure: 0.22,
+		},
+		RiskState: state.RiskState{
+			OverallRisk: "high",
+		},
+	}, "single_stock_invest_recommendation")
+	if assessment.Level != ActionRiskHigh {
+		t.Fatalf("expected high risk classification, got %+v", assessment)
 	}
 }

@@ -67,24 +67,78 @@ func (s FinancialWorldState) Snapshot(reason string, capturedAt time.Time) State
 
 func applyMutation(state *FinancialWorldState, mutation StateMutation) error {
 	switch mutation.Path {
+	case "cashflow":
+		var value CashflowState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.CashflowState = value
 	case "cashflow.monthly_net_income_cents":
 		var value int64
 		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
 			return err
 		}
 		state.CashflowState.MonthlyNetIncomeCents = value
+	case "cashflow.monthly_inflow_cents":
+		var value int64
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.CashflowState.MonthlyInflowCents = value
+	case "cashflow.monthly_outflow_cents":
+		var value int64
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.CashflowState.MonthlyOutflowCents = value
+	case "liability":
+		var value LiabilityState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.LiabilityState = value
 	case "liability.total_debt_cents":
 		var value int64
 		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
 			return err
 		}
 		state.LiabilityState.TotalDebtCents = value
+	case "portfolio":
+		var value PortfolioState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.PortfolioState = value
+	case "tax":
+		var value TaxState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.TaxState = value
+	case "behavior":
+		var value BehaviorState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.BehaviorState = value
+	case "workflow":
+		var value WorkflowState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.WorkflowState = value
 	case "workflow.phase":
 		var value string
 		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
 			return err
 		}
 		state.WorkflowState.Phase = value
+	case "risk":
+		var value RiskState
+		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {
+			return err
+		}
+		state.RiskState = value
 	case "risk.compliance_flags":
 		var value []string
 		if err := json.Unmarshal([]byte(mutation.ValueJSON), &value); err != nil {

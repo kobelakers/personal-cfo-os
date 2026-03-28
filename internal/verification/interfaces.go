@@ -9,11 +9,11 @@ import (
 )
 
 type DeterministicValidator interface {
-	Validate(ctx context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, evidence []observation.EvidenceRecord) (VerificationResult, error)
+	Validate(ctx context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, evidence []observation.EvidenceRecord, output any) (VerificationResult, error)
 }
 
 type BusinessValidator interface {
-	Validate(ctx context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, evidence []observation.EvidenceRecord) (VerificationResult, error)
+	Validate(ctx context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, evidence []observation.EvidenceRecord, output any) (VerificationResult, error)
 }
 
 type EvidenceCoverageChecker interface {
@@ -21,9 +21,9 @@ type EvidenceCoverageChecker interface {
 }
 
 type SuccessCriteriaChecker interface {
-	Check(spec taskspec.TaskSpec, result VerificationResult) error
+	Check(spec taskspec.TaskSpec, results []VerificationResult, output any) (VerificationResult, error)
 }
 
 type TrajectoryOracle interface {
-	Evaluate(ctx context.Context, scenario string, result VerificationResult) (OracleVerdict, error)
+	Evaluate(ctx context.Context, scenario string, results []VerificationResult) (OracleVerdict, error)
 }

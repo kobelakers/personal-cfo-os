@@ -2,6 +2,8 @@ package observation
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -76,4 +78,152 @@ func TestEvidenceNormalizationStatusesValidate(t *testing.T) {
 			t.Fatalf("expected normalization status %q to validate: %v", item.Status, err)
 		}
 	}
+}
+
+func TestLedgerObservationAdapterObserveProducesTypedEvidence(t *testing.T) {
+	transactionsData := mustReadFixture(t, "ledger_transactions_2026-03.csv")
+	debtsData := mustReadFixture(t, "debts_2026-03.csv")
+	holdingsData := mustReadFixture(t, "holdings_2026-03.csv")
+
+	transactions, err := LoadLedgerTransactionsCSV(transactionsData)
+	if err != nil {
+		t.Fatalf("load transactions: %v", err)
+	}
+	debts, err := LoadDebtRecordsCSV(debtsData)
+	if err != nil {
+		t.Fatalf("load debts: %v", err)
+	}
+	holdings, err := LoadHoldingRecordsCSV(holdingsData)
+	if err != nil {
+		t.Fatalf("load holdings: %v", err)
+	}
+
+	adapter := LedgerObservationAdapter{
+		Transactions: transactions,
+		Debts:        debts,
+		Holdings:     holdings,
+		Now: func() time.Time {
+			return time.Date(2026, 3, 28, 9, 0, 0, 0, time.UTC)
+		},
+	}
+	records, err := adapter.Observe(t.Context(), ObservationRequest{
+		TaskID:     "task-monthly-review",
+		SourceKind: "ledger",
+		Params: map[string]string{
+			"user_id": "user-1",
+			"start":   "2026-03-01",
+			"end":     "2026-03-31T23:59:59Z",
+		},
+	})
+	if err != nil {
+		t.Fatalf("observe ledger: %v", err)
+	}
+	if len(records) != 5 {
+		t.Fatalf("expected 5 ledger evidence records, got %d", len(records))
+	}
+	expectedTypes := map[EvidenceType]bool{
+		EvidenceTypeTransactionBatch:        false,
+		EvidenceTypeRecurringSubscription:   false,
+		EvidenceTypeLateNightSpendingSignal: false,
+		EvidenceTypeDebtObligationSnapshot:  false,
+		EvidenceTypePortfolioAllocationSnap: false,
+	}
+	for _, record := range records {
+		expectedTypes[record.Type] = true
+		if err := record.Validate(); err != nil {
+			t.Fatalf("ledger evidence should validate: %v", err)
+		}
+	}
+	for evidenceType, seen := range expectedTypes {
+		if !seen {
+			t.Fatalf("expected evidence type %q to be emitted", evidenceType)
+		}
+	}
+}
+
+func TestDocumentObservationAdaptersProduceTypedEvidence(t *testing.T) {
+	now := time.Date(2026, 3, 28, 10, 0, 0, 0, time.UTC)
+	structuredAdapter := StructuredDocumentObservationAdapter{
+		Artifacts: []DocumentArtifact{
+			{
+				ID:         "doc-payslip",
+				UserID:     "user-1",
+				Kind:       DocumentKindPayslip,
+				Filename:   "payslip_2026-03.csv",
+				MediaType:  "text/csv",
+				Content:    mustReadFixture(t, "payslip_2026-03.csv"),
+				ObservedAt: now,
+			},
+			{
+				ID:         "doc-credit",
+				UserID:     "user-1",
+				Kind:       DocumentKindCreditCardStatement,
+				Filename:   "credit_card_2026-03.csv",
+				MediaType:  "text/csv",
+				Content:    mustReadFixture(t, "credit_card_2026-03.csv"),
+				ObservedAt: now,
+			},
+			{
+				ID:         "doc-broker",
+				UserID:     "user-1",
+				Kind:       DocumentKindBrokerStatement,
+				Filename:   "broker_statement_2026-03.csv",
+				MediaType:  "text/csv",
+				Content:    mustReadFixture(t, "broker_statement_2026-03.csv"),
+				ObservedAt: now,
+			},
+		},
+	}
+	agenticAdapter := AgenticDocumentObservationAdapterStub{
+		Artifacts: []DocumentArtifact{
+			{
+				ID:         "doc-tax",
+				UserID:     "user-1",
+				Kind:       DocumentKindTaxDocument,
+				Filename:   "tax_2026.txt",
+				MediaType:  "text/plain",
+				Content:    mustReadFixture(t, "tax_2026.txt"),
+				ObservedAt: now,
+			},
+		},
+	}
+
+	structuredRecords, err := structuredAdapter.Observe(t.Context(), ObservationRequest{
+		TaskID:     "task-monthly-review",
+		SourceKind: "document",
+		Params: map[string]string{
+			"user_id": "user-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("observe structured docs: %v", err)
+	}
+	if len(structuredRecords) != 3 {
+		t.Fatalf("expected 3 structured doc evidence records, got %d", len(structuredRecords))
+	}
+	agenticRecords, err := agenticAdapter.Observe(t.Context(), ObservationRequest{
+		TaskID:     "task-monthly-review",
+		SourceKind: "document",
+		Params: map[string]string{
+			"user_id": "user-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("observe agentic docs: %v", err)
+	}
+	if len(agenticRecords) != 1 {
+		t.Fatalf("expected 1 agentic doc evidence record, got %d", len(agenticRecords))
+	}
+	if agenticRecords[0].Type != EvidenceTypeTaxDocument {
+		t.Fatalf("expected tax document evidence, got %q", agenticRecords[0].Type)
+	}
+}
+
+func mustReadFixture(t *testing.T, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "fixtures", name))
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", name, err)
+	}
+	return data
 }

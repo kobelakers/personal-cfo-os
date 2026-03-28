@@ -1,0 +1,8 @@
+user_id,transaction_id,account_id,occurred_at,description,merchant,category,direction,amount_cents
+user-1,tx-001,checking,2026-03-01T09:00:00Z,Salary March,Employer,income,inflow,800000
+user-1,tx-002,checking,2026-03-02T00:30:00Z,Food Delivery,Night Bites,dining,outflow,4500
+user-1,tx-003,checking,2026-03-03T08:00:00Z,Netflix Subscription,Netflix,subscription,outflow,1500
+user-1,tx-004,checking,2026-03-12T08:00:00Z,Spotify Subscription,Spotify,subscription,outflow,900
+user-1,tx-005,checking,2026-03-15T08:00:00Z,Daycare Center,Bright Kids,childcare,outflow,120000
+user-1,tx-006,checking,2026-03-18T20:00:00Z,Groceries,FreshMart,groceries,outflow,25000
+user-1,tx-007,checking,2026-03-22T00:45:00Z,Ride Share,Night Cabs,transport,outflow,3200
