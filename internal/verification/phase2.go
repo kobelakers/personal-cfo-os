@@ -58,20 +58,32 @@ func (MonthlyReviewDeterministicValidator) Validate(_ context.Context, spec task
 	missing := missingKeys(payload, requiredKeys)
 	status := VerificationStatusPass
 	message := "monthly review output structure is valid"
+	details := map[string]any{
+		"required_keys": requiredKeys,
+	}
+	failedRules := []string{}
 	if len(missing) > 0 {
 		status = VerificationStatusFail
 		message = "missing report keys: " + strings.Join(missing, ", ")
+		failedRules = append(failedRules, "required_output_keys")
+		details["missing_keys"] = missing
 	}
 	if currentState.CashflowState.MonthlyInflowCents == 0 || currentState.CashflowState.MonthlyOutflowCents == 0 {
 		status = VerificationStatusNeedsReplan
 		message = "cashflow metrics are incomplete"
+		failedRules = append(failedRules, "cashflow_metrics_complete")
+		details["cashflow_complete"] = false
 	}
 	return VerificationResult{
-		Status:           status,
-		Validator:        "monthly_review_deterministic_validator",
-		Message:          message,
-		EvidenceCoverage: fullCoverage(spec.ID),
-		CheckedAt:        time.Now().UTC(),
+		Status:                  status,
+		Validator:               "monthly_review_deterministic_validator",
+		Message:                 message,
+		Details:                 details,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "repair report structure and recompute missing cashflow metrics",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
 	}, nil
 }
 
@@ -86,26 +98,38 @@ func (MonthlyReviewBusinessValidator) Validate(_ context.Context, spec taskspec.
 
 	status := VerificationStatusPass
 	message := "monthly review business checks passed"
+	failedRules := []string{}
+	missingEvidence := []string{}
 	switch {
 	case currentState.LiabilityState.DebtBurdenRatio >= 0.2 && !containsAny(reportText, "债务", "debt"):
 		status = VerificationStatusFail
 		message = "high-risk debt signal was omitted from report"
+		failedRules = append(failedRules, "debt_signal_coverage")
+		missingEvidence = append(missingEvidence, "debt_obligation_snapshot")
 	case currentState.TaxState.ChildcareTaxSignal && !containsAny(reportText, "税", "tax", "childcare", "育儿"):
 		status = VerificationStatusFail
 		message = "obvious tax signal was omitted from report"
+		failedRules = append(failedRules, "tax_signal_coverage")
+		missingEvidence = append(missingEvidence, "tax_document")
 	case currentState.RiskState.OverallRisk == "high" && !extractBool(payload, "approval_required"):
 		status = VerificationStatusNeedsReplan
 		message = "high overall risk should have triggered approval_required"
+		failedRules = append(failedRules, "approval_required_high_risk")
 	case currentState.CashflowState.SavingsRate < 0.1 && !containsAny(reportText, "现金流", "cashflow", "储蓄率", "savings"):
 		status = VerificationStatusNeedsReplan
 		message = "cashflow constraint explanation is missing"
+		failedRules = append(failedRules, "cashflow_constraint_explanation")
 	}
 	return VerificationResult{
-		Status:           status,
-		Validator:        "monthly_review_business_validator",
-		Message:          message,
-		EvidenceCoverage: fullCoverage(spec.ID),
-		CheckedAt:        time.Now().UTC(),
+		Status:                  status,
+		Validator:               "monthly_review_business_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		MissingEvidence:         missingEvidence,
+		RecommendedReplanAction: "augment report with missing business risk explanations",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
 	}, nil
 }
 
@@ -119,23 +143,30 @@ func (DebtDecisionBusinessValidator) Validate(_ context.Context, spec taskspec.T
 	reportText := flattenOutput(payload)
 	status := VerificationStatusPass
 	message := "debt decision business checks passed"
+	failedRules := []string{}
 	switch {
 	case extractString(payload, "conclusion") == "":
 		status = VerificationStatusFail
 		message = "debt decision conclusion is missing"
+		failedRules = append(failedRules, "decision_conclusion_required")
 	case currentState.LiabilityState.DebtBurdenRatio >= 0.2 && !containsAny(reportText, "债务", "debt", "还"):
 		status = VerificationStatusFail
 		message = "high debt burden is not reflected in decision output"
+		failedRules = append(failedRules, "debt_burden_coverage")
 	case currentState.RiskState.OverallRisk == "high" && !extractBool(payload, "approval_required"):
 		status = VerificationStatusNeedsReplan
 		message = "high-risk debt decision should require approval"
+		failedRules = append(failedRules, "approval_required_high_risk")
 	}
 	return VerificationResult{
-		Status:           status,
-		Validator:        "debt_decision_business_validator",
-		Message:          message,
-		EvidenceCoverage: fullCoverage(spec.ID),
-		CheckedAt:        time.Now().UTC(),
+		Status:                  status,
+		Validator:               "debt_decision_business_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "recompute decision narrative with explicit debt and approval reasoning",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
 	}, nil
 }
 
@@ -156,11 +187,14 @@ func (DefaultSuccessCriteriaChecker) Check(spec taskspec.TaskSpec, results []Ver
 		message = "validators failed: " + strings.Join(failures, ", ")
 	}
 	return VerificationResult{
-		Status:           status,
-		Validator:        "success_criteria_checker",
-		Message:          message,
-		EvidenceCoverage: fullCoverage(spec.ID),
-		CheckedAt:        time.Now().UTC(),
+		Status:                  status,
+		Validator:               "success_criteria_checker",
+		Message:                 message,
+		FailedRules:             failures,
+		RecommendedReplanAction: "rerun the plan with verification gaps resolved",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
 	}, nil
 }
 
@@ -268,4 +302,17 @@ func containsAny(text string, candidates ...string) bool {
 		}
 	}
 	return false
+}
+
+func severityForStatus(status VerificationStatus) string {
+	switch status {
+	case VerificationStatusFail:
+		return "high"
+	case VerificationStatusNeedsReplan:
+		return "medium"
+	case VerificationStatusBlocked:
+		return "high"
+	default:
+		return "low"
+	}
 }

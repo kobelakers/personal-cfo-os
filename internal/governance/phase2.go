@@ -54,10 +54,13 @@ func (DefaultRiskClassifier) Classify(current state.FinancialWorldState, action 
 }
 
 type ApprovalDecider struct {
-	PolicyEngine StaticPolicyEngine
+	PolicyEngine PolicyEngine
 }
 
 func (d ApprovalDecider) Decide(request ActionRequest, approval ApprovalPolicy, toolPolicy *ToolExecutionPolicy) (PolicyDecision, AuditEvent, error) {
 	engine := d.PolicyEngine
+	if engine == nil {
+		engine = StaticPolicyEngine{}
+	}
 	return engine.EvaluateAction(request, approval, toolPolicy)
 }

@@ -14,28 +14,34 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Phase 2 Now Runs End-to-End
 
-Phase 2 turns the Phase 1 contracts into the first real executable data path:
+Phase 2 now runs one real executable path and has already been structurally remediated so the logic is no longer trapped inside workflow files:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
-3. deterministic reducers turn evidence into `EvidencePatch`
+3. workflow services orchestrate evidence collection and deterministic reducers build `EvidencePatch`
 4. `FinancialWorldState` is updated with versioning, snapshot, and diff semantics
-5. derived structured memories are written through policy-aware memory rules
-6. hybrid memory retrieval feeds the context assembler
-7. `MonthlyReviewWorkflow` runs `task intake -> observe -> state update -> memory -> plan -> act -> verify`
-8. verification, governance, checkpoints, approval waiting, and timeline logging all produce structured outputs
+5. `memory.WorkflowMemoryService` derives memories, enforces write gates, and performs hybrid retrieval
+6. `context.DefaultContextAssembler` builds planning / execution / verification views with real budgets and compaction
+7. `MonthlyReviewWorkflow` now acts as a thin orchestrator over workflow service, memory service, verification pipeline, approval service, artifact service, and runtime
+8. verification, governance, checkpoints, approval waiting, timeline dumps, and replay-ready outputs all produce structured artifacts
 
-## Phase 2 Deliverables
+## Current Phase 2 Positioning
 
-- task intake objects and deterministic intake service
-- real ledger and document observation adapters
-- structured parsing and agentic parsing stub pipelines that both emit typed evidence
-- deterministic reducers for cashflow, liability, portfolio, tax, behavior, risk, and workflow state
-- runnable memory writer, hybrid retriever, fusion, rerank, rejection, and access audit
-- runnable context assembler with planning / execution / verification views
-- concrete Monthly Review workflow and Debt vs Invest MVP workflow
-- concrete verification, governance, local durable runtime, timeline, checkpoint, and audit logic
-- deterministic workflow tests covering happy path, evidence gaps, approval requirement, and governance denial
+The codebase is currently best described as a **systemized workflow engine with agent-ready substrate**, not a strong multi-agent execution system yet.
+
+- The current strength is system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability now have real executable boundaries.
+- Domain agents and system agents are still part of the long-term design, but strong actor/envelope/handler execution boundaries are intentionally deferred to Phase 3.
+- This is a deliberate narrative choice: the project is more defensible in interviews as a finance agent system with solid runtime and governance foundations than as a premature “many agents talking to each other” demo.
+
+## Structural Remediation Highlights
+
+- `internal/workflows/monthly_review.go` and `internal/workflows/debt_vs_invest.go` are now thin orchestrators.
+- Evidence collection and state reduction live in dedicated workflow services.
+- Derived memory generation and memory write gating live in the memory/governance boundary instead of inside workflows.
+- Verification is assembled by `internal/verification/pipeline.go`, not by workflow-local validator chains.
+- Approval and disclosure decisions are assembled by `internal/governance/approval_service.go`.
+- Runtime concrete implementations now live in dedicated runtime files and are obtained through runtime constructors instead of workflow-local object graphs.
+- Context engineering is now its own concrete subsystem with assembler, selection, budget, and compactor files.
 
 ## Repository Layout
 
@@ -65,7 +71,7 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 - runtime is a local Temporal-aligned implementation, not a live Temporal cluster
 - no real Postgres / pgvector / MinIO / provider service is required yet
 
-These are deliberate Phase 2 trade-offs. The important part is that business logic already talks to stable interfaces and typed contracts, so replacing the stubbed pieces in Phase 3 does not require rewriting workflow logic.
+These are deliberate trade-offs. The important part is that business logic already talks to stable interfaces and typed contracts, so replacing the stubbed pieces in Phase 3 does not require rewriting workflow logic or collapsing the 12-layer structure.
 
 ## Architecture Priorities
 
@@ -73,3 +79,4 @@ These are deliberate Phase 2 trade-offs. The important part is that business log
 2. Keep financial calculations deterministic and outside of the LLM path.
 3. Model runtime, protocol, governance, verification, and memory as first-class surfaces from day one.
 4. Use stubs only behind durable interfaces so the system stays interview-defensible and production-shaped.
+5. Keep workflows thin; when logic grows, it must move down into reusable subsystems rather than staying in orchestration files.

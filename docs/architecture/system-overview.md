@@ -25,4 +25,31 @@ Phase 2 already runs one real chain:
 - Monthly Review workflow execution
 - verification, approval decision, checkpointing, and timeline output
 
-The current system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.
+## What Structural Remediation Changed
+
+The original Phase 2 code proved the end-to-end path, but too much system logic still lived inside workflow files. Structural remediation changed that:
+
+- workflow files now keep orchestration only
+- evidence collection and state reduction are handled by dedicated workflow services
+- derived memory generation and write gating moved into the memory/governance boundary
+- verification moved into a reusable verification pipeline
+- approval and disclosure logic moved into a reusable governance approval service
+- runtime concrete implementations now live behind runtime constructors and interfaces instead of workflow-local object assembly
+- context engineering now has clearer package-level boundaries for assembler, selection, budget, and compaction
+
+## Current Narrative Boundary
+
+The repository is currently closer to a **systemized workflow engine with agent-ready substrate** than a strong multi-agent execution system.
+
+- This is intentional for Phase 2.
+- The current code is already protocol-oriented and system-agent-ready.
+- Strong actor-style execution boundaries for `VerificationAgent`, `GovernanceAgent`, `MemorySteward`, and `ReportAgent` are deferred to Phase 3 instead of being faked early.
+
+## Current Stubs
+
+- agentic document parsing is still a deterministic stub behind a formal observation adapter
+- semantic retrieval still uses a fake backend behind embedding/vector interfaces
+- runtime is local Temporal-aligned rather than connected to a live Temporal cluster
+- observability is structured dump / replay ready, but not yet backed by full tracing infrastructure
+
+The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

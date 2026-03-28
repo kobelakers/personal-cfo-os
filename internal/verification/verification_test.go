@@ -113,6 +113,9 @@ func TestSuccessCriteriaCheckerFailsWhenValidatorFails(t *testing.T) {
 	if result.Status != VerificationStatusNeedsReplan {
 		t.Fatalf("expected needs replan, got %+v", result)
 	}
+	if len(result.FailedRules) == 0 || result.RecommendedReplanAction == "" {
+		t.Fatalf("expected structured replan diagnostics, got %+v", result)
+	}
 }
 
 func TestMonthlyReviewBusinessValidatorFailsWhenTaxSignalMissing(t *testing.T) {
@@ -137,6 +140,9 @@ func TestMonthlyReviewBusinessValidatorFailsWhenTaxSignalMissing(t *testing.T) {
 	}
 	if result.Status != VerificationStatusFail {
 		t.Fatalf("expected fail when tax signal omitted, got %+v", result)
+	}
+	if len(result.FailedRules) == 0 {
+		t.Fatalf("expected failed rules to be populated")
 	}
 }
 

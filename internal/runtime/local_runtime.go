@@ -4,107 +4,71 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
 )
 
-type WorkflowTimelineEntry struct {
-	State      WorkflowExecutionState `json:"state"`
-	Event      string                 `json:"event"`
-	Summary    string                 `json:"summary"`
-	OccurredAt time.Time              `json:"occurred_at"`
+type WorkflowRuntime interface {
+	Checkpoint(ctx ExecutionContext, current WorkflowExecutionState, resumeState WorkflowExecutionState, stateVersion uint64, summary string) (CheckpointRecord, ResumeToken, error)
+	Resume(ctx ExecutionContext, checkpointID string, token ResumeToken) (WorkflowExecutionState, error)
+	HandleFailure(ctx ExecutionContext, current WorkflowExecutionState, category FailureCategory, summary string) (WorkflowExecutionState, RecoveryStrategy, error)
+	PauseForApproval(ctx ExecutionContext, current WorkflowExecutionState, pending HumanApprovalPending) (WorkflowExecutionState, error)
 }
 
-type WorkflowTimeline struct {
-	WorkflowID string                  `json:"workflow_id"`
-	TraceID    string                  `json:"trace_id"`
-	Entries    []WorkflowTimelineEntry `json:"entries"`
-}
-
-func (t *WorkflowTimeline) Append(state WorkflowExecutionState, event string, summary string, occurredAt time.Time) {
-	t.Entries = append(t.Entries, WorkflowTimelineEntry{
-		State:      state,
-		Event:      event,
-		Summary:    summary,
-		OccurredAt: occurredAt,
-	})
-}
-
-type CheckpointJournal struct {
-	mu          sync.Mutex
-	Checkpoints []CheckpointRecord `json:"checkpoints"`
-}
-
-func (j *CheckpointJournal) Append(checkpoint CheckpointRecord) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	j.Checkpoints = append(j.Checkpoints, checkpoint)
-}
-
-type InMemoryCheckpointStore struct {
-	mu          sync.RWMutex
-	checkpoints map[string]map[string]CheckpointRecord
-}
-
-func NewInMemoryCheckpointStore() *InMemoryCheckpointStore {
-	return &InMemoryCheckpointStore{
-		checkpoints: make(map[string]map[string]CheckpointRecord),
-	}
-}
-
-func (s *InMemoryCheckpointStore) Save(checkpoint CheckpointRecord) error {
-	if err := checkpoint.Validate(); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.checkpoints[checkpoint.WorkflowID]; !ok {
-		s.checkpoints[checkpoint.WorkflowID] = make(map[string]CheckpointRecord)
-	}
-	s.checkpoints[checkpoint.WorkflowID][checkpoint.ID] = checkpoint
-	return nil
-}
-
-func (s *InMemoryCheckpointStore) Load(workflowID string, checkpointID string) (CheckpointRecord, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	byWorkflow, ok := s.checkpoints[workflowID]
-	if !ok {
-		return CheckpointRecord{}, fmt.Errorf("workflow %q not found", workflowID)
-	}
-	checkpoint, ok := byWorkflow[checkpointID]
-	if !ok {
-		return CheckpointRecord{}, fmt.Errorf("checkpoint %q not found", checkpointID)
-	}
-	return checkpoint, nil
-}
-
-type RetryPlanner struct{}
-
-func (RetryPlanner) StrategyFor(category FailureCategory) (RecoveryStrategy, error) {
-	switch category {
-	case FailureCategoryTransient, FailureCategoryTimeout:
-		return RecoveryStrategyRetry, nil
-	case FailureCategoryValidation:
-		return RecoveryStrategyReplan, nil
-	case FailureCategoryPolicy:
-		return RecoveryStrategyWaitForApproval, nil
-	case FailureCategoryUnrecoverable:
-		return RecoveryStrategyAbort, nil
-	default:
-		return "", fmt.Errorf("unsupported failure category %q", category)
-	}
-}
-
-type LocalWorkflowRuntime struct {
+type LocalRuntimeOptions struct {
 	Controller      WorkflowController
-	CheckpointStore *InMemoryCheckpointStore
+	CheckpointStore CheckpointStore
 	Journal         *CheckpointJournal
 	Timeline        *WorkflowTimeline
 	EventLog        *observability.EventLog
 	Now             func() time.Time
+}
+
+type LocalWorkflowRuntime struct {
+	Controller      WorkflowController
+	CheckpointStore CheckpointStore
+	Journal         *CheckpointJournal
+	Timeline        *WorkflowTimeline
+	EventLog        *observability.EventLog
+	Now             func() time.Time
+}
+
+func NewLocalWorkflowRuntime(workflowID string, options LocalRuntimeOptions) *LocalWorkflowRuntime {
+	controller := options.Controller
+	if controller == nil {
+		controller = DefaultWorkflowController{}
+	}
+	store := options.CheckpointStore
+	if store == nil {
+		store = NewInMemoryCheckpointStore()
+	}
+	timeline := options.Timeline
+	if timeline == nil {
+		timeline = &WorkflowTimeline{WorkflowID: workflowID, TraceID: workflowID}
+	}
+	journal := options.Journal
+	if journal == nil {
+		journal = &CheckpointJournal{}
+	}
+	return &LocalWorkflowRuntime{
+		Controller:      controller,
+		CheckpointStore: store,
+		Journal:         journal,
+		Timeline:        timeline,
+		EventLog:        options.EventLog,
+		Now:             options.Now,
+	}
+}
+
+func ResolveWorkflowRuntime(current WorkflowRuntime, workflowID string, now func() time.Time) WorkflowRuntime {
+	if current != nil {
+		return current
+	}
+	return NewLocalWorkflowRuntime(workflowID, LocalRuntimeOptions{
+		Now:      now,
+		EventLog: &observability.EventLog{},
+	})
 }
 
 func (r LocalWorkflowRuntime) Checkpoint(

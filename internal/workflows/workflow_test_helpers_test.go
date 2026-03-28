@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
@@ -129,42 +128,49 @@ func buildMonthlyReviewWorkflow(t *testing.T, deps phase2Deps) MonthlyReviewWork
 	t.Helper()
 	return MonthlyReviewWorkflow{
 		Intake: taskspecIntake(deps.Now),
-		QueryTransaction: tools.QueryTransactionTool{
-			Adapter: deps.LedgerAdapter,
+		ReviewService: MonthlyReviewService{
+			QueryTransaction: tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:   tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:   tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ParseDocument: tools.ParseDocumentTool{
+				Structured: deps.StructuredDocAdapter,
+				Agentic:    deps.AgenticDocAdapter,
+			},
+			ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
 		},
-		QueryLiability: tools.QueryLiabilityTool{
-			Adapter: deps.LedgerAdapter,
+		MemoryService: memory.WorkflowMemoryService{
+			Writer:    deps.Writer,
+			Retriever: deps.Retriever,
+			Now:       func() time.Time { return deps.Now },
 		},
-		QueryPortfolio: tools.QueryPortfolioTool{
-			LedgerAdapter: deps.LedgerAdapter,
+		CashflowMetrics: tools.ComputeCashflowMetricsTool{},
+		TaxSignals:      tools.ComputeTaxSignalTool{},
+		Planner:         &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
+		Skill:           skills.MonthlyReviewSkill{},
+		ArtifactService: ArtifactService{
+			Tool:     tools.GenerateTaskArtifactTool{},
+			Producer: StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
+			Now:      func() time.Time { return deps.Now },
 		},
-		ParseDocument: tools.ParseDocumentTool{
-			Structured: deps.StructuredDocAdapter,
-			Agentic:    deps.AgenticDocAdapter,
+		VerificationPipeline: verification.Pipeline{
+			CoverageChecker:        verification.DefaultEvidenceCoverageChecker{},
+			DeterministicValidator: verification.MonthlyReviewDeterministicValidator{},
+			BusinessValidator:      verification.MonthlyReviewBusinessValidator{},
+			SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
+			Oracle:                 verification.BaselineTrajectoryOracle{},
+			Now:                    func() time.Time { return deps.Now },
 		},
-		CashflowMetrics:        tools.ComputeCashflowMetricsTool{},
-		TaxSignals:             tools.ComputeTaxSignalTool{},
-		ArtifactTool:           tools.GenerateTaskArtifactTool{},
-		ReducerEngine:          reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
-		MemoryWriter:           deps.Writer,
-		MemoryRetriever:        deps.Retriever,
-		ContextAssembler:       contextview.DefaultContextAssembler{},
-		Planner:                &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
-		Skill:                  skills.MonthlyReviewSkill{},
-		ArtifactProducer:       StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
-		CoverageChecker:        verification.DefaultEvidenceCoverageChecker{},
-		DeterministicValidator: verification.MonthlyReviewDeterministicValidator{},
-		BusinessValidator:      verification.MonthlyReviewBusinessValidator{},
-		SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
-		Oracle:                 verification.BaselineTrajectoryOracle{},
-		RiskClassifier:         governance.DefaultRiskClassifier{},
-		ApprovalDecider:        governance.ApprovalDecider{},
-		PolicyEngine:           governance.StaticPolicyEngine{},
-		ApprovalPolicy: governance.ApprovalPolicy{
-			Name:          "monthly-review-approval",
-			MinRiskLevel:  governance.ActionRiskHigh,
-			RequiredRoles: []string{"operator"},
-			AutoApprove:   false,
+		ApprovalService: governance.ApprovalService{
+			Classifier:   governance.DefaultRiskClassifier{},
+			Decider:      governance.ApprovalDecider{},
+			PolicyEngine: governance.StaticPolicyEngine{},
+			ApprovalPolicy: governance.ApprovalPolicy{
+				Name:          "monthly-review-approval",
+				MinRiskLevel:  governance.ActionRiskHigh,
+				RequiredRoles: []string{"operator"},
+				AutoApprove:   false,
+			},
+			ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
 		},
 		MemoryWritePolicy: governance.MemoryWritePolicy{
 			MinConfidence:   0.7,
@@ -175,8 +181,7 @@ func buildMonthlyReviewWorkflow(t *testing.T, deps phase2Deps) MonthlyReviewWork
 				memory.MemoryKindProcedural,
 			},
 		},
-		ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
-		Now:          func() time.Time { return deps.Now },
+		Now: func() time.Time { return deps.Now },
 	}
 }
 
@@ -184,35 +189,54 @@ func buildDebtWorkflow(t *testing.T, deps phase2Deps) DebtVsInvestWorkflow {
 	t.Helper()
 	return DebtVsInvestWorkflow{
 		Intake: taskspecIntake(deps.Now),
-		QueryTransaction: tools.QueryTransactionTool{
-			Adapter: deps.LedgerAdapter,
+		DecisionService: DebtVsInvestService{
+			QueryTransaction: tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:   tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:   tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ReducerEngine:    reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
 		},
-		QueryLiability: tools.QueryLiabilityTool{
-			Adapter: deps.LedgerAdapter,
+		MemoryService: memory.WorkflowMemoryService{
+			Writer:    deps.Writer,
+			Retriever: deps.Retriever,
+			Now:       func() time.Time { return deps.Now },
 		},
-		QueryPortfolio: tools.QueryPortfolioTool{
-			LedgerAdapter: deps.LedgerAdapter,
+		ComputeMetrics: tools.ComputeDebtDecisionMetricsTool{},
+		Planner:        &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
+		Skill:          skills.DebtOptimizationSkill{},
+		ArtifactService: ArtifactService{
+			Tool:     tools.GenerateTaskArtifactTool{},
+			Producer: StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
+			Now:      func() time.Time { return deps.Now },
 		},
-		ComputeMetrics:    tools.ComputeDebtDecisionMetricsTool{},
-		ArtifactTool:      tools.GenerateTaskArtifactTool{},
-		ReducerEngine:     reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
-		ContextAssembler:  contextview.DefaultContextAssembler{},
-		Planner:           &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
-		Skill:             skills.DebtOptimizationSkill{},
-		CoverageChecker:   verification.DefaultEvidenceCoverageChecker{},
-		BusinessValidator: verification.DebtDecisionBusinessValidator{},
-		SuccessChecker:    verification.DefaultSuccessCriteriaChecker{},
-		Oracle:            verification.BaselineTrajectoryOracle{},
-		RiskClassifier:    governance.DefaultRiskClassifier{},
-		ApprovalDecider:   governance.ApprovalDecider{},
-		ApprovalPolicy: governance.ApprovalPolicy{
-			Name:          "debt-vs-invest-approval",
-			MinRiskLevel:  governance.ActionRiskHigh,
-			RequiredRoles: []string{"operator"},
-			AutoApprove:   false,
+		VerificationPipeline: verification.Pipeline{
+			CoverageChecker:   verification.DefaultEvidenceCoverageChecker{},
+			BusinessValidator: verification.DebtDecisionBusinessValidator{},
+			SuccessChecker:    verification.DefaultSuccessCriteriaChecker{},
+			Oracle:            verification.BaselineTrajectoryOracle{},
+			Now:               func() time.Time { return deps.Now },
 		},
-		ArtifactProducer: StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
-		Now:              func() time.Time { return deps.Now },
+		ApprovalService: governance.ApprovalService{
+			Classifier:   governance.DefaultRiskClassifier{},
+			Decider:      governance.ApprovalDecider{},
+			PolicyEngine: governance.StaticPolicyEngine{},
+			ApprovalPolicy: governance.ApprovalPolicy{
+				Name:          "debt-vs-invest-approval",
+				MinRiskLevel:  governance.ActionRiskHigh,
+				RequiredRoles: []string{"operator"},
+				AutoApprove:   false,
+			},
+			ReportPolicy: governance.ReportDisclosurePolicy{Audience: "user", AllowPII: false},
+		},
+		MemoryWritePolicy: governance.MemoryWritePolicy{
+			MinConfidence:   0.7,
+			RequireEvidence: false,
+			AllowKinds: []memory.MemoryKind{
+				memory.MemoryKindEpisodic,
+				memory.MemoryKindSemantic,
+				memory.MemoryKindProcedural,
+			},
+		},
+		Now: func() time.Time { return deps.Now },
 	}
 }
 

@@ -101,3 +101,41 @@ func TestDefaultRiskClassifierClassifiesHighRisk(t *testing.T) {
 		t.Fatalf("expected high risk classification, got %+v", assessment)
 	}
 }
+
+func TestApprovalServiceEvaluatesActionAndReport(t *testing.T) {
+	service := ApprovalService{
+		Classifier:   DefaultRiskClassifier{},
+		Decider:      ApprovalDecider{PolicyEngine: StaticPolicyEngine{}},
+		PolicyEngine: StaticPolicyEngine{},
+		ApprovalPolicy: ApprovalPolicy{
+			Name:          "high-risk-review",
+			MinRiskLevel:  ActionRiskHigh,
+			RequiredRoles: []string{"operator"},
+			AutoApprove:   false,
+		},
+		ReportPolicy: ReportDisclosurePolicy{Audience: "user", AllowPII: false},
+	}
+	current := state.FinancialWorldState{
+		UserID: "user-1",
+		LiabilityState: state.LiabilityState{
+			DebtBurdenRatio:        0.42,
+			MinimumPaymentPressure: 0.21,
+		},
+		RiskState: state.RiskState{OverallRisk: "high"},
+	}
+	evaluation, err := service.EvaluateAction(current, "workflow-1", "monthly_review_report", "task-1", "governance_agent", []string{"analyst"}, false)
+	if err != nil {
+		t.Fatalf("evaluate action: %v", err)
+	}
+	if evaluation.Decision == nil || evaluation.Decision.Outcome != PolicyDecisionRequireApproval {
+		t.Fatalf("expected require approval, got %+v", evaluation)
+	}
+
+	reportEval, err := service.EvaluateReport("workflow-1", "report_agent", "user", true)
+	if err != nil {
+		t.Fatalf("evaluate report: %v", err)
+	}
+	if reportEval.Decision.Outcome != PolicyDecisionRedact {
+		t.Fatalf("expected redact decision for pii report")
+	}
+}

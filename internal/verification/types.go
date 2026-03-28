@@ -29,11 +29,16 @@ type EvidenceCoverageReport struct {
 }
 
 type VerificationResult struct {
-	Status           VerificationStatus     `json:"status"`
-	Validator        string                 `json:"validator"`
-	Message          string                 `json:"message"`
-	EvidenceCoverage EvidenceCoverageReport `json:"evidence_coverage"`
-	CheckedAt        time.Time              `json:"checked_at"`
+	Status                  VerificationStatus     `json:"status"`
+	Validator               string                 `json:"validator"`
+	Message                 string                 `json:"message"`
+	Details                 map[string]any         `json:"details,omitempty"`
+	FailedRules             []string               `json:"failed_rules,omitempty"`
+	MissingEvidence         []string               `json:"missing_evidence,omitempty"`
+	RecommendedReplanAction string                 `json:"recommended_replan_action,omitempty"`
+	Severity                string                 `json:"severity,omitempty"`
+	EvidenceCoverage        EvidenceCoverageReport `json:"evidence_coverage"`
+	CheckedAt               time.Time              `json:"checked_at"`
 }
 
 type OracleVerdict struct {

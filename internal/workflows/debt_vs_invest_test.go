@@ -29,4 +29,11 @@ func TestDebtVsInvestWorkflowMVPPath(t *testing.T) {
 	if result.ApprovalDecision.Outcome != governance.PolicyDecisionAllow && result.ApprovalDecision.Outcome != governance.PolicyDecisionRequireApproval {
 		t.Fatalf("unexpected approval outcome: %+v", result.ApprovalDecision)
 	}
+	records, err := deps.Store.List(t.Context())
+	if err != nil {
+		t.Fatalf("list written memories: %v", err)
+	}
+	if len(records) == 0 {
+		t.Fatalf("expected debt workflow to write derived memories")
+	}
 }

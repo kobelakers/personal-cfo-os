@@ -78,3 +78,16 @@ func TestLocalWorkflowRuntimeCheckpointAndResume(t *testing.T) {
 		t.Fatalf("expected checkpoint journal and timeline to record events")
 	}
 }
+
+func TestResolveWorkflowRuntimeProvidesDefaultRuntime(t *testing.T) {
+	resolved := ResolveWorkflowRuntime(nil, "workflow-default", func() time.Time {
+		return time.Date(2026, 3, 28, 16, 0, 0, 0, time.UTC)
+	})
+	local, ok := resolved.(*LocalWorkflowRuntime)
+	if !ok {
+		t.Fatalf("expected resolved runtime to be local runtime")
+	}
+	if local.CheckpointStore == nil || local.Timeline == nil || local.Journal == nil {
+		t.Fatalf("expected default runtime dependencies to be initialized")
+	}
+}

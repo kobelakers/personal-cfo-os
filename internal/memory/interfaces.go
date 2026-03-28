@@ -44,3 +44,7 @@ type RejectionPolicy interface {
 type MemoryWriter interface {
 	Write(ctx context.Context, record MemoryRecord) error
 }
+
+type MemoryWriteGate interface {
+	AllowWrite(ctx context.Context, record MemoryRecord) error
+}

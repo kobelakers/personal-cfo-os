@@ -1,11 +1,15 @@
 package memory
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/state"
+	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
 func TestMemoryRecordRoundTrip(t *testing.T) {
@@ -197,5 +201,86 @@ func TestDefaultMemoryWriterAndHybridRetriever(t *testing.T) {
 	}
 	if len(auditLog.Entries()) < 3 {
 		t.Fatalf("expected audit log entries for writes and retrievals, got %d", len(auditLog.Entries()))
+	}
+}
+
+type allowAllGate struct{}
+
+func (allowAllGate) AllowWrite(_ context.Context, _ MemoryRecord) error { return nil }
+
+func TestWorkflowMemoryServiceSyncMonthlyReviewDerivesMemories(t *testing.T) {
+	store := NewInMemoryMemoryStore()
+	auditLog := &MemoryAccessAuditLog{}
+	writer := DefaultMemoryWriter{
+		Store:         store,
+		AuditLog:      auditLog,
+		MinConfidence: 0.7,
+	}
+	service := WorkflowMemoryService{
+		Writer: writer,
+		Gate:   allowAllGate{},
+		Retriever: HybridMemoryRetriever{
+			Lexical: LexicalRetriever{Store: store, AuditLog: auditLog},
+			Semantic: SemanticRetriever{
+				Store: store,
+				Backend: FakeSemanticSearchBackend{
+					Provider: KeywordEmbeddingProvider{Dimensions: 8},
+					Index:    NewInMemoryVectorIndex(),
+				},
+				AuditLog: auditLog,
+			},
+			Fusion:          ReciprocalRankFusion{},
+			Reranker:        BaselineReranker{},
+			RejectionPolicy: ThresholdRejectionPolicy{MinScore: 0.01},
+		},
+		Now: func() time.Time { return time.Date(2026, 3, 28, 12, 0, 0, 0, time.UTC) },
+	}
+
+	spec := taskspec.TaskSpec{ID: "task-monthly-review", Goal: "月度复盘", Scope: taskspec.TaskScope{Areas: []string{"cashflow", "debt"}}}
+	current := state.FinancialWorldState{
+		UserID: "user-1",
+		LiabilityState: state.LiabilityState{
+			DebtBurdenRatio:        0.24,
+			MinimumPaymentPressure: 0.11,
+		},
+		BehaviorState: state.BehaviorState{
+			DuplicateSubscriptionCount: 2,
+			LateNightSpendingFrequency: 0.3,
+		},
+		TaxState: state.TaxState{
+			ChildcareTaxSignal: true,
+			FamilyTaxNotes:     []string{"childcare credit candidate"},
+		},
+	}
+	evidence := []observation.EvidenceRecord{
+		newMemoryEvidence("evidence-subscriptions", observation.EvidenceTypeRecurringSubscription, "duplicate_subscription_count", "2"),
+		newMemoryEvidence("evidence-late-night", observation.EvidenceTypeLateNightSpendingSignal, "late_night_spending_frequency", "0.3"),
+		newMemoryEvidence("evidence-debt", observation.EvidenceTypeDebtObligationSnapshot, "debt_burden_ratio", "0.24"),
+		newMemoryEvidence("evidence-tax", observation.EvidenceTypeTaxDocument, "childcare_tax_signal", "true"),
+	}
+
+	result, err := service.SyncMonthlyReview(t.Context(), spec, "workflow-1", current, evidence)
+	if err != nil {
+		t.Fatalf("sync monthly review memories: %v", err)
+	}
+	if len(result.GeneratedIDs) == 0 {
+		t.Fatalf("expected derived memories to be written")
+	}
+	if len(result.Retrieved) == 0 {
+		t.Fatalf("expected hybrid retrieval after writes")
+	}
+}
+
+func newMemoryEvidence(id string, kind observation.EvidenceType, predicate string, value string) observation.EvidenceRecord {
+	return observation.EvidenceRecord{
+		ID:            observation.EvidenceID(id),
+		Type:          kind,
+		Summary:       fmt.Sprintf("%s summary", kind),
+		Claims:        []observation.EvidenceClaim{{Subject: "test", Predicate: predicate, Object: "window", ValueJSON: value}},
+		Source:        observation.EvidenceSource{Kind: "test", Adapter: "test", Reference: id, Provenance: "fixture"},
+		TimeRange:     observation.EvidenceTimeRange{ObservedAt: time.Date(2026, 3, 28, 10, 0, 0, 0, time.UTC)},
+		Confidence:    observation.EvidenceConfidence{Score: 0.9, Reason: "test"},
+		Normalization: observation.EvidenceNormalizationResult{Status: observation.EvidenceNormalizationNormalized},
+		CreatedAt:     time.Date(2026, 3, 28, 10, 0, 0, 0, time.UTC),
 	}
 }
