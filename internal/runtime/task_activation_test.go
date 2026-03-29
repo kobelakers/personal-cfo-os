@@ -307,6 +307,7 @@ func TestExecuteReadyFollowUpsRecordsRetryHistory(t *testing.T) {
 type runtimeTestCapability struct {
 	name    string
 	execute func(ctx context.Context, spec taskspec.TaskSpec, activation FollowUpActivationContext, current state.FinancialWorldState) (FollowUpWorkflowRunResult, error)
+	resume  func(ctx context.Context, spec taskspec.TaskSpec, activation FollowUpActivationContext, current state.FinancialWorldState, checkpoint CheckpointRecord, token ResumeToken, payload CheckpointPayloadEnvelope) (FollowUpWorkflowRunResult, error)
 }
 
 func (c runtimeTestCapability) CapabilityName() string { return c.name }
@@ -318,6 +319,24 @@ func (c runtimeTestCapability) Execute(
 	current state.FinancialWorldState,
 ) (FollowUpWorkflowRunResult, error) {
 	return c.execute(ctx, spec, activation, current)
+}
+
+func (c runtimeTestCapability) Resume(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	activation FollowUpActivationContext,
+	current state.FinancialWorldState,
+	checkpoint CheckpointRecord,
+	token ResumeToken,
+	payload CheckpointPayloadEnvelope,
+) (FollowUpWorkflowRunResult, error) {
+	if c.resume != nil {
+		return c.resume(ctx, spec, activation, current, checkpoint, token, payload)
+	}
+	if c.execute != nil {
+		return c.execute(ctx, spec, activation, current)
+	}
+	return FollowUpWorkflowRunResult{}, nil
 }
 
 func runtimeGeneratedTask(now time.Time, taskID string, intent taskspec.UserIntentType, depth int) taskspec.GeneratedTaskSpec {

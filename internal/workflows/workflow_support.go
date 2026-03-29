@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
@@ -308,4 +310,74 @@ func executedTaskIDs(items []runtimepkg.TaskExecutionRecord) string {
 		ids = append(ids, item.TaskID)
 	}
 	return strings.Join(ids, ",")
+}
+
+func buildFollowUpFinalizeResumePayload(
+	graphID string,
+	workflowID string,
+	taskID string,
+	artifactKind reporting.ArtifactKind,
+	draft reporting.ReportPayload,
+	disclosure governance.PolicyDecision,
+	updatedState state.FinancialWorldState,
+	runtimeState runtimepkg.WorkflowExecutionState,
+) *runtimepkg.CheckpointPayloadEnvelope {
+	if runtimeState != runtimepkg.WorkflowStateWaitingApproval {
+		return nil
+	}
+	return &runtimepkg.CheckpointPayloadEnvelope{
+		Kind: runtimepkg.CheckpointPayloadKindFollowUpFinalizeResume,
+		FollowUpFinalizeResume: &runtimepkg.FollowUpFinalizeResumePayload{
+			GraphID:                 graphID,
+			TaskID:                  taskID,
+			WorkflowID:              workflowID,
+			ArtifactKind:            artifactKind,
+			DraftReport:             draft,
+			DisclosureDecision:      disclosure,
+			PendingStateSnapshotRef: updatedState.Version.SnapshotID,
+		},
+	}
+}
+
+func resumeFollowUpFinalize(
+	ctx context.Context,
+	steps agents.SystemStepBus,
+	workflowRuntime runtimepkg.WorkflowRuntime,
+	workflowID string,
+	sender string,
+	spec taskspec.TaskSpec,
+	activation runtimepkg.FollowUpActivationContext,
+	current state.FinancialWorldState,
+	checkpoint runtimepkg.CheckpointRecord,
+	token runtimepkg.ResumeToken,
+	payload runtimepkg.CheckpointPayloadEnvelope,
+) (reporting.ReportPayload, []WorkflowArtifact, error) {
+	if steps == nil {
+		return reporting.ReportPayload{}, nil, fmt.Errorf("follow-up resume requires system step bus")
+	}
+	if err := payload.Validate(); err != nil {
+		return reporting.ReportPayload{}, nil, err
+	}
+	if payload.Kind != runtimepkg.CheckpointPayloadKindFollowUpFinalizeResume || payload.FollowUpFinalizeResume == nil {
+		return reporting.ReportPayload{}, nil, fmt.Errorf("follow-up resume requires %q checkpoint payload", runtimepkg.CheckpointPayloadKindFollowUpFinalizeResume)
+	}
+	execCtx := runtimepkg.ExecutionContext{
+		WorkflowID:    workflowID,
+		TaskID:        spec.ID,
+		CorrelationID: activation.RootCorrelationID,
+		Attempt:       1,
+	}
+	nextState, err := workflowRuntime.Resume(execCtx, checkpoint.ID, token)
+	if err != nil {
+		return reporting.ReportPayload{}, nil, err
+	}
+	if nextState != checkpoint.ResumeState {
+		return reporting.ReportPayload{}, nil, fmt.Errorf("follow-up resume reached unexpected state %q", nextState)
+	}
+	meta := systemStepMeta(workflowID, sender, spec, current, activation.RootCorrelationID, activation.TriggeredByTaskID)
+	finalizeStep, err := steps.DispatchReportFinalize(ctx, meta, payload.FollowUpFinalizeResume.DraftReport, payload.FollowUpFinalizeResume.DisclosureDecision)
+	if err != nil {
+		return reporting.ReportPayload{}, nil, err
+	}
+	return finalizeStep.Report, finalizeStep.Artifacts, nil
 }

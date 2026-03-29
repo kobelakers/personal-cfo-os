@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, and a first capability-backed follow-up execution path:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, and a first operator-runnable durable runtime plane:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -28,10 +28,12 @@ The repository now runs a real governed finance workflow backbone with system-ag
 10. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
 11. observability and replay outputs now include block plan, domain block execution order, selected memory/evidence/state slices, checkpoint timeline, and policy decisions
 12. Workflow C now ingests structured life events and deadlines, updates state/memory, executes event-specific domain blocks, generates typed follow-up tasks, verifies and governs them, registers them into runtime as follow-up task graph records, then lets runtime activate and execute allowlisted first-level follow-up capabilities for `tax_optimization` and `portfolio_rebalance`
+13. runtime state is now backed by a local durable SQLite seam for task graphs, execution records, checkpoints, resume tokens, approvals, operator actions, replay events, committed state snapshots, and artifact metadata refs
+14. `cmd/api` and `cmd/worker` now provide a minimal runnable operator surface for approvals, resume, retry, reevaluate, and durable worker passes instead of placeholder binaries
 
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
@@ -43,9 +45,12 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - generated downstream tasks are now formal `TaskSpec`-backed queue objects, and Phase 4B lights up real workflow capability for `tax_optimization` and `portfolio_rebalance`
 - runtime now advances capability-backed follow-up tasks through `queued_pending_capability -> ready -> executing -> completed / waiting_approval / failed`
 - only allowlisted first-level follow-up tasks auto-execute; deeper or non-allowlisted follow-ups remain registered but not recursively auto-run
+- runtime persistence no longer lives only inside a single process: task graphs, execution records, approval state, checkpoint payloads, replay events, and artifact refs now survive process restart through a local SQLite seam
+- operator-facing actions are now formal typed commands with idempotent request ids and optimistic-concurrency transitions instead of ad hoc workflow-local mutation
+- replay queries now read durable `ReplayStore` records rather than in-memory helper timelines
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
-## Phase 3A / 3B / 4A / 4B Highlights
+## Phase 3A / 3B / 4A / 4B / 5A Highlights
 
 - `internal/protocol` is now execution-first: typed request/result message kinds, oneof-style request/result bodies, and response envelopes participate in real dispatch.
 - `internal/agents` now contains a concrete execution plane: registry, dispatcher, executor, system-step bus, typed execution errors, and registered system-agent handlers.
@@ -65,12 +70,17 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - `TaxOptimizationWorkflow` and `PortfolioRebalanceWorkflow` now exist as real follow-up workflow entrypoints behind runtime capability activation.
 - runtime now owns follow-up task reevaluation, execution ordering, execution records, committed state handoff, retry metadata, approval resumability metadata, and task-level suppression reasons.
 - replay can now explain parent life-event workflow -> generated task -> child workflow -> child artifact -> child state commit as one proactive chain.
+- runtime store seams are now explicit (`TaskGraphStore`, `TaskExecutionStore`, `ApprovalStateStore`, `CheckpointStore`, `ReplayStore`) and backed by a local SQLite implementation for restart-resilient operator flows.
+- `cmd/api` now exposes minimal operator endpoints for listing task graphs, listing pending approvals, approve/deny, resume/retry, and task-graph reevaluation with explicit `400 / 404 / 409` semantics.
+- `cmd/worker` now runs reevaluate / auto-execute / resume / operator-retry passes against the durable runtime instead of remaining a placeholder.
+- approval-aware resume is now a real runtime continuation path: approved waiting child workflows resume from persisted checkpoint payloads rather than restarting the whole child workflow from the top.
 
 ## Repository Layout
 
 ```text
 cmd/                 Entrypoints for api, worker, eval, replay
 internal/            Core application layers and domain contracts
+var/                 Local durable runtime state and artifact refs (generated at runtime)
 web/                 Minimal operator UI placeholder
 deployments/         Docker Compose skeleton and deployment notes
 schemas/             JSON schemas for core contracts
@@ -83,6 +93,9 @@ scripts/             Developer workflow placeholders
 
 ```bash
 go test ./...
+go vet ./...
+go run ./cmd/api --db ./var/runtime.db
+go run ./cmd/worker --db ./var/runtime.db --once
 ```
 
 The `web/` directory is intentionally minimal in Phase 1. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
@@ -92,10 +105,12 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 - agentic document parsing is still a deterministic stub behind a formal adapter boundary
 - semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
+- durable runtime uses a local SQLite seam and metadata/file refs, not Postgres + object storage yet
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
 - `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
 - capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
 - no real Postgres / pgvector / MinIO / provider service is required yet
+- semantic retrieval hardening, deterministic finance engine hardening, and deeper business-rule validator expansion are intentionally deferred to the next phase instead of being mixed into the durable-runtime/operator-plane work
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.
 

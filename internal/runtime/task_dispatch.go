@@ -13,6 +13,15 @@ import (
 type FollowUpWorkflowCapability interface {
 	CapabilityName() string
 	Execute(ctx context.Context, spec taskspec.TaskSpec, activation FollowUpActivationContext, current state.FinancialWorldState) (FollowUpWorkflowRunResult, error)
+	Resume(
+		ctx context.Context,
+		spec taskspec.TaskSpec,
+		activation FollowUpActivationContext,
+		current state.FinancialWorldState,
+		checkpoint CheckpointRecord,
+		token ResumeToken,
+		payload CheckpointPayloadEnvelope,
+	) (FollowUpWorkflowRunResult, error)
 }
 
 type FollowUpActivationContext struct {
@@ -37,6 +46,7 @@ type FollowUpWorkflowRunResult struct {
 	Artifacts            []reporting.WorkflowArtifact `json:"artifacts,omitempty"`
 	Checkpoint           *CheckpointRecord            `json:"checkpoint,omitempty"`
 	ResumeToken          *ResumeToken                 `json:"resume_token,omitempty"`
+	CheckpointPayload    *CheckpointPayloadEnvelope   `json:"checkpoint_payload,omitempty"`
 	PendingApproval      *HumanApprovalPending        `json:"pending_approval,omitempty"`
 	FailureCategory      FailureCategory              `json:"failure_category,omitempty"`
 	FailureSummary       string                       `json:"failure_summary,omitempty"`
@@ -44,38 +54,41 @@ type FollowUpWorkflowRunResult struct {
 }
 
 type TaskExecutionRecord struct {
-	TaskID                string                  `json:"task_id"`
-	Intent                taskspec.UserIntentType `json:"intent"`
-	ParentGraphID         string                  `json:"parent_graph_id"`
-	ParentWorkflowID      string                  `json:"parent_workflow_id"`
-	RootTaskID            string                  `json:"root_task_id"`
-	TriggeredByTaskID     string                  `json:"triggered_by_task_id"`
-	ExecutionDepth        int                     `json:"execution_depth"`
-	Capability            string                  `json:"capability"`
-	WorkflowID            string                  `json:"workflow_id"`
-	RootCorrelationID     string                  `json:"root_correlation_id"`
-	CorrelationID         string                  `json:"correlation_id"`
-	CausationID           string                  `json:"causation_id"`
-	Status                TaskQueueStatus         `json:"status"`
-	Attempt               int                     `json:"attempt"`
-	RetryCount            int                     `json:"retry_count"`
-	LastRecoveryStrategy  RecoveryStrategy        `json:"last_recovery_strategy,omitempty"`
-	LastTransitionAt      time.Time               `json:"last_transition_at"`
-	StartedAt             time.Time               `json:"started_at"`
-	CompletedAt           time.Time               `json:"completed_at,omitempty"`
-	FailedAt              time.Time               `json:"failed_at,omitempty"`
-	InputStateVersion     uint64                  `json:"input_state_version"`
-	UpdatedStateVersion   uint64                  `json:"updated_state_version,omitempty"`
-	InputStateSnapshotRef string                  `json:"input_state_snapshot_ref,omitempty"`
-	Committed             bool                    `json:"committed"`
-	CheckpointID          string                  `json:"checkpoint_id,omitempty"`
-	ResumeToken           string                  `json:"resume_token,omitempty"`
-	ResumeState           WorkflowExecutionState  `json:"resume_state,omitempty"`
-	ApprovalID            string                  `json:"approval_id,omitempty"`
-	PendingApproval       bool                    `json:"pending_approval,omitempty"`
-	FailureCategory       FailureCategory         `json:"failure_category,omitempty"`
-	FailureSummary        string                  `json:"failure_summary,omitempty"`
-	ArtifactIDs           []string                `json:"artifact_ids,omitempty"`
+	ExecutionID             string                  `json:"execution_id"`
+	TaskID                  string                  `json:"task_id"`
+	Intent                  taskspec.UserIntentType `json:"intent"`
+	ParentGraphID           string                  `json:"parent_graph_id"`
+	ParentWorkflowID        string                  `json:"parent_workflow_id"`
+	RootTaskID              string                  `json:"root_task_id"`
+	TriggeredByTaskID       string                  `json:"triggered_by_task_id"`
+	ExecutionDepth          int                     `json:"execution_depth"`
+	Capability              string                  `json:"capability"`
+	WorkflowID              string                  `json:"workflow_id"`
+	RootCorrelationID       string                  `json:"root_correlation_id"`
+	CorrelationID           string                  `json:"correlation_id"`
+	CausationID             string                  `json:"causation_id"`
+	Status                  TaskQueueStatus         `json:"status"`
+	Version                 int64                   `json:"version"`
+	Attempt                 int                     `json:"attempt"`
+	RetryCount              int                     `json:"retry_count"`
+	LastRecoveryStrategy    RecoveryStrategy        `json:"last_recovery_strategy,omitempty"`
+	LastTransitionAt        time.Time               `json:"last_transition_at"`
+	StartedAt               time.Time               `json:"started_at"`
+	CompletedAt             time.Time               `json:"completed_at,omitempty"`
+	FailedAt                time.Time               `json:"failed_at,omitempty"`
+	InputStateVersion       uint64                  `json:"input_state_version"`
+	UpdatedStateVersion     uint64                  `json:"updated_state_version,omitempty"`
+	InputStateSnapshotRef   string                  `json:"input_state_snapshot_ref,omitempty"`
+	UpdatedStateSnapshotRef string                  `json:"updated_state_snapshot_ref,omitempty"`
+	Committed               bool                    `json:"committed"`
+	CheckpointID            string                  `json:"checkpoint_id,omitempty"`
+	ResumeToken             string                  `json:"resume_token,omitempty"`
+	ResumeState             WorkflowExecutionState  `json:"resume_state,omitempty"`
+	ApprovalID              string                  `json:"approval_id,omitempty"`
+	PendingApproval         bool                    `json:"pending_approval,omitempty"`
+	FailureCategory         FailureCategory         `json:"failure_category,omitempty"`
+	FailureSummary          string                  `json:"failure_summary,omitempty"`
+	ArtifactIDs             []string                `json:"artifact_ids,omitempty"`
 }
 
 type AutoExecutionPolicy struct {

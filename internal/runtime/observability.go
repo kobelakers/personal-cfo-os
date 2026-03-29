@@ -15,7 +15,10 @@ func (t WorkflowTimeline) Records() []observability.TimelineRecord {
 	return records
 }
 
-func (j CheckpointJournal) Records() []observability.CheckpointRecord {
+func (j *CheckpointJournal) Records() []observability.CheckpointRecord {
+	if j == nil {
+		return nil
+	}
 	records := make([]observability.CheckpointRecord, 0, len(j.Checkpoints))
 	for _, checkpoint := range j.Checkpoints {
 		records = append(records, observability.CheckpointRecord{

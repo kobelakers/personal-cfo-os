@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution plus a first operator-runnable durable runtime plane.
 
 ## Core Loop
 
@@ -14,8 +14,10 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
 9. `VerificationAgent` runs block-level validation first and may short-circuit final report validation with structured replan diagnostics.
 10. `GovernanceAgent` evaluates approval and disclosure policy before finalize.
-11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, and child workflow execution records.
-12. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, and agent dispatch lifecycle.
+11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, child workflow execution records, and committed state handoff.
+12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
+13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
+14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, and operator/runtime provenance chains.
 
 ## Proactive Life Event Loop
 
@@ -37,7 +39,8 @@ Phase 4A adds the first proactive workflow rather than another passive analysis 
 10. `GovernanceAgent` evaluates disclosure and spawned-task policy / approval requirements.
 11. Runtime registers follow-up tasks into a task graph with explicit statuses such as `waiting_approval`, `deferred`, or `queued_pending_capability`.
 12. Runtime reevaluates the graph, activates capability-backed tasks, and executes allowlisted depth-1 child workflows through `TaxOptimizationWorkflow` and `PortfolioRebalanceWorkflow`.
-13. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact after runtime registration/execution and governance.
+13. The same task graph can later be reevaluated, resumed, retried, or operator-controlled outside the parent workflow through the runtime service and worker plane.
+14. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact after runtime registration/execution and governance.
 
 ## Real Data Path With System Agents
 
@@ -57,7 +60,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -68,10 +71,12 @@ The repository is now best described as **system-agent backbone + first real dom
 - agentic document parsing is still a deterministic stub behind a formal observation adapter
 - semantic retrieval still uses a fake backend behind embedding/vector interfaces
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
-- observability is structured dump / replay ready, but not yet backed by full tracing infrastructure
+- durable persistence is local SQLite + artifact refs rather than Postgres + object storage
+- observability is now durable and queryable for runtime replay, but not yet backed by full tracing infrastructure
 - system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
 - `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
 - follow-up execution is now capability-backed for `tax_optimization` and `portfolio_rebalance`, but only at execution depth 1 and only through runtime allowlist policy
 - other generated intents can still remain `ready`, `dependency_blocked`, `deferred`, or `queued_pending_capability` without being auto-run
+- semantic retrieval hardening, deterministic finance engine hardening, and deeper business-rule validator expansion remain explicitly out of scope for this phase
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

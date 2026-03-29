@@ -9,6 +9,7 @@ import (
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
+	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
@@ -221,24 +222,26 @@ func (w TaxOptimizationWorkflow) RunTask(
 	}
 
 	return TaxOptimizationRunResult{
-		WorkflowID:       workflowID,
-		TaskSpec:         spec,
-		Plan:             planStep.Plan,
-		Evidence:         observed.Evidence,
-		BlockResults:     blockResults,
-		UpdatedState:     observed.UpdatedState,
-		Report:           report,
-		Artifacts:        artifacts,
-		CoverageReport:   verificationStep.Result.CoverageReport,
-		Verification:     verificationStep.Result.Results,
-		Oracle:           verificationStep.Result.OracleVerdict,
-		RiskAssessment:   governanceStep.Approval.RiskAssessment,
-		ApprovalDecision: approvalDecision,
-		ApprovalAudit:    approvalAudit,
-		Checkpoint:       checkpoint,
-		ResumeToken:      resumeToken,
-		PendingApproval:  pendingApproval,
-		RuntimeState:     runtimeState,
+		WorkflowID:         workflowID,
+		TaskSpec:           spec,
+		Plan:               planStep.Plan,
+		Evidence:           observed.Evidence,
+		BlockResults:       blockResults,
+		UpdatedState:       observed.UpdatedState,
+		DraftPayload:       reportDraftStep.Draft,
+		DisclosureDecision: governanceStep.Disclosure.Decision,
+		Report:             report,
+		Artifacts:          artifacts,
+		CoverageReport:     verificationStep.Result.CoverageReport,
+		Verification:       verificationStep.Result.Results,
+		Oracle:             verificationStep.Result.OracleVerdict,
+		RiskAssessment:     governanceStep.Approval.RiskAssessment,
+		ApprovalDecision:   approvalDecision,
+		ApprovalAudit:      approvalAudit,
+		Checkpoint:         checkpoint,
+		ResumeToken:        resumeToken,
+		PendingApproval:    pendingApproval,
+		RuntimeState:       runtimeState,
 	}, nil
 }
 
@@ -278,9 +281,49 @@ func (c TaxOptimizationWorkflowCapability) Execute(
 		Artifacts:            result.Artifacts,
 		Checkpoint:           result.Checkpoint,
 		ResumeToken:          result.ResumeToken,
+		CheckpointPayload:    buildFollowUpFinalizeResumePayload(activation.ParentGraphID, result.WorkflowID, spec.ID, reporting.ArtifactKindTaxOptimizationReport, result.DraftPayload, result.DisclosureDecision, result.UpdatedState, result.RuntimeState),
 		PendingApproval:      result.PendingApproval,
 		FailureCategory:      followUpFailureCategoryFromRuntimeState(result.RuntimeState, runtimepkg.FailureCategoryValidation, runtimepkg.FailureCategoryUnrecoverable),
 		FailureSummary:       followUpFailureSummary(result.RuntimeState, "tax optimization follow-up did not complete"),
 		LastRecoveryStrategy: followUpRecoveryStrategyFromRuntimeState(result.RuntimeState),
+	}, nil
+}
+
+func (c TaxOptimizationWorkflowCapability) Resume(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	activation runtimepkg.FollowUpActivationContext,
+	current state.FinancialWorldState,
+	checkpoint runtimepkg.CheckpointRecord,
+	token runtimepkg.ResumeToken,
+	payload runtimepkg.CheckpointPayloadEnvelope,
+) (runtimepkg.FollowUpWorkflowRunResult, error) {
+	finalized, artifacts, err := resumeFollowUpFinalize(
+		ctx,
+		c.Workflow.systemSteps(),
+		runtimepkg.ResolveWorkflowRuntime(c.Workflow.Runtime, checkpoint.WorkflowID, c.Workflow.Now),
+		checkpoint.WorkflowID,
+		"tax_optimization_workflow_resume",
+		spec,
+		activation,
+		current,
+		checkpoint,
+		token,
+		payload,
+	)
+	if err != nil {
+		return runtimepkg.FollowUpWorkflowRunResult{}, err
+	}
+	if _, err := taxOptimizationReportFromPayload(finalized); err != nil {
+		return runtimepkg.FollowUpWorkflowRunResult{}, err
+	}
+	return runtimepkg.FollowUpWorkflowRunResult{
+		WorkflowID:           checkpoint.WorkflowID,
+		RuntimeState:         runtimepkg.WorkflowStateCompleted,
+		UpdatedState:         current,
+		Artifacts:            artifacts,
+		FailureCategory:      "",
+		FailureSummary:       "",
+		LastRecoveryStrategy: runtimepkg.RecoveryStrategyWaitForApproval,
 	}, nil
 }

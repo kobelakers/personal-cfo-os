@@ -25,6 +25,7 @@ const (
 	FailureCategoryTimeout       FailureCategory = "timeout"
 	FailureCategoryValidation    FailureCategory = "validation"
 	FailureCategoryPolicy        FailureCategory = "policy"
+	FailureCategoryDeniedByOp    FailureCategory = "denied_by_operator"
 	FailureCategoryProtocol      FailureCategory = "protocol"
 	FailureCategoryUnrecoverable FailureCategory = "unrecoverable"
 )

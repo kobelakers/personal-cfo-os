@@ -58,6 +58,7 @@ func (r StaticTaskCapabilityResolver) ResolveWorkflow(spec taskspec.TaskSpec) (F
 type FollowUpTaskRecord struct {
 	Task                    taskspec.TaskSpec              `json:"task"`
 	Metadata                taskspec.GeneratedTaskMetadata `json:"metadata"`
+	Version                 int64                          `json:"version"`
 	Status                  TaskQueueStatus                `json:"status"`
 	RequiredCapability      string                         `json:"required_capability,omitempty"`
 	MissingCapabilityReason string                         `json:"missing_capability_reason,omitempty"`
@@ -88,11 +89,14 @@ type DeferredTaskRecord struct {
 
 type TaskGraphSnapshot struct {
 	Graph                        taskspec.TaskGraph    `json:"graph"`
+	Version                      int64                 `json:"version"`
 	RegisteredTasks              []FollowUpTaskRecord  `json:"registered_tasks,omitempty"`
 	Spawned                      []SpawnedTaskRecord   `json:"spawned,omitempty"`
 	Deferred                     []DeferredTaskRecord  `json:"deferred,omitempty"`
 	BaseStateSnapshot            state.StateSnapshot   `json:"base_state_snapshot"`
+	BaseStateSnapshotRef         string                `json:"base_state_snapshot_ref,omitempty"`
 	LatestCommittedStateSnapshot state.StateSnapshot   `json:"latest_committed_state_snapshot"`
+	LatestCommittedStateRef      string                `json:"latest_committed_state_ref,omitempty"`
 	ExecutedTasks                []TaskExecutionRecord `json:"executed_tasks,omitempty"`
 	RegisteredAt                 time.Time             `json:"registered_at"`
 }
@@ -107,10 +111,14 @@ type FollowUpRegistrationResult struct {
 type InMemoryTaskGraphStore struct {
 	mu        sync.RWMutex
 	snapshots map[string]TaskGraphSnapshot
+	states    map[string]state.StateSnapshot
 }
 
 func NewInMemoryTaskGraphStore() *InMemoryTaskGraphStore {
-	return &InMemoryTaskGraphStore{snapshots: make(map[string]TaskGraphSnapshot)}
+	return &InMemoryTaskGraphStore{
+		snapshots: make(map[string]TaskGraphSnapshot),
+		states:    make(map[string]state.StateSnapshot),
+	}
 }
 
 func (s *InMemoryTaskGraphStore) Save(snapshot TaskGraphSnapshot) error {
@@ -119,25 +127,74 @@ func (s *InMemoryTaskGraphStore) Save(snapshot TaskGraphSnapshot) error {
 	if s.snapshots == nil {
 		s.snapshots = make(map[string]TaskGraphSnapshot)
 	}
+	if s.states == nil {
+		s.states = make(map[string]state.StateSnapshot)
+	}
 	s.snapshots[snapshot.Graph.GraphID] = snapshot
+	s.states[snapshot.BaseStateSnapshotRef] = snapshot.BaseStateSnapshot
+	s.states[snapshot.LatestCommittedStateRef] = snapshot.LatestCommittedStateSnapshot
 	return nil
 }
 
-func (s *InMemoryTaskGraphStore) Load(graphID string) (TaskGraphSnapshot, bool) {
+func (s *InMemoryTaskGraphStore) Update(snapshot TaskGraphSnapshot, expectedVersion int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, ok := s.snapshots[snapshot.Graph.GraphID]
+	if !ok {
+		return &NotFoundError{Resource: "task_graph", ID: snapshot.Graph.GraphID}
+	}
+	if current.Version != expectedVersion {
+		return &ConflictError{
+			Resource: "task_graph",
+			ID:       snapshot.Graph.GraphID,
+			Reason:   fmt.Sprintf("expected version %d, got %d", expectedVersion, current.Version),
+		}
+	}
+	if s.states == nil {
+		s.states = make(map[string]state.StateSnapshot)
+	}
+	s.snapshots[snapshot.Graph.GraphID] = snapshot
+	s.states[snapshot.BaseStateSnapshotRef] = snapshot.BaseStateSnapshot
+	s.states[snapshot.LatestCommittedStateRef] = snapshot.LatestCommittedStateSnapshot
+	return nil
+}
+
+func (s *InMemoryTaskGraphStore) Load(graphID string) (TaskGraphSnapshot, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	snapshot, ok := s.snapshots[graphID]
-	return snapshot, ok
+	return snapshot, ok, nil
 }
 
-func (s *InMemoryTaskGraphStore) List() []TaskGraphSnapshot {
+func (s *InMemoryTaskGraphStore) List() ([]TaskGraphSnapshot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	result := make([]TaskGraphSnapshot, 0, len(s.snapshots))
 	for _, snapshot := range s.snapshots {
 		result = append(result, snapshot)
 	}
-	return result
+	return result, nil
+}
+
+func (s *InMemoryTaskGraphStore) SaveStateSnapshot(graphID string, workflowID string, taskID string, kind string, snapshot state.StateSnapshot) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.states == nil {
+		s.states = make(map[string]state.StateSnapshot)
+	}
+	ref := snapshotRefFor(snapshot)
+	if ref == "" {
+		return "", fmt.Errorf("state snapshot requires snapshot id")
+	}
+	s.states[ref] = snapshot
+	return ref, nil
+}
+
+func (s *InMemoryTaskGraphStore) LoadStateSnapshot(snapshotRef string) (state.StateSnapshot, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	snapshot, ok := s.states[snapshotRef]
+	return snapshot, ok, nil
 }
 
 func RegisterFollowUpTaskGraph(
@@ -201,6 +258,7 @@ func initialFollowUpTaskRecords(
 		record := FollowUpTaskRecord{
 			Task:                    generated.Task,
 			Metadata:                generated.Metadata,
+			Version:                 1,
 			RequiredCapability:      requiredCapability,
 			MissingCapabilityReason: missingReason,
 			Dependencies:            depsByTask[generated.Task.ID],

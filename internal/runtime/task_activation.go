@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -19,10 +20,11 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 	if policy.MaxExecutionDepth <= 0 {
 		policy = DefaultAutoExecutionPolicy()
 	}
-	snapshot, ok := r.TaskGraphs.Load(graphID)
-	if !ok {
-		return FollowUpExecutionBatchResult{}, fmt.Errorf("task graph %q not found", graphID)
+	snapshot, err := r.loadTaskGraphSnapshot(graphID)
+	if err != nil {
+		return FollowUpExecutionBatchResult{}, err
 	}
+	expectedVersion := snapshot.Version
 	executed := make([]TaskExecutionRecord, 0)
 
 	for {
@@ -30,12 +32,22 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 		if err != nil {
 			return FollowUpExecutionBatchResult{}, err
 		}
-		snapshot = updated
+		dirty := false
+		if graphMutationChanged(snapshot, updated) {
+			snapshot, err = r.saveUpdatedTaskGraphSnapshot(updated, expectedVersion)
+			if err != nil {
+				return FollowUpExecutionBatchResult{}, err
+			}
+			expectedVersion = snapshot.Version
+		} else {
+			snapshot = updated
+		}
 		progressed := false
 		for _, task := range ReadyTasksInExecutionOrder(snapshot) {
 			allowed, suppressedReason := policy.allows(task)
 			if !allowed {
 				snapshot = updateTaskSuppression(snapshot, task.Task.ID, suppressedReason, r.now())
+				dirty = true
 				r.log(execCtx, "follow_up_task_suppressed", fmt.Sprintf("suppressed auto-run for task %s", task.Task.ID), map[string]string{
 					"graph_id":           graphID,
 					"task_id":            task.Task.ID,
@@ -45,9 +57,11 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 				continue
 			}
 			snapshot = clearTaskSuppression(snapshot, task.Task.ID, r.now())
+			dirty = true
 			workflowCapability, ok, reason := r.Capabilities.ResolveWorkflow(task.Task)
 			if !ok || workflowCapability == nil {
 				snapshot = updateTaskSuppression(snapshot, task.Task.ID, reason, r.now())
+				dirty = true
 				continue
 			}
 			inputState := snapshot.LatestCommittedStateSnapshot.State
@@ -58,20 +72,30 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 			if err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
-			executed = append(executed, record)
-			snapshot = applyExecutionRecord(snapshot, record, childResult)
-			if err := r.TaskGraphs.Save(snapshot); err != nil {
+			if err := r.persistExecutionOutcome(snapshot, &record, childResult); err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
+			executed = append(executed, record)
+			snapshot = applyExecutionRecord(snapshot, record, childResult)
+			snapshot, err = r.saveUpdatedTaskGraphSnapshot(snapshot, expectedVersion)
+			if err != nil {
+				return FollowUpExecutionBatchResult{}, err
+			}
+			expectedVersion = snapshot.Version
+			dirty = false
 			progressed = true
 			break
 		}
 		if !progressed {
+			if dirty {
+				snapshot, err = r.saveUpdatedTaskGraphSnapshot(snapshot, expectedVersion)
+				if err != nil {
+					return FollowUpExecutionBatchResult{}, err
+				}
+				expectedVersion = snapshot.Version
+			}
 			break
 		}
-	}
-	if err := r.TaskGraphs.Save(snapshot); err != nil {
-		return FollowUpExecutionBatchResult{}, err
 	}
 	return FollowUpExecutionBatchResult{
 		GraphID:                      graphID,
@@ -97,6 +121,7 @@ func (r LocalWorkflowRuntime) executeSingleFollowUp(
 	startedAt := r.now()
 	activation := buildActivationContext(snapshot.Graph, task)
 	record := TaskExecutionRecord{
+		ExecutionID:           makeID(snapshot.Graph.GraphID, task.Task.ID, startedAt),
 		TaskID:                task.Task.ID,
 		Intent:                task.Task.UserIntentType,
 		ParentGraphID:         snapshot.Graph.GraphID,
@@ -109,6 +134,7 @@ func (r LocalWorkflowRuntime) executeSingleFollowUp(
 		CorrelationID:         activation.RootCorrelationID,
 		CausationID:           task.Task.ID,
 		Status:                TaskQueueStatusExecuting,
+		Version:               1,
 		Attempt:               1,
 		LastTransitionAt:      startedAt,
 		StartedAt:             startedAt,
@@ -233,6 +259,7 @@ func finalizeTaskExecutionRecord(record TaskExecutionRecord, result FollowUpWork
 	}
 	record.LastTransitionAt = now
 	record.UpdatedStateVersion = result.UpdatedState.Version.Sequence
+	record.UpdatedStateSnapshotRef = result.UpdatedState.Version.SnapshotID
 	record.ArtifactIDs = artifactIDs(result.Artifacts)
 	switch result.RuntimeState {
 	case WorkflowStateCompleted:
@@ -271,11 +298,19 @@ func applyExecutionRecord(snapshot TaskGraphSnapshot, record TaskExecutionRecord
 	switch record.Status {
 	case TaskQueueStatusCompleted:
 		snapshot.LatestCommittedStateSnapshot = result.UpdatedState.Snapshot("follow_up_task_committed", record.CompletedAt)
+		snapshot.LatestCommittedStateRef = firstNonEmpty(record.UpdatedStateSnapshotRef, snapshotRefFor(snapshot.LatestCommittedStateSnapshot))
 	case TaskQueueStatusWaitingApproval, TaskQueueStatusFailed:
 		// Intentionally do not advance committed state for non-terminal success outcomes.
 	}
 	snapshot = updateTaskStatus(snapshot, record.TaskID, record.Status, executionBlockingReasons(record), nil, record.LastTransitionAt)
 	return snapshot
+}
+
+func graphMutationChanged(before TaskGraphSnapshot, after TaskGraphSnapshot) bool {
+	return !reflect.DeepEqual(before.RegisteredTasks, after.RegisteredTasks) ||
+		!reflect.DeepEqual(before.Spawned, after.Spawned) ||
+		!reflect.DeepEqual(before.Deferred, after.Deferred) ||
+		before.LatestCommittedStateRef != after.LatestCommittedStateRef
 }
 
 func updateTaskStatus(
@@ -291,6 +326,7 @@ func updateTaskStatus(
 			continue
 		}
 		snapshot.RegisteredTasks[i].Status = status
+		snapshot.RegisteredTasks[i].Version++
 		if blocking != nil {
 			snapshot.RegisteredTasks[i].BlockingReasons = append([]string{}, blocking...)
 		}
@@ -308,6 +344,7 @@ func updateTaskSuppression(snapshot TaskGraphSnapshot, taskID string, reason str
 		if snapshot.RegisteredTasks[i].Task.ID != taskID {
 			continue
 		}
+		snapshot.RegisteredTasks[i].Version++
 		snapshot.RegisteredTasks[i].SuppressedReasons = uniqueStrings(append(snapshot.RegisteredTasks[i].SuppressedReasons, reason))
 		snapshot.RegisteredTasks[i].LastUpdatedAt = at
 	}
@@ -319,6 +356,7 @@ func clearTaskSuppression(snapshot TaskGraphSnapshot, taskID string, at time.Tim
 		if snapshot.RegisteredTasks[i].Task.ID != taskID {
 			continue
 		}
+		snapshot.RegisteredTasks[i].Version++
 		snapshot.RegisteredTasks[i].SuppressedReasons = nil
 		snapshot.RegisteredTasks[i].LastUpdatedAt = at
 	}

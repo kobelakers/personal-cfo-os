@@ -29,7 +29,12 @@ type LocalRuntimeOptions struct {
 	Journal         *CheckpointJournal
 	Timeline        *WorkflowTimeline
 	EventLog        *observability.EventLog
-	TaskGraphs      *InMemoryTaskGraphStore
+	TaskGraphs      TaskGraphStore
+	Executions      TaskExecutionStore
+	Approvals       ApprovalStateStore
+	OperatorActions OperatorActionStore
+	Replay          ReplayStore
+	Artifacts       ArtifactMetadataStore
 	Capabilities    TaskCapabilityResolver
 	Now             func() time.Time
 }
@@ -40,7 +45,12 @@ type LocalWorkflowRuntime struct {
 	Journal         *CheckpointJournal
 	Timeline        *WorkflowTimeline
 	EventLog        *observability.EventLog
-	TaskGraphs      *InMemoryTaskGraphStore
+	TaskGraphs      TaskGraphStore
+	Executions      TaskExecutionStore
+	Approvals       ApprovalStateStore
+	OperatorActions OperatorActionStore
+	Replay          ReplayStore
+	Artifacts       ArtifactMetadataStore
 	Capabilities    TaskCapabilityResolver
 	Now             func() time.Time
 }
@@ -66,6 +76,26 @@ func NewLocalWorkflowRuntime(workflowID string, options LocalRuntimeOptions) *Lo
 	if taskGraphs == nil {
 		taskGraphs = NewInMemoryTaskGraphStore()
 	}
+	executions := options.Executions
+	if executions == nil {
+		executions = NewInMemoryTaskExecutionStore()
+	}
+	approvals := options.Approvals
+	if approvals == nil {
+		approvals = NewInMemoryApprovalStateStore()
+	}
+	operatorActions := options.OperatorActions
+	if operatorActions == nil {
+		operatorActions = NewInMemoryOperatorActionStore()
+	}
+	replay := options.Replay
+	if replay == nil {
+		replay = NewInMemoryReplayStore()
+	}
+	artifacts := options.Artifacts
+	if artifacts == nil {
+		artifacts = NewInMemoryArtifactMetadataStore()
+	}
 	return &LocalWorkflowRuntime{
 		Controller:      controller,
 		CheckpointStore: store,
@@ -73,6 +103,11 @@ func NewLocalWorkflowRuntime(workflowID string, options LocalRuntimeOptions) *Lo
 		Timeline:        timeline,
 		EventLog:        options.EventLog,
 		TaskGraphs:      taskGraphs,
+		Executions:      executions,
+		Approvals:       approvals,
+		OperatorActions: operatorActions,
+		Replay:          replay,
+		Artifacts:       artifacts,
 		Capabilities:    options.Capabilities,
 		Now:             options.Now,
 	}
@@ -129,6 +164,9 @@ func (r LocalWorkflowRuntime) Checkpoint(
 		IssuedAt:     now,
 		ExpiresAt:    now.Add(24 * time.Hour),
 	}
+	if err := r.CheckpointStore.SaveResumeToken(token); err != nil {
+		return CheckpointRecord{}, ResumeToken{}, err
+	}
 	return checkpoint, token, nil
 }
 
@@ -140,11 +178,15 @@ func (r LocalWorkflowRuntime) Resume(ctx ExecutionContext, checkpointID string, 
 	if err != nil {
 		return "", err
 	}
+	storedToken, err := r.CheckpointStore.LoadResumeToken(token.Token)
+	if err != nil {
+		return "", err
+	}
 	controller := r.Controller
 	if controller == nil {
 		controller = DefaultWorkflowController{}
 	}
-	next, err := controller.Resume(checkpoint, token, r.now())
+	next, err := controller.Resume(checkpoint, storedToken, r.now())
 	if err != nil {
 		return "", err
 	}
@@ -208,14 +250,17 @@ func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph 
 	baseSnapshot := base.Snapshot("follow_up_task_graph_registered", r.now())
 	snapshot := TaskGraphSnapshot{
 		Graph:                        result.Graph,
+		Version:                      1,
 		RegisteredTasks:              result.RegisteredTasks,
 		Spawned:                      result.Spawned,
 		Deferred:                     result.Deferred,
 		BaseStateSnapshot:            baseSnapshot,
+		BaseStateSnapshotRef:         snapshotRefFor(baseSnapshot),
 		LatestCommittedStateSnapshot: baseSnapshot,
+		LatestCommittedStateRef:      snapshotRefFor(baseSnapshot),
 		RegisteredAt:                 r.now(),
 	}
-	if err := r.TaskGraphs.Save(snapshot); err != nil {
+	if snapshot, err = r.saveNewTaskGraphSnapshot(snapshot); err != nil {
 		return FollowUpRegistrationResult{}, err
 	}
 	if r.Timeline != nil {
@@ -243,15 +288,16 @@ func (r LocalWorkflowRuntime) ReevaluateTaskGraph(ctx ExecutionContext, graphID 
 	if r.TaskGraphs == nil {
 		return TaskActivationResult{}, fmt.Errorf("task graph store is required")
 	}
-	snapshot, ok := r.TaskGraphs.Load(graphID)
-	if !ok {
-		return TaskActivationResult{}, fmt.Errorf("task graph %q not found", graphID)
+	snapshot, err := r.loadTaskGraphSnapshot(graphID)
+	if err != nil {
+		return TaskActivationResult{}, err
 	}
+	expectedVersion := snapshot.Version
 	updated, activation, err := ReevaluateFollowUpTaskGraph(snapshot, r.Capabilities, r.now())
 	if err != nil {
 		return TaskActivationResult{}, err
 	}
-	if err := r.TaskGraphs.Save(updated); err != nil {
+	if updated, err = r.saveUpdatedTaskGraphSnapshot(updated, expectedVersion); err != nil {
 		return TaskActivationResult{}, err
 	}
 	r.log(ctx, "follow_up_task_activation", fmt.Sprintf("reevaluated follow-up task graph %s", graphID), map[string]string{

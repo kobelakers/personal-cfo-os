@@ -2,7 +2,7 @@
 
 ## Current Executable Path
 
-Workflow C is now a real proactive workflow rather than a Phase 1 contract placeholder.
+Workflow C is now a real proactive workflow rather than a Phase 1 contract placeholder, and after Phase 5A its follow-up task graph can continue to evolve outside the parent workflow through the durable runtime/operator plane.
 
 Supported Phase 4A event kinds:
 
@@ -32,6 +32,7 @@ Authoritative execution chain:
 13. runtime registers the generated follow-up task graph and assigns queue status such as `ready`, `deferred`, `waiting_approval`, `dependency_blocked`, or `queued_pending_capability`
 14. runtime reevaluates the graph, activates capability-backed tasks, and executes allowlisted depth-1 follow-up workflows in graph-topological order
 15. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact, and only after governance and runtime registration/execution
+16. after the parent workflow exits, operator/runtime services may still query, reevaluate, approve, deny, resume, retry, and replay the same task graph without reinflating Workflow C itself
 
 ## Primary Outputs
 
@@ -65,6 +66,20 @@ Phase 4B execution contract:
   - `suppressed_reasons`
 
 This keeps the proactive loop real without turning the system into an unbounded recursive executor.
+
+## Durable Runtime Extension
+
+Phase 5A keeps Workflow C thin while making the follow-up loop durable:
+
+- task graphs, execution records, checkpoints, resume tokens, approvals, replay events, state snapshot refs, and artifact metadata now persist through a local SQLite seam
+- `cmd/api` exposes operator actions for:
+  - list task graphs
+  - list pending approvals
+  - approve / deny
+  - resume / retry
+  - reevaluate
+- `cmd/worker` can later reevaluate deferred or capability-gated tasks, auto-execute allowlisted ready tasks, and resume approved waiting tasks outside the parent workflow lifetime
+- operator-facing replay now reads only durable `ReplayStore` data instead of in-memory helper timelines
 
 ## Domain Expansion Boundary
 
@@ -112,5 +127,8 @@ Replay and trace must be able to explain:
 - behavior-domain execution
 - recursive automatic execution of deeper generated follow-up tasks
 - stronger external calendar/policy signal integrations
+- semantic retrieval hardening
+- deterministic finance engine hardening
+- deeper business-rule validator expansion
 - real Temporal/Postgres/pgvector/MinIO/provider infrastructure
 - full operator UI for event timeline and task queue inspection
