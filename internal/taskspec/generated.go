@@ -53,10 +53,12 @@ type GeneratedTaskMetadata struct {
 	GeneratedAt       time.Time              `json:"generated_at"`
 	ParentWorkflowID  string                 `json:"parent_workflow_id"`
 	ParentTaskID      string                 `json:"parent_task_id"`
+	RootCorrelationID string                 `json:"root_correlation_id,omitempty"`
 	TriggerSource     TaskTriggerSource      `json:"trigger_source"`
 	Priority          TaskPriority           `json:"priority"`
 	DueWindow         TaskDueWindow          `json:"due_window"`
 	RequiresApproval  bool                   `json:"requires_approval"`
+	ExecutionDepth    int                    `json:"execution_depth,omitempty"`
 	GenerationReasons []TaskGenerationReason `json:"generation_reasons,omitempty"`
 }
 
@@ -86,6 +88,9 @@ func (g GeneratedTaskSpec) Validate() error {
 	if !validTaskPriority(g.Metadata.Priority) {
 		return errInvalidTaskPriority
 	}
+	if g.Metadata.ExecutionDepth < 0 {
+		return errInvalidExecutionDepth
+	}
 	if g.Metadata.DueWindow.NotBefore != nil && g.Metadata.DueWindow.NotAfter != nil && g.Metadata.DueWindow.NotBefore.After(*g.Metadata.DueWindow.NotAfter) {
 		return errInvalidDueWindow
 	}
@@ -102,6 +107,7 @@ var (
 	errMissingParentTaskID     = errors.New("generated task metadata parent_task_id is required")
 	errMissingTriggerSource    = errors.New("generated task metadata trigger_source is required")
 	errInvalidTaskPriority     = errors.New("generated task metadata priority is invalid")
+	errInvalidExecutionDepth   = errors.New("generated task metadata execution_depth cannot be negative")
 	errInvalidDueWindow        = errors.New("generated task metadata due_window not_before must be before not_after")
 )
 

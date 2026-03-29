@@ -11,8 +11,8 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
 
-func TestLifeEventTriggerWorkflowRegistersQueuedFollowUps(t *testing.T) {
-	deps := buildPhase2Deps(t, safeHoldingsCSV, true, true)
+func TestLifeEventTriggerWorkflowExecutesCapabilityBackedFollowUps(t *testing.T) {
+	deps := buildPhase2Deps(t, safeHoldingsCSV, false, true)
 	event := observation.LifeEventRecord{
 		ID:         "event-salary-1",
 		UserID:     "user-1",
@@ -57,6 +57,14 @@ func TestLifeEventTriggerWorkflowRegistersQueuedFollowUps(t *testing.T) {
 	if len(result.TaskGraph.GeneratedTasks) != 2 {
 		t.Fatalf("expected two generated follow-up tasks, got %+v", result.TaskGraph.GeneratedTasks)
 	}
+	if len(result.FollowUpExecution.ExecutedTasks) != 2 {
+		t.Fatalf("expected two executed follow-up tasks, got %+v", result.FollowUpExecution.ExecutedTasks)
+	}
+	for _, record := range result.FollowUpExecution.ExecutedTasks {
+		if record.RootCorrelationID != result.WorkflowID || record.ParentWorkflowID != result.WorkflowID || record.CausationID == "" {
+			t.Fatalf("expected executed follow-up provenance chain to reference parent workflow and generated task, got %+v", record)
+		}
+	}
 	if result.Report.EventSummary == "" || len(result.Report.GeneratedTaskIDs) != 2 {
 		t.Fatalf("expected populated life event assessment report, got %+v", result.Report)
 	}
@@ -65,14 +73,24 @@ func TestLifeEventTriggerWorkflowRegistersQueuedFollowUps(t *testing.T) {
 	}
 
 	taxTask := findFollowUpByIntent(t, result.FollowUpTasks.RegisteredTasks, taskspec.UserIntentTaxOptimization)
-	if taxTask.Status != runtimepkg.TaskQueueStatusQueuedPendingCapability {
-		t.Fatalf("expected tax follow-up to be queued_pending_capability, got %+v", taxTask)
+	if taxTask.Status != runtimepkg.TaskQueueStatusCompleted {
+		t.Fatalf("expected tax follow-up to complete through capability-backed execution, got task=%+v execution=%+v", taxTask, result.FollowUpExecution.ExecutedTasks)
 	}
-	if taxTask.RequiredCapability == "" || taxTask.MissingCapabilityReason == "" {
-		t.Fatalf("expected explicit missing capability metadata, got %+v", taxTask)
+	if taxTask.RequiredCapability == "" {
+		t.Fatalf("expected tax follow-up to retain required capability metadata, got %+v", taxTask)
 	}
-	if status := result.Report.GeneratedTaskStatuses[taxTask.Task.ID]; status != string(runtimepkg.TaskQueueStatusQueuedPendingCapability) {
-		t.Fatalf("expected report to capture queued_pending_capability status, got %q", status)
+	if status := result.Report.GeneratedTaskStatuses[taxTask.Task.ID]; status != string(runtimepkg.TaskQueueStatusCompleted) {
+		t.Fatalf("expected report to capture completed tax follow-up status, got %q", status)
+	}
+	portfolioTask := findFollowUpByIntent(t, result.FollowUpTasks.RegisteredTasks, taskspec.UserIntentPortfolioRebalance)
+	if portfolioTask.Status != runtimepkg.TaskQueueStatusCompleted {
+		t.Fatalf("expected portfolio follow-up to complete through capability-backed execution, got task=%+v execution=%+v", portfolioTask, result.FollowUpExecution.ExecutedTasks)
+	}
+	if status := result.Report.GeneratedTaskStatuses[portfolioTask.Task.ID]; status != string(runtimepkg.TaskQueueStatusCompleted) {
+		t.Fatalf("expected report to capture completed portfolio follow-up status, got %q", status)
+	}
+	if result.FollowUpExecution.LatestCommittedStateSnapshot.State.Version.Sequence <= result.UpdatedState.Version.Sequence {
+		t.Fatalf("expected follow-up execution to advance committed state snapshot, got parent=%d latest=%d", result.UpdatedState.Version.Sequence, result.FollowUpExecution.LatestCommittedStateSnapshot.State.Version.Sequence)
 	}
 	if len(result.AnalysisVerification) == 0 || len(result.FinalVerification) == 0 {
 		t.Fatalf("expected both verification passes to run")
@@ -178,6 +196,8 @@ func TestLifeEventTriggerWorkflowEmitsEventToTaskGraphObservability(t *testing.T
 	assertLogCategory(t, entries, "life_event_state_diff")
 	assertLogCategory(t, entries, "generated_task_graph")
 	assertLogCategory(t, entries, "follow_up_tasks")
+	assertLogCategory(t, entries, "life_event_follow_up_activation")
+	assertLogCategory(t, entries, "life_event_follow_up_execution")
 	taskEntry := findLogByCategory(entries, "follow_up_task_registered")
 	if taskEntry == nil {
 		t.Fatalf("expected per-task follow-up registration log entry")
@@ -187,6 +207,10 @@ func TestLifeEventTriggerWorkflowEmitsEventToTaskGraphObservability(t *testing.T
 	}
 	if taskEntry.Details["status"] == string(runtimepkg.TaskQueueStatusQueuedPendingCapability) && taskEntry.Details["missing_capability_reason"] == "" {
 		t.Fatalf("expected queued_pending_capability log to include missing_capability_reason, got %+v", taskEntry)
+	}
+	executionEntry := findLogByCategory(entries, "life_event_follow_up_execution")
+	if executionEntry == nil || executionEntry.Details["executed_task_ids"] == "" {
+		t.Fatalf("expected follow-up execution log entry with executed task ids, got %+v", executionEntry)
 	}
 }
 

@@ -170,6 +170,138 @@ func (DebtDecisionBusinessValidator) Validate(_ context.Context, spec taskspec.T
 	}, nil
 }
 
+type TaxOptimizationDeterministicValidator struct{}
+
+func (TaxOptimizationDeterministicValidator) Validate(_ context.Context, spec taskspec.TaskSpec, _ state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	requiredKeys := []string{"summary", "deterministic_metrics", "recommended_actions", "risk_flags"}
+	missing := missingKeys(payload, requiredKeys)
+	status := VerificationStatusPass
+	message := "tax optimization output structure is valid"
+	failedRules := []string{}
+	if len(missing) > 0 {
+		status = VerificationStatusFail
+		message = "missing tax optimization keys: " + strings.Join(missing, ", ")
+		failedRules = append(failedRules, "required_output_keys")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "tax_optimization_deterministic_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "repair tax optimization output structure and regenerate the report",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
+}
+
+type TaxOptimizationBusinessValidator struct{}
+
+func (TaxOptimizationBusinessValidator) Validate(_ context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	reportText := flattenOutput(payload)
+	status := VerificationStatusPass
+	message := "tax optimization business checks passed"
+	failedRules := []string{}
+	switch {
+	case currentState.TaxState.ChildcareTaxSignal && !containsAny(reportText, "tax", "税", "childcare", "育儿"):
+		status = VerificationStatusFail
+		message = "childcare tax signal is not reflected in tax optimization output"
+		failedRules = append(failedRules, "childcare_tax_signal_coverage")
+	case len(currentState.TaxState.UpcomingDeadlines) > 0 && !containsAny(reportText, "deadline", "截止", "预扣", "withholding"):
+		status = VerificationStatusNeedsReplan
+		message = "deadline-sensitive or withholding caveat is missing"
+		failedRules = append(failedRules, "deadline_caveat_required")
+	case currentState.RiskState.OverallRisk == "high" && extractListLen(payload, "risk_flags") == 0:
+		status = VerificationStatusNeedsReplan
+		message = "high-risk tax optimization requires explicit structured risk flags"
+		failedRules = append(failedRules, "risk_flags_required_high_risk")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "tax_optimization_business_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "rebuild the tax optimization report with explicit deadline, withholding, and approval reasoning",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
+}
+
+type PortfolioRebalanceDeterministicValidator struct{}
+
+func (PortfolioRebalanceDeterministicValidator) Validate(_ context.Context, spec taskspec.TaskSpec, _ state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	requiredKeys := []string{"summary", "deterministic_metrics", "recommended_actions", "risk_flags"}
+	missing := missingKeys(payload, requiredKeys)
+	status := VerificationStatusPass
+	message := "portfolio rebalance output structure is valid"
+	failedRules := []string{}
+	if len(missing) > 0 {
+		status = VerificationStatusFail
+		message = "missing portfolio rebalance keys: " + strings.Join(missing, ", ")
+		failedRules = append(failedRules, "required_output_keys")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "portfolio_rebalance_deterministic_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "repair portfolio rebalance output structure and regenerate the report",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
+}
+
+type PortfolioRebalanceBusinessValidator struct{}
+
+func (PortfolioRebalanceBusinessValidator) Validate(_ context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	reportText := flattenOutput(payload)
+	status := VerificationStatusPass
+	message := "portfolio rebalance business checks passed"
+	failedRules := []string{}
+	switch {
+	case currentState.PortfolioState.EmergencyFundMonths < 3 && !containsAny(reportText, "liquidity", "流动性", "现金", "应急金"):
+		status = VerificationStatusNeedsReplan
+		message = "liquidity caveat is missing from portfolio rebalance output"
+		failedRules = append(failedRules, "liquidity_caveat_required")
+	case len(currentState.PortfolioState.AllocationDrift) > 0 && !containsAny(reportText, "rebalance", "再平衡", "drift", "配置"):
+		status = VerificationStatusNeedsReplan
+		message = "rebalance caveat is missing from portfolio output"
+		failedRules = append(failedRules, "rebalance_caveat_required")
+	case currentState.RiskState.OverallRisk == "high" && extractListLen(payload, "risk_flags") == 0:
+		status = VerificationStatusNeedsReplan
+		message = "high-risk portfolio rebalance requires explicit structured risk flags"
+		failedRules = append(failedRules, "risk_flags_required_high_risk")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "portfolio_rebalance_business_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "rebuild the portfolio rebalance report with explicit liquidity and rebalance caveats",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
+}
+
 type DefaultSuccessCriteriaChecker struct{}
 
 func (DefaultSuccessCriteriaChecker) Check(spec taskspec.TaskSpec, results []VerificationResult, output any) (VerificationResult, error) {
@@ -288,6 +420,18 @@ func extractBool(payload map[string]any, key string) bool {
 	}
 	boolean, ok := value.(bool)
 	return ok && boolean
+}
+
+func extractListLen(payload map[string]any, key string) int {
+	value, ok := payload[key]
+	if !ok {
+		return 0
+	}
+	items, ok := value.([]any)
+	if !ok {
+		return 0
+	}
+	return len(items)
 }
 
 func flattenOutput(payload map[string]any) string {

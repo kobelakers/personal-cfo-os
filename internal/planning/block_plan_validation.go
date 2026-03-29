@@ -129,11 +129,11 @@ func validateBlockRecipient(kind ExecutionBlockKind, recipient string) error {
 		if recipient != BlockRecipientDebtAgent {
 			return fmt.Errorf("debt block %q must be assigned to %q", kind, BlockRecipientDebtAgent)
 		}
-	case ExecutionBlockKindTaxEventImpact:
+	case ExecutionBlockKindTaxEventImpact, ExecutionBlockKindTaxOptimization:
 		if recipient != BlockRecipientTaxAgent {
 			return fmt.Errorf("tax block %q must be assigned to %q", kind, BlockRecipientTaxAgent)
 		}
-	case ExecutionBlockKindPortfolioEventImpact:
+	case ExecutionBlockKindPortfolioEventImpact, ExecutionBlockKindPortfolioRebalance:
 		if recipient != BlockRecipientPortfolioAgent {
 			return fmt.Errorf("portfolio block %q must be assigned to %q", kind, BlockRecipientPortfolioAgent)
 		}

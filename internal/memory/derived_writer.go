@@ -112,6 +112,64 @@ func (s WorkflowMemoryService) SyncLifeEvent(
 	}, nil
 }
 
+func (s WorkflowMemoryService) SyncTaxOptimization(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	workflowID string,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+) (WorkflowMemoryResult, error) {
+	now := s.now()
+	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	generatedIDs, err := s.writeRecords(ctx, records)
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	retrieved, err := s.retrieve(ctx, RetrievalQuery{
+		Text:         spec.Goal,
+		LexicalTerms: spec.Scope.Areas,
+		SemanticHint: "tax optimization, withholding review, tax deadlines, tax-advantaged contribution follow-up",
+		TopK:         5,
+	})
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	return WorkflowMemoryResult{
+		GeneratedIDs:     generatedIDs,
+		GeneratedRecords: records,
+		Retrieved:        retrieved,
+	}, nil
+}
+
+func (s WorkflowMemoryService) SyncPortfolioRebalance(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	workflowID string,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+) (WorkflowMemoryResult, error) {
+	now := s.now()
+	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	generatedIDs, err := s.writeRecords(ctx, records)
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	retrieved, err := s.retrieve(ctx, RetrievalQuery{
+		Text:         spec.Goal,
+		LexicalTerms: spec.Scope.Areas,
+		SemanticHint: "portfolio rebalance, liquidity buffer, allocation drift, event-driven contribution changes",
+		TopK:         5,
+	})
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	return WorkflowMemoryResult{
+		GeneratedIDs:     generatedIDs,
+		GeneratedRecords: records,
+		Retrieved:        retrieved,
+	}, nil
+}
+
 func (s WorkflowMemoryService) retrieve(ctx context.Context, query RetrievalQuery) ([]MemoryRecord, error) {
 	if s.Retriever == nil {
 		return nil, nil

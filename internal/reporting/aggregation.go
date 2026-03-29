@@ -27,6 +27,14 @@ type LifeEventAssessmentAggregator struct {
 	Now func() time.Time
 }
 
+type TaxOptimizationAggregator struct {
+	Now func() time.Time
+}
+
+type PortfolioRebalanceAggregator struct {
+	Now func() time.Time
+}
+
 func (a MonthlyReviewAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (MonthlyReviewReport, error) {
 	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
 	if err != nil {
@@ -166,6 +174,58 @@ func (a LifeEventAssessmentAggregator) Aggregate(spec taskspec.TaskSpec, workflo
 	}, nil
 }
 
+func (a TaxOptimizationAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (TaxOptimizationReport, error) {
+	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
+	if err != nil {
+		return TaxOptimizationReport{}, err
+	}
+	if len(ordered) != 1 || ordered[0].Tax == nil {
+		return TaxOptimizationReport{}, fmt.Errorf("tax optimization draft requires exactly one tax block result")
+	}
+	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
+	result := ordered[0].Tax
+	return TaxOptimizationReport{
+		TaskID:               spec.ID,
+		WorkflowID:           workflowID,
+		Summary:              result.Summary,
+		DeterministicMetrics: taxMetricsMap(result.DeterministicMetrics),
+		RecommendedActions:   append([]skills.SkillItem{}, result.Recommendations...),
+		SourceBlockIDs:       sourceBlockIDs,
+		SourceMemoryIDs:      sourceMemoryIDs,
+		SourceEvidenceIDs:    sourceEvidenceIDs,
+		RiskFlags:            append([]analysis.RiskFlag{}, result.RiskFlags...),
+		ApprovalRequired:     input.CurrentState.RiskState.OverallRisk == "high",
+		Confidence:           result.Confidence,
+		GeneratedAt:          a.now(),
+	}, nil
+}
+
+func (a PortfolioRebalanceAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (PortfolioRebalanceReport, error) {
+	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
+	if err != nil {
+		return PortfolioRebalanceReport{}, err
+	}
+	if len(ordered) != 1 || ordered[0].Portfolio == nil {
+		return PortfolioRebalanceReport{}, fmt.Errorf("portfolio rebalance draft requires exactly one portfolio block result")
+	}
+	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
+	result := ordered[0].Portfolio
+	return PortfolioRebalanceReport{
+		TaskID:               spec.ID,
+		WorkflowID:           workflowID,
+		Summary:              result.Summary,
+		DeterministicMetrics: portfolioMetricsMap(result.DeterministicMetrics),
+		RecommendedActions:   append([]skills.SkillItem{}, result.Recommendations...),
+		SourceBlockIDs:       sourceBlockIDs,
+		SourceMemoryIDs:      sourceMemoryIDs,
+		SourceEvidenceIDs:    sourceEvidenceIDs,
+		RiskFlags:            append([]analysis.RiskFlag{}, result.RiskFlags...),
+		ApprovalRequired:     input.CurrentState.RiskState.OverallRisk == "high",
+		Confidence:           result.Confidence,
+		GeneratedAt:          a.now(),
+	}, nil
+}
+
 func orderedBlockResults(plan planning.ExecutionPlan, results []analysis.BlockResultEnvelope) ([]analysis.BlockResultEnvelope, error) {
 	if err := plan.Validate(); err != nil {
 		return nil, err
@@ -265,6 +325,24 @@ func debtDecisionMetricsMap(cashflow analysis.CashflowDeterministicMetrics, debt
 	}
 }
 
+func taxMetricsMap(metrics analysis.TaxDeterministicMetrics) map[string]any {
+	return map[string]any{
+		"effective_tax_rate":                metrics.EffectiveTaxRate,
+		"tax_advantaged_contribution_cents": metrics.TaxAdvantagedContributionCents,
+		"childcare_tax_signal":              metrics.ChildcareTaxSignal,
+		"upcoming_deadline_count":           metrics.UpcomingDeadlineCount,
+	}
+}
+
+func portfolioMetricsMap(metrics analysis.PortfolioDeterministicMetrics) map[string]any {
+	return map[string]any{
+		"total_investable_assets_cents": metrics.TotalInvestableAssetsCents,
+		"emergency_fund_months":         metrics.EmergencyFundMonths,
+		"max_allocation_drift":          metrics.MaxAllocationDrift,
+		"cash_allocation":               metrics.CashAllocation,
+	}
+}
+
 func averageConfidence(results []analysis.BlockResultEnvelope) float64 {
 	if len(results) == 0 {
 		return 0
@@ -300,6 +378,20 @@ func (a DebtDecisionAggregator) now() time.Time {
 }
 
 func (a LifeEventAssessmentAggregator) now() time.Time {
+	if a.Now != nil {
+		return a.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (a TaxOptimizationAggregator) now() time.Time {
+	if a.Now != nil {
+		return a.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (a PortfolioRebalanceAggregator) now() time.Time {
 	if a.Now != nil {
 		return a.Now().UTC()
 	}

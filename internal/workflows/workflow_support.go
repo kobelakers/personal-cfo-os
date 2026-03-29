@@ -110,6 +110,20 @@ func lifeEventAssessmentFromPayload(payload reporting.ReportPayload) (LifeEventA
 	return *payload.LifeEventAssessment, nil
 }
 
+func taxOptimizationReportFromPayload(payload reporting.ReportPayload) (TaxOptimizationReport, error) {
+	if payload.TaxOptimization == nil {
+		return TaxOptimizationReport{}, fmt.Errorf("tax optimization report payload is missing")
+	}
+	return *payload.TaxOptimization, nil
+}
+
+func portfolioRebalanceReportFromPayload(payload reporting.ReportPayload) (PortfolioRebalanceReport, error) {
+	if payload.PortfolioRebalance == nil {
+		return PortfolioRebalanceReport{}, fmt.Errorf("portfolio rebalance report payload is missing")
+	}
+	return *payload.PortfolioRebalance, nil
+}
+
 func taskHasArea(spec taskspec.TaskSpec, area string) bool {
 	for _, item := range spec.Scope.Areas {
 		if item == area {
@@ -139,6 +153,73 @@ func applyFollowUpRegistrationToAssessment(
 	}
 	report.LifeEventAssessment = &updated
 	return report
+}
+
+func applyFollowUpExecutionToAssessment(
+	report reporting.ReportPayload,
+	execution runtimepkg.FollowUpExecutionBatchResult,
+) reporting.ReportPayload {
+	if report.LifeEventAssessment == nil {
+		return report
+	}
+	updated := *report.LifeEventAssessment
+	if updated.GeneratedTaskStatuses == nil {
+		updated.GeneratedTaskStatuses = make(map[string]string)
+	}
+	if updated.RequiredCapabilities == nil {
+		updated.RequiredCapabilities = make(map[string]string)
+	}
+	if updated.MissingCapabilities == nil {
+		updated.MissingCapabilities = make(map[string]string)
+	}
+	for _, item := range execution.RegisteredTasks {
+		updated.GeneratedTaskStatuses[item.Task.ID] = string(item.Status)
+		updated.RequiredCapabilities[item.Task.ID] = item.RequiredCapability
+		if item.MissingCapabilityReason != "" {
+			updated.MissingCapabilities[item.Task.ID] = item.MissingCapabilityReason
+		} else {
+			delete(updated.MissingCapabilities, item.Task.ID)
+		}
+	}
+	report.LifeEventAssessment = &updated
+	return report
+}
+
+func followUpFailureCategoryFromRuntimeState(
+	runtimeState runtimepkg.WorkflowExecutionState,
+	replanCategory runtimepkg.FailureCategory,
+	failedCategory runtimepkg.FailureCategory,
+) runtimepkg.FailureCategory {
+	switch runtimeState {
+	case runtimepkg.WorkflowStateReplanning:
+		return replanCategory
+	case runtimepkg.WorkflowStateFailed:
+		return failedCategory
+	default:
+		return ""
+	}
+}
+
+func followUpFailureSummary(runtimeState runtimepkg.WorkflowExecutionState, fallback string) string {
+	switch runtimeState {
+	case runtimepkg.WorkflowStateReplanning, runtimepkg.WorkflowStateFailed:
+		return fallback
+	default:
+		return ""
+	}
+}
+
+func followUpRecoveryStrategyFromRuntimeState(runtimeState runtimepkg.WorkflowExecutionState) runtimepkg.RecoveryStrategy {
+	switch runtimeState {
+	case runtimepkg.WorkflowStateReplanning:
+		return runtimepkg.RecoveryStrategyReplan
+	case runtimepkg.WorkflowStateWaitingApproval:
+		return runtimepkg.RecoveryStrategyWaitForApproval
+	case runtimepkg.WorkflowStateFailed:
+		return runtimepkg.RecoveryStrategyAbort
+	default:
+		return ""
+	}
 }
 
 func blockContextSpec(plan planning.ExecutionPlan, block planning.ExecutionBlock) contextview.BlockContextSpec {
@@ -219,4 +300,12 @@ func taskIntents(graph taskspec.TaskGraph) string {
 		intents = append(intents, string(generated.Task.UserIntentType))
 	}
 	return strings.Join(intents, ",")
+}
+
+func executedTaskIDs(items []runtimepkg.TaskExecutionRecord) string {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.TaskID)
+	}
+	return strings.Join(ids, ",")
 }

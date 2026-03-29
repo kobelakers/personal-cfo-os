@@ -92,10 +92,12 @@ type DraftInput struct {
 }
 
 type Service struct {
-	MonthlyReviewAggregator MonthlyReviewAggregator
-	DebtDecisionAggregator  DebtDecisionAggregator
-	LifeEventAggregator     LifeEventAssessmentAggregator
-	Artifacts               ArtifactService
+	MonthlyReviewAggregator      MonthlyReviewAggregator
+	DebtDecisionAggregator       DebtDecisionAggregator
+	LifeEventAggregator          LifeEventAssessmentAggregator
+	TaxOptimizationAggregator    TaxOptimizationAggregator
+	PortfolioRebalanceAggregator PortfolioRebalanceAggregator
+	Artifacts                    ArtifactService
 }
 
 func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, input DraftInput) (ReportPayload, error) {
@@ -126,6 +128,18 @@ func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, input DraftInp
 			return ReportPayload{}, err
 		}
 		return ReportPayload{LifeEventAssessment: &report}, nil
+	case taskspec.UserIntentTaxOptimization:
+		report, err := s.TaxOptimizationAggregator.Aggregate(spec, workflowID, input)
+		if err != nil {
+			return ReportPayload{}, err
+		}
+		return ReportPayload{TaxOptimization: &report}, nil
+	case taskspec.UserIntentPortfolioRebalance:
+		report, err := s.PortfolioRebalanceAggregator.Aggregate(spec, workflowID, input)
+		if err != nil {
+			return ReportPayload{}, err
+		}
+		return ReportPayload{PortfolioRebalance: &report}, nil
 	default:
 		return ReportPayload{}, fmt.Errorf("unsupported intent type %q for report draft", spec.UserIntentType)
 	}
@@ -169,6 +183,26 @@ func (s Service) Finalize(workflowID string, taskID string, draft ReportPayload,
 			return ReportPayload{}, nil, err
 		}
 		return ReportPayload{LifeEventAssessment: &report}, []WorkflowArtifact{artifact}, nil
+	case draft.TaxOptimization != nil:
+		report := *draft.TaxOptimization
+		if disclosureDecision.Outcome == governance.PolicyDecisionRedact {
+			report.Summary = "[REDACTED] " + report.Summary
+		}
+		artifact, err := s.Artifacts.Produce(workflowID, taskID, ArtifactKindTaxOptimizationReport, report, report.Summary, "report_agent")
+		if err != nil {
+			return ReportPayload{}, nil, err
+		}
+		return ReportPayload{TaxOptimization: &report}, []WorkflowArtifact{artifact}, nil
+	case draft.PortfolioRebalance != nil:
+		report := *draft.PortfolioRebalance
+		if disclosureDecision.Outcome == governance.PolicyDecisionRedact {
+			report.Summary = "[REDACTED] " + report.Summary
+		}
+		artifact, err := s.Artifacts.Produce(workflowID, taskID, ArtifactKindPortfolioRebalanceReport, report, report.Summary, "report_agent")
+		if err != nil {
+			return ReportPayload{}, nil, err
+		}
+		return ReportPayload{PortfolioRebalance: &report}, []WorkflowArtifact{artifact}, nil
 	default:
 		return ReportPayload{}, nil, fmt.Errorf("report draft payload is empty")
 	}

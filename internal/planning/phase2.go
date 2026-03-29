@@ -132,6 +132,54 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 				},
 			},
 		}
+	case taskspec.UserIntentTaxOptimization:
+		blocks := taxOptimizationBlocks(spec)
+		return ExecutionPlan{
+			WorkflowID: workflowID,
+			TaskID:     spec.ID,
+			PlanID:     planID,
+			CreatedAt:  now,
+			Blocks:     blocks,
+			Steps: []PlanStep{
+				{
+					ID:                    "collect-tax-follow-up-evidence",
+					Name:                  "收集 tax follow-up 证据",
+					Description:           "拉取与本次 life event 相关的 event、deadline、tax document 和 payroll evidence。",
+					RequiredEvidenceTypes: requiredEvidenceTypes(spec.RequiredEvidence),
+				},
+				{
+					ID:             "analyze-tax-optimization",
+					Name:           "执行 tax optimization block",
+					Description:    "使用单 block tax analysis 生成 grounded follow-up optimization output。",
+					RequiredTools:  []string{"query_event_tool", "query_calendar_deadline_tool", "compute_tax_signal_tool"},
+					RequiredSkills: []string{"tax_optimization"},
+				},
+			},
+		}
+	case taskspec.UserIntentPortfolioRebalance:
+		blocks := portfolioRebalanceBlocks(spec)
+		return ExecutionPlan{
+			WorkflowID: workflowID,
+			TaskID:     spec.ID,
+			PlanID:     planID,
+			CreatedAt:  now,
+			Blocks:     blocks,
+			Steps: []PlanStep{
+				{
+					ID:                    "collect-portfolio-follow-up-evidence",
+					Name:                  "收集 portfolio follow-up 证据",
+					Description:           "拉取与本次 life event 相关的 event、holdings 和 liquidity baseline evidence。",
+					RequiredEvidenceTypes: requiredEvidenceTypes(spec.RequiredEvidence),
+				},
+				{
+					ID:             "analyze-portfolio-rebalance",
+					Name:           "执行 portfolio rebalance block",
+					Description:    "使用单 block portfolio analysis 生成 grounded rebalance output。",
+					RequiredTools:  []string{"query_event_tool", "query_portfolio_tool", "compute_portfolio_impact_metrics_tool"},
+					RequiredSkills: []string{"portfolio_rebalance"},
+				},
+			},
+		}
 	default:
 		return ExecutionPlan{
 			WorkflowID: workflowID,

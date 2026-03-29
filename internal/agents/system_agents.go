@@ -97,6 +97,10 @@ func (a MemoryStewardHandler) Handle(handlerCtx AgentHandlerContext, envelope pr
 		result, err = service.SyncDebtDecision(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence, payload.ConclusionHint)
 	case taskspec.UserIntentLifeEventTrigger:
 		result, err = service.SyncLifeEvent(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
+	case taskspec.UserIntentTaxOptimization:
+		result, err = service.SyncTaxOptimization(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
+	case taskspec.UserIntentPortfolioRebalance:
+		result, err = service.SyncPortfolioRebalance(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	default:
 		err = fmt.Errorf("unsupported intent %q for memory sync", envelope.Task.UserIntentType)
 	}
@@ -330,6 +334,46 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: fmt.Sprintf("unsupported verification stage %q for life event workflow", stage)},
 			}
 		}
+	case taskspec.UserIntentTaxOptimization:
+		if payload.Report.TaxOptimization == nil {
+			return AgentHandlerResult{}, &AgentExecutionError{
+				Recipient: RecipientVerificationAgent,
+				Kind:      envelope.Kind,
+				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "tax optimization verification requires tax optimization report payload"},
+			}
+		}
+		result, err = a.Pipeline.VerifyTaxOptimization(
+			handlerCtx.Context,
+			envelope.Task,
+			payload.CurrentState,
+			payload.Evidence,
+			payload.Memories,
+			payload.Plan,
+			payload.BlockResults,
+			payload.BlockVerificationContexts,
+			payload.FinalVerificationContext,
+			*payload.Report.TaxOptimization,
+		)
+	case taskspec.UserIntentPortfolioRebalance:
+		if payload.Report.PortfolioRebalance == nil {
+			return AgentHandlerResult{}, &AgentExecutionError{
+				Recipient: RecipientVerificationAgent,
+				Kind:      envelope.Kind,
+				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "portfolio rebalance verification requires portfolio rebalance report payload"},
+			}
+		}
+		result, err = a.Pipeline.VerifyPortfolioRebalance(
+			handlerCtx.Context,
+			envelope.Task,
+			payload.CurrentState,
+			payload.Evidence,
+			payload.Memories,
+			payload.Plan,
+			payload.BlockResults,
+			payload.BlockVerificationContexts,
+			payload.FinalVerificationContext,
+			*payload.Report.PortfolioRebalance,
+		)
 	default:
 		err = fmt.Errorf("unsupported verification intent %q", envelope.Task.UserIntentType)
 	}

@@ -1,12 +1,15 @@
 package runtime
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
+	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
@@ -15,7 +18,9 @@ type WorkflowRuntime interface {
 	Resume(ctx ExecutionContext, checkpointID string, token ResumeToken) (WorkflowExecutionState, error)
 	HandleFailure(ctx ExecutionContext, current WorkflowExecutionState, category FailureCategory, summary string) (WorkflowExecutionState, RecoveryStrategy, error)
 	PauseForApproval(ctx ExecutionContext, current WorkflowExecutionState, pending HumanApprovalPending) (WorkflowExecutionState, error)
-	RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph) (FollowUpRegistrationResult, error)
+	RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph, base state.FinancialWorldState) (FollowUpRegistrationResult, error)
+	ReevaluateTaskGraph(ctx ExecutionContext, graphID string) (TaskActivationResult, error)
+	ExecuteReadyFollowUps(ctx context.Context, execCtx ExecutionContext, graphID string, policy AutoExecutionPolicy) (FollowUpExecutionBatchResult, error)
 }
 
 type LocalRuntimeOptions struct {
@@ -192,7 +197,7 @@ func (r LocalWorkflowRuntime) PauseForApproval(ctx ExecutionContext, current Wor
 	return next, nil
 }
 
-func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph) (FollowUpRegistrationResult, error) {
+func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph, base state.FinancialWorldState) (FollowUpRegistrationResult, error) {
 	result, err := RegisterFollowUpTaskGraph(graph, r.Capabilities, r.now())
 	if err != nil {
 		return FollowUpRegistrationResult{}, err
@@ -200,12 +205,15 @@ func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph 
 	if r.TaskGraphs == nil {
 		r.TaskGraphs = NewInMemoryTaskGraphStore()
 	}
+	baseSnapshot := base.Snapshot("follow_up_task_graph_registered", r.now())
 	snapshot := TaskGraphSnapshot{
-		Graph:           result.Graph,
-		RegisteredTasks: result.RegisteredTasks,
-		Spawned:         result.Spawned,
-		Deferred:        result.Deferred,
-		RegisteredAt:    r.now(),
+		Graph:                        result.Graph,
+		RegisteredTasks:              result.RegisteredTasks,
+		Spawned:                      result.Spawned,
+		Deferred:                     result.Deferred,
+		BaseStateSnapshot:            baseSnapshot,
+		LatestCommittedStateSnapshot: baseSnapshot,
+		RegisteredAt:                 r.now(),
 	}
 	if err := r.TaskGraphs.Save(snapshot); err != nil {
 		return FollowUpRegistrationResult{}, err
@@ -229,6 +237,39 @@ func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph 
 		})
 	}
 	return result, nil
+}
+
+func (r LocalWorkflowRuntime) ReevaluateTaskGraph(ctx ExecutionContext, graphID string) (TaskActivationResult, error) {
+	if r.TaskGraphs == nil {
+		return TaskActivationResult{}, fmt.Errorf("task graph store is required")
+	}
+	snapshot, ok := r.TaskGraphs.Load(graphID)
+	if !ok {
+		return TaskActivationResult{}, fmt.Errorf("task graph %q not found", graphID)
+	}
+	updated, activation, err := ReevaluateFollowUpTaskGraph(snapshot, r.Capabilities, r.now())
+	if err != nil {
+		return TaskActivationResult{}, err
+	}
+	if err := r.TaskGraphs.Save(updated); err != nil {
+		return TaskActivationResult{}, err
+	}
+	r.log(ctx, "follow_up_task_activation", fmt.Sprintf("reevaluated follow-up task graph %s", graphID), map[string]string{
+		"graph_id":       graphID,
+		"ready_task_ids": stringsJoin(activation.ReadyTaskIDs),
+	})
+	for _, item := range activation.RegisteredTasks {
+		r.log(ctx, "follow_up_task_status", fmt.Sprintf("task %s reevaluated to %s", item.Task.ID, item.Status), map[string]string{
+			"graph_id":            graphID,
+			"task_id":             item.Task.ID,
+			"intent":              string(item.Task.UserIntentType),
+			"status":              string(item.Status),
+			"blocking_reasons":    stringsJoin(item.BlockingReasons),
+			"suppressed_reasons":  stringsJoin(item.SuppressedReasons),
+			"required_capability": item.RequiredCapability,
+		})
+	}
+	return activation, nil
 }
 
 func (r LocalWorkflowRuntime) now() time.Time {
@@ -258,4 +299,8 @@ func makeID(parts ...any) string {
 		fmt.Fprint(hash, part)
 	}
 	return hex.EncodeToString(hash.Sum(nil))[:16]
+}
+
+func stringsJoin(items []string) string {
+	return strings.Join(items, ",")
 }

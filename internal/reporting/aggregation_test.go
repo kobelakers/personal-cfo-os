@@ -92,6 +92,103 @@ func TestDebtDecisionAggregatorUsesPlanBlockOrder(t *testing.T) {
 	}
 }
 
+func TestTaxOptimizationAggregatorRequiresTypedTaxBlockResult(t *testing.T) {
+	now := time.Date(2026, 3, 29, 9, 30, 0, 0, time.UTC)
+	spec := taskspec.TaskSpec{
+		ID:              "task-tax-report",
+		Goal:            "复核税务优化。",
+		Scope:           taskspec.TaskScope{Areas: []string{"tax"}},
+		Constraints:     taskspec.ConstraintSet{Hard: []string{"must remain evidence-backed"}},
+		RiskLevel:       taskspec.RiskLevelMedium,
+		SuccessCriteria: []taskspec.SuccessCriteria{{ID: "ok", Description: "ok"}},
+		RequiredEvidence: []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "grounded follow-up", Mandatory: true},
+		},
+		ApprovalRequirement: taskspec.ApprovalRequirementRecommended,
+		UserIntentType:      taskspec.UserIntentTaxOptimization,
+		CreatedAt:           now,
+	}
+	plan := planning.ExecutionPlan{
+		WorkflowID: "workflow-tax",
+		TaskID:     spec.ID,
+		PlanID:     "plan-tax",
+		CreatedAt:  now,
+		Blocks: []planning.ExecutionBlock{
+			{
+				ID:                "tax-optimization",
+				Kind:              planning.ExecutionBlockKindTaxOptimization,
+				AssignedRecipient: planning.BlockRecipientTaxAgent,
+				Goal:              "tax",
+				RequiredEvidenceRefs: []planning.ExecutionBlockRequirement{
+					{RequirementID: "event", Type: "event_signal", Mandatory: true},
+				},
+				ExecutionContextView: "execution",
+				SuccessCriteria:      []planning.ExecutionBlockSuccessCriteria{{ID: "ok", Description: "ok"}},
+				VerificationHints:    []planning.ExecutionBlockVerificationHint{{Rule: "grounding", Description: "grounding"}},
+			},
+		},
+	}
+	aggregator := TaxOptimizationAggregator{Now: func() time.Time { return now }}
+	_, err := aggregator.Aggregate(spec, "workflow-tax", DraftInput{
+		Plan:         plan,
+		BlockResults: []analysis.BlockResultEnvelope{sampleCashflowBlockResult()},
+		CurrentState: sampleReportingState(now),
+	})
+	if err == nil {
+		t.Fatalf("expected tax optimization aggregate to fail without typed tax block result")
+	}
+}
+
+func TestPortfolioRebalanceAggregatorPreservesRiskFlags(t *testing.T) {
+	now := time.Date(2026, 3, 29, 9, 45, 0, 0, time.UTC)
+	spec := taskspec.TaskSpec{
+		ID:              "task-portfolio-report",
+		Goal:            "复核组合再平衡。",
+		Scope:           taskspec.TaskScope{Areas: []string{"portfolio"}},
+		Constraints:     taskspec.ConstraintSet{Hard: []string{"must remain evidence-backed"}},
+		RiskLevel:       taskspec.RiskLevelMedium,
+		SuccessCriteria: []taskspec.SuccessCriteria{{ID: "ok", Description: "ok"}},
+		RequiredEvidence: []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "grounded follow-up", Mandatory: true},
+		},
+		ApprovalRequirement: taskspec.ApprovalRequirementRecommended,
+		UserIntentType:      taskspec.UserIntentPortfolioRebalance,
+		CreatedAt:           now,
+	}
+	plan := planning.ExecutionPlan{
+		WorkflowID: "workflow-portfolio",
+		TaskID:     spec.ID,
+		PlanID:     "plan-portfolio",
+		CreatedAt:  now,
+		Blocks: []planning.ExecutionBlock{
+			{
+				ID:                "portfolio-rebalance",
+				Kind:              planning.ExecutionBlockKindPortfolioRebalance,
+				AssignedRecipient: planning.BlockRecipientPortfolioAgent,
+				Goal:              "portfolio",
+				RequiredEvidenceRefs: []planning.ExecutionBlockRequirement{
+					{RequirementID: "event", Type: "event_signal", Mandatory: true},
+				},
+				ExecutionContextView: "execution",
+				SuccessCriteria:      []planning.ExecutionBlockSuccessCriteria{{ID: "ok", Description: "ok"}},
+				VerificationHints:    []planning.ExecutionBlockVerificationHint{{Rule: "grounding", Description: "grounding"}},
+			},
+		},
+	}
+	aggregator := PortfolioRebalanceAggregator{Now: func() time.Time { return now }}
+	report, err := aggregator.Aggregate(spec, "workflow-portfolio", DraftInput{
+		Plan:         plan,
+		BlockResults: []analysis.BlockResultEnvelope{samplePortfolioBlockResult()},
+		CurrentState: sampleReportingState(now),
+	})
+	if err != nil {
+		t.Fatalf("aggregate portfolio rebalance: %v", err)
+	}
+	if len(report.RiskFlags) == 0 {
+		t.Fatalf("expected portfolio rebalance report to preserve structured risk flags, got %+v", report)
+	}
+}
+
 func sampleMonthlyReviewPlan(now time.Time, spec taskspec.TaskSpec) planning.ExecutionPlan {
 	return planning.ExecutionPlan{
 		WorkflowID: "workflow-1",
@@ -191,6 +288,33 @@ func sampleCashflowLiquidityBlockResult() analysis.BlockResultEnvelope {
 	result.BlockKind = "cashflow_liquidity_block"
 	result.Cashflow.BlockID = "cashflow-liquidity"
 	return result
+}
+
+func samplePortfolioBlockResult() analysis.BlockResultEnvelope {
+	return analysis.BlockResultEnvelope{
+		BlockID:           "portfolio-rebalance",
+		BlockKind:         "portfolio_rebalance_block",
+		AssignedRecipient: "portfolio_agent",
+		Portfolio: &analysis.PortfolioBlockResult{
+			BlockID: "portfolio-rebalance",
+			Summary: "组合块结论：当前漂移明显，但需要保留流动性缓冲。",
+			DeterministicMetrics: analysis.PortfolioDeterministicMetrics{
+				TotalInvestableAssetsCents: 1000000,
+				EmergencyFundMonths:        2.5,
+				MaxAllocationDrift:         0.10,
+				CashAllocation:             0.18,
+			},
+			EvidenceIDs:   []observation.EvidenceID{"ev-portfolio"},
+			MemoryIDsUsed: []string{"mem-portfolio"},
+			RiskFlags: []analysis.RiskFlag{
+				{Code: "liquidity_buffer", Severity: "high", Detail: "应急金偏低，再平衡前需保留流动性。", EvidenceIDs: []observation.EvidenceID{"ev-portfolio"}},
+			},
+			Recommendations: []skills.SkillItem{
+				{Title: "分步再平衡", Detail: "优先修正高漂移仓位，并保留现金缓冲。", EvidenceIDs: []observation.EvidenceID{"ev-portfolio"}},
+			},
+			Confidence: 0.9,
+		},
+	}
 }
 
 func sampleReportingState(now time.Time) state.FinancialWorldState {

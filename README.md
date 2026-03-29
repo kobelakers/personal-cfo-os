@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, and a first proactive life-event loop:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, and a first capability-backed follow-up execution path:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -27,11 +27,11 @@ The repository now runs a real governed finance workflow backbone with system-ag
 9. `VerificationAgent` now runs block-level validation before final report validation and can short-circuit into structured replan diagnostics
 10. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
 11. observability and replay outputs now include block plan, domain block execution order, selected memory/evidence/state slices, checkpoint timeline, and policy decisions
-12. Workflow C now ingests structured life events and deadlines, updates state/memory, executes event-specific domain blocks, generates typed follow-up tasks, verifies and governs them, and registers them into runtime as follow-up task graph records
+12. Workflow C now ingests structured life events and deadlines, updates state/memory, executes event-specific domain blocks, generates typed follow-up tasks, verifies and governs them, registers them into runtime as follow-up task graph records, then lets runtime activate and execute allowlisted first-level follow-up capabilities for `tax_optimization` and `portfolio_rebalance`
 
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
@@ -40,10 +40,12 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - `ReportAgent` is no longer the primary cashflow/debt analyst; it is an aggregator and finalize boundary.
 - Workflow C now produces state diff, memory updates, a generated task graph, and runtime-registered follow-up tasks as its primary outputs; `LifeEventAssessmentReport` is only a secondary artifact.
 - This is still not a fully realized strong multi-agent finance operating system.
-- generated downstream tasks are now formal `TaskSpec`-backed queue objects, but capability-gated intents such as `tax_optimization` and `portfolio_rebalance` remain `queued_pending_capability` in Phase 4A instead of auto-executing recursively.
+- generated downstream tasks are now formal `TaskSpec`-backed queue objects, and Phase 4B lights up real workflow capability for `tax_optimization` and `portfolio_rebalance`
+- runtime now advances capability-backed follow-up tasks through `queued_pending_capability -> ready -> executing -> completed / waiting_approval / failed`
+- only allowlisted first-level follow-up tasks auto-execute; deeper or non-allowlisted follow-ups remain registered but not recursively auto-run
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
-## Phase 3A / 3B / 4A Highlights
+## Phase 3A / 3B / 4A / 4B Highlights
 
 - `internal/protocol` is now execution-first: typed request/result message kinds, oneof-style request/result bodies, and response envelopes participate in real dispatch.
 - `internal/agents` now contains a concrete execution plane: registry, dispatcher, executor, system-step bus, typed execution errors, and registered system-agent handlers.
@@ -60,6 +62,9 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - `TaskGenerationAgent` now generates `TaskSpec`-backed follow-up tasks from validated life-event analysis, state diff, evidence, and retrieved memories without redoing domain analysis.
 - runtime now registers generated follow-up tasks into a task graph with explicit statuses such as `dependency_blocked`, `deferred`, `waiting_approval`, and `queued_pending_capability`.
 - `LifeEventAssessmentReport` now gives Workflow C a secondary artifact contract, but the primary product of Workflow C remains state/memory/task-graph mutation rather than a narrative report.
+- `TaxOptimizationWorkflow` and `PortfolioRebalanceWorkflow` now exist as real follow-up workflow entrypoints behind runtime capability activation.
+- runtime now owns follow-up task reevaluation, execution ordering, execution records, committed state handoff, retry metadata, approval resumability metadata, and task-level suppression reasons.
+- replay can now explain parent life-event workflow -> generated task -> child workflow -> child artifact -> child state commit as one proactive chain.
 
 ## Repository Layout
 
@@ -89,7 +94,7 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
 - `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
-- generated downstream tasks are registered and replayable, but capability-gated intents do not fully execute in Phase 4A
+- capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
 - no real Postgres / pgvector / MinIO / provider service is required yet
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.

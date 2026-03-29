@@ -28,6 +28,8 @@ const (
 	ExecutionBlockKindDebtHousingImpact    ExecutionBlockKind = "debt_housing_impact_block"
 	ExecutionBlockKindTaxEventImpact       ExecutionBlockKind = "tax_event_impact_block"
 	ExecutionBlockKindPortfolioEventImpact ExecutionBlockKind = "portfolio_event_impact_block"
+	ExecutionBlockKindTaxOptimization      ExecutionBlockKind = "tax_optimization_block"
+	ExecutionBlockKindPortfolioRebalance   ExecutionBlockKind = "portfolio_rebalance_block"
 )
 
 type ExecutionBlockDependency struct {
@@ -247,6 +249,63 @@ func lifeEventBlocks(spec taskspec.TaskSpec, slice contextview.ContextSlice) []E
 			taxEventBlock(spec),
 			portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
 		}
+	}
+}
+
+func taxOptimizationBlocks(spec taskspec.TaskSpec) []ExecutionBlock {
+	return []ExecutionBlock{
+		{
+			ID:                ExecutionBlockID("tax-optimization"),
+			Kind:              ExecutionBlockKindTaxOptimization,
+			AssignedRecipient: BlockRecipientTaxAgent,
+			Goal:              "评估税务优化、预扣调整、税优账户使用和 deadline-sensitive tax actions。",
+			RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+				"event_signal",
+				"calendar_deadline",
+				"tax_document",
+				"payslip_statement",
+			),
+			RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindProcedural},
+			RequiredStateBlocks:  []string{"tax_state", "cashflow_state", "risk_state"},
+			ExecutionContextView: contextview.ContextViewExecution,
+			SuccessCriteria: []ExecutionBlockSuccessCriteria{
+				{ID: "tax-optimization-grounded", Description: "tax optimization output explicitly reflects withholding, tax signals, and deadline-sensitive work"},
+			},
+			VerificationHints: []ExecutionBlockVerificationHint{
+				{Rule: "tax_optimization_grounding", Description: "tax optimization recommendations must cite tax, payroll, or deadline evidence"},
+			},
+			RiskHints: []ExecutionBlockRiskHint{
+				{Level: "medium", Rationale: "tax optimization may be deadline-sensitive and approval-sensitive for withholding changes"},
+			},
+		},
+	}
+}
+
+func portfolioRebalanceBlocks(spec taskspec.TaskSpec) []ExecutionBlock {
+	return []ExecutionBlock{
+		{
+			ID:                ExecutionBlockID("portfolio-rebalance"),
+			Kind:              ExecutionBlockKindPortfolioRebalance,
+			AssignedRecipient: BlockRecipientPortfolioAgent,
+			Goal:              "评估配置漂移、现金头寸、流动性缓冲和再平衡 caveats。",
+			RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+				"event_signal",
+				"portfolio_allocation_snapshot",
+				"transaction_batch",
+			),
+			RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindEpisodic},
+			RequiredStateBlocks:  []string{"portfolio_state", "cashflow_state", "risk_state"},
+			ExecutionContextView: contextview.ContextViewExecution,
+			SuccessCriteria: []ExecutionBlockSuccessCriteria{
+				{ID: "portfolio-rebalance-grounded", Description: "rebalance output explicitly reflects allocation drift, liquidity, and event-driven contribution changes"},
+			},
+			VerificationHints: []ExecutionBlockVerificationHint{
+				{Rule: "portfolio_rebalance_grounding", Description: "portfolio rebalance recommendations must cite portfolio, liquidity, and event evidence"},
+			},
+			RiskHints: []ExecutionBlockRiskHint{
+				{Level: "medium", Rationale: "rebalance actions may be gated by liquidity or event-driven cash needs"},
+			},
+		},
 	}
 }
 

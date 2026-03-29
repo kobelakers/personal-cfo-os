@@ -87,6 +87,62 @@ func (p Pipeline) VerifyDebtDecision(
 	)
 }
 
+func (p Pipeline) VerifyTaxOptimization(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	currentState state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	memories []memory.MemoryRecord,
+	plan planning.ExecutionPlan,
+	blockResults []analysis.BlockResultEnvelope,
+	blockVerificationContexts []contextview.BlockVerificationContext,
+	finalVerificationContext contextview.BlockVerificationContext,
+	output any,
+) (PipelineResult, error) {
+	return p.verify(
+		ctx,
+		"tax-optimization",
+		spec,
+		currentState,
+		evidence,
+		memories,
+		plan,
+		blockResults,
+		blockVerificationContexts,
+		finalVerificationContext,
+		output,
+		false,
+	)
+}
+
+func (p Pipeline) VerifyPortfolioRebalance(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	currentState state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	memories []memory.MemoryRecord,
+	plan planning.ExecutionPlan,
+	blockResults []analysis.BlockResultEnvelope,
+	blockVerificationContexts []contextview.BlockVerificationContext,
+	finalVerificationContext contextview.BlockVerificationContext,
+	output any,
+) (PipelineResult, error) {
+	return p.verify(
+		ctx,
+		"portfolio-rebalance",
+		spec,
+		currentState,
+		evidence,
+		memories,
+		plan,
+		blockResults,
+		blockVerificationContexts,
+		finalVerificationContext,
+		output,
+		false,
+	)
+}
+
 func (p Pipeline) VerifyLifeEventBlockPass(
 	ctx context.Context,
 	spec taskspec.TaskSpec,
@@ -396,13 +452,38 @@ func (p Pipeline) verifyFinal(
 	}
 	finalResults = append(finalResults, contextResult)
 
-	if monthlyReview {
+	switch spec.UserIntentType {
+	case taskspec.UserIntentMonthlyReview:
 		deterministicResult, err := p.deterministicValidator().Validate(ctx, spec, currentState, evidence, output)
 		if err != nil {
 			return nil, err
 		}
 		finalResults = append(finalResults, withScope(deterministicResult, VerificationScopeFinal, "", ""))
 		businessResult, err := p.businessValidator(true).Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		return finalResults, nil
+	case taskspec.UserIntentTaxOptimization:
+		deterministicResult, err := TaxOptimizationDeterministicValidator{}.Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(deterministicResult, VerificationScopeFinal, "", ""))
+		businessResult, err := TaxOptimizationBusinessValidator{}.Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		return finalResults, nil
+	case taskspec.UserIntentPortfolioRebalance:
+		deterministicResult, err := PortfolioRebalanceDeterministicValidator{}.Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(deterministicResult, VerificationScopeFinal, "", ""))
+		businessResult, err := PortfolioRebalanceBusinessValidator{}.Validate(ctx, spec, currentState, evidence, output)
 		if err != nil {
 			return nil, err
 		}

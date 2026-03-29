@@ -31,7 +31,7 @@ func (TaskGenerationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 		}
 	}
 
-	eventKind, eventEvidenceIDs := classifyLifeEvent(payload.EventEvidence)
+	eventKind, lifeEventID, eventEvidenceIDs := classifyLifeEvent(payload.EventEvidence)
 	if eventKind == "" {
 		return AgentHandlerResult{}, &AgentExecutionError{
 			Recipient: RecipientTaskGenerationAgent,
@@ -54,6 +54,7 @@ func (TaskGenerationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 	generated, dependencies, suppressions := generateFollowUpTasks(
 		envelope.Task,
 		envelope.Metadata.CorrelationID,
+		lifeEventID,
 		eventKind,
 		eventEvidenceIDs,
 		payload.Memories,
@@ -89,25 +90,33 @@ func (TaskGenerationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 	}, nil
 }
 
-func classifyLifeEvent(records []observation.EvidenceRecord) (string, []string) {
+func classifyLifeEvent(records []observation.EvidenceRecord) (string, string, []string) {
 	evidenceIDs := make([]string, 0, len(records))
+	lifeEventID := ""
 	for _, record := range records {
 		evidenceIDs = append(evidenceIDs, string(record.ID))
+		if lifeEventID == "" {
+			lifeEventID = strings.TrimSpace(record.Source.Reference)
+		}
 		for _, claim := range record.Claims {
 			if claim.Predicate == "life_event_kind" {
 				value := strings.Trim(claim.ValueJSON, "\"")
 				if value != "" {
-					return value, evidenceIDs
+					if lifeEventID == "" {
+						lifeEventID = strings.TrimSpace(claim.Object)
+					}
+					return value, lifeEventID, evidenceIDs
 				}
 			}
 		}
 	}
-	return "", evidenceIDs
+	return "", lifeEventID, evidenceIDs
 }
 
 func generateFollowUpTasks(
 	parent taskspec.TaskSpec,
 	workflowID string,
+	lifeEventID string,
 	eventKind string,
 	eventEvidenceIDs []string,
 	memories []memory.MemoryRecord,
@@ -139,10 +148,12 @@ func generateFollowUpTasks(
 				GeneratedAt:       now,
 				ParentWorkflowID:  workflowID,
 				ParentTaskID:      parent.ID,
+				RootCorrelationID: workflowID,
 				TriggerSource:     taskspec.TaskTriggerSourceLifeEvent,
 				Priority:          priority,
 				DueWindow:         dueWindow,
 				RequiresApproval:  requiresApproval,
+				ExecutionDepth:    1,
 				GenerationReasons: reasons,
 			},
 		}
@@ -152,6 +163,7 @@ func generateFollowUpTasks(
 		{
 			Code:             taskspec.TaskGenerationReasonLifeEventImpact,
 			Description:      "life event impact analysis produced a follow-up task",
+			LifeEventID:      lifeEventID,
 			LifeEventKind:    eventKind,
 			EvidenceIDs:      eventEvidenceIDs,
 			MemoryIDs:        memoryIDs,
@@ -292,15 +304,40 @@ func deriveDueWindow(records []observation.EvidenceRecord) ([]string, taskspec.T
 
 func buildGeneratedTaskSpec(parent taskspec.TaskSpec, intent taskspec.UserIntentType, goal string, now time.Time) taskspec.TaskSpec {
 	areas := []string{"cashflow"}
+	requiredEvidence := []taskspec.RequiredEvidenceRef{
+		{Type: "event_signal", Reason: "follow-up task must remain grounded in triggering event", Mandatory: true},
+	}
 	switch intent {
 	case taskspec.UserIntentTaxOptimization:
 		areas = []string{"tax", "cashflow"}
+		requiredEvidence = []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "tax optimization must stay tied to the triggering life event", Mandatory: true},
+			{Type: "calendar_deadline", Reason: "tax optimization should reflect active deadline pressure", Mandatory: false},
+			{Type: "tax_document", Reason: "tax optimization should reflect tax-document signals", Mandatory: false},
+			{Type: "payslip_statement", Reason: "tax optimization should reflect withholding and payroll context", Mandatory: false},
+		}
 	case taskspec.UserIntentPortfolioRebalance:
 		areas = []string{"portfolio", "cashflow"}
+		requiredEvidence = []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "portfolio rebalance must stay tied to the triggering life event", Mandatory: true},
+			{Type: "portfolio_allocation_snapshot", Reason: "rebalance requires current holdings and allocation drift", Mandatory: true},
+			{Type: "transaction_batch", Reason: "rebalance should reflect liquidity and contribution cashflow", Mandatory: false},
+		}
 	case taskspec.UserIntentDebtVsInvest:
 		areas = []string{"liability", "cashflow", "portfolio"}
+		requiredEvidence = []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "debt-vs-invest follow-up must remain grounded in the triggering event", Mandatory: true},
+			{Type: "debt_obligation_snapshot", Reason: "tradeoff analysis requires current debt obligations", Mandatory: true},
+			{Type: "portfolio_allocation_snapshot", Reason: "tradeoff analysis should reflect investable assets and drift", Mandatory: false},
+		}
 	case taskspec.UserIntentMonthlyReview:
 		areas = []string{"cashflow", "liability", "portfolio", "tax"}
+		requiredEvidence = []taskspec.RequiredEvidenceRef{
+			{Type: "event_signal", Reason: "monthly review follow-up must stay tied to the triggering event", Mandatory: true},
+			{Type: "transaction_batch", Reason: "monthly review needs current transaction coverage", Mandatory: true},
+			{Type: "debt_obligation_snapshot", Reason: "monthly review should reflect current liabilities", Mandatory: false},
+			{Type: "portfolio_allocation_snapshot", Reason: "monthly review should reflect current allocation and liquidity", Mandatory: false},
+		}
 	}
 	return taskspec.TaskSpec{
 		ID:    fmt.Sprintf("task-follow-up-%s-%s", intent, now.Format("20060102150405")),
@@ -316,9 +353,7 @@ func buildGeneratedTaskSpec(parent taskspec.TaskSpec, intent taskspec.UserIntent
 		SuccessCriteria: []taskspec.SuccessCriteria{
 			{ID: "follow-up-grounding", Description: "follow-up task remains grounded in life event evidence, state diff, and validated analysis"},
 		},
-		RequiredEvidence: []taskspec.RequiredEvidenceRef{
-			{Type: "event_signal", Reason: "follow-up task must remain grounded in triggering event", Mandatory: true},
-		},
+		RequiredEvidence:    requiredEvidence,
 		ApprovalRequirement: parent.ApprovalRequirement,
 		UserIntentType:      intent,
 		CreatedAt:           now,

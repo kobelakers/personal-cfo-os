@@ -30,7 +30,8 @@ Authoritative execution chain:
 11. `VerificationAgent` pass 2 validates generated tasks and final life-event assessment consistency
 12. `GovernanceAgent` evaluates disclosure, approval propagation, and spawned-task policy
 13. runtime registers the generated follow-up task graph and assigns queue status such as `ready`, `deferred`, `waiting_approval`, `dependency_blocked`, or `queued_pending_capability`
-14. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact, and only after governance and runtime registration
+14. runtime reevaluates the graph, activates capability-backed tasks, and executes allowlisted depth-1 follow-up workflows in graph-topological order
+15. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact, and only after governance and runtime registration/execution
 
 ## Primary Outputs
 
@@ -50,15 +51,20 @@ Workflow C is not report-first. Its primary outputs are:
 - runtime never consumes a second incompatible goal type
 - all follow-up tasks can round-trip back into a standard `TaskSpec`
 
-Phase 4A execution contract:
+Phase 4B execution contract:
 
 - generated tasks are formally registered into runtime
-- capability-gated intents such as `tax_optimization` and `portfolio_rebalance` are not fully executed yet
-- instead, they are registered as `queued_pending_capability` with explicit:
+- `tax_optimization` and `portfolio_rebalance` now have real workflow capability and may advance through:
+  - `queued_pending_capability`
+  - `ready`
+  - `executing`
+  - `completed / waiting_approval / failed`
+- non-allowlisted or depth>1 generated tasks may still remain registered with explicit:
   - `required_capability`
   - `missing_capability_reason`
+  - `suppressed_reasons`
 
-This keeps the proactive loop real without pretending that deferred capabilities already have consumers.
+This keeps the proactive loop real without turning the system into an unbounded recursive executor.
 
 ## Domain Expansion Boundary
 
@@ -104,7 +110,7 @@ Replay and trace must be able to explain:
 ## Still Deferred
 
 - behavior-domain execution
-- automatic execution of generated follow-up tasks
+- recursive automatic execution of deeper generated follow-up tasks
 - stronger external calendar/policy signal integrations
 - real Temporal/Postgres/pgvector/MinIO/provider infrastructure
 - full operator UI for event timeline and task queue inspection

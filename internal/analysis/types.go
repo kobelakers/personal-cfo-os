@@ -146,9 +146,9 @@ func (e BlockResultEnvelope) Validate() error {
 		if e.BlockKind != "debt_housing_impact_block" {
 			return fmt.Errorf("debt result cannot be attached to block kind %q", e.BlockKind)
 		}
-	case e.Tax != nil && e.BlockKind != "tax_event_impact_block":
+	case e.Tax != nil && e.BlockKind != "tax_event_impact_block" && e.BlockKind != "tax_optimization_block":
 		return fmt.Errorf("tax result cannot be attached to block kind %q", e.BlockKind)
-	case e.Portfolio != nil && e.BlockKind != "portfolio_event_impact_block":
+	case e.Portfolio != nil && e.BlockKind != "portfolio_event_impact_block" && e.BlockKind != "portfolio_rebalance_block":
 		return fmt.Errorf("portfolio result cannot be attached to block kind %q", e.BlockKind)
 	}
 	return nil

@@ -231,6 +231,7 @@ func (w LifeEventTriggerWorkflow) Run(
 		approvalDecision   *governance.PolicyDecision
 		approvalAudit      *governance.AuditEvent
 		registration       runtimepkg.FollowUpRegistrationResult
+		followUpExecution  runtimepkg.FollowUpExecutionBatchResult
 		artifacts          []WorkflowArtifact
 		reportPayload      = reportDraftStep.Draft
 		lifeEventTaskGraph = applyApprovalDecisionToTaskGraph(taskGenerationStep.TaskGraph, governanceStep.Approval)
@@ -250,7 +251,7 @@ func (w LifeEventTriggerWorkflow) Run(
 		}
 		runtimeState = nextState
 	case governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionAllow || governanceStep.Disclosure.Decision.Outcome == governance.PolicyDecisionRedact:
-		registration, err = workflowRuntime.RegisterFollowUpTasks(execCtx, lifeEventTaskGraph)
+		registration, err = workflowRuntime.RegisterFollowUpTasks(execCtx, lifeEventTaskGraph, observed.UpdatedState)
 		if err != nil {
 			return LifeEventTriggerRunResult{}, err
 		}
@@ -260,6 +261,14 @@ func (w LifeEventTriggerWorkflow) Run(
 			"generated_intents":   taskIntents(registration.Graph),
 		}, now)
 		reportPayload = applyFollowUpRegistrationToAssessment(reportPayload, registration)
+		activation, err := workflowRuntime.ReevaluateTaskGraph(execCtx, lifeEventTaskGraph.GraphID)
+		if err != nil {
+			return LifeEventTriggerRunResult{}, err
+		}
+		appendWorkflowLog(w.EventLog, workflowID, "life_event_follow_up_activation", "reevaluated generated follow-up task graph before runtime execution", map[string]string{
+			"graph_id":       activation.GraphID,
+			"ready_task_ids": joinStrings(activation.ReadyTaskIDs),
+		}, now)
 		if approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionRequireApproval {
 			nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.HumanApprovalPending{
 				ApprovalID:      workflowID + "-approval",
@@ -273,6 +282,19 @@ func (w LifeEventTriggerWorkflow) Run(
 			}
 			runtimeState = nextState
 		} else {
+			followUpExecution, err = workflowRuntime.ExecuteReadyFollowUps(ctx, execCtx, lifeEventTaskGraph.GraphID, runtimepkg.DefaultAutoExecutionPolicy())
+			if err != nil {
+				return LifeEventTriggerRunResult{}, err
+			}
+			if len(followUpExecution.RegisteredTasks) > 0 {
+				registration.RegisteredTasks = append([]runtimepkg.FollowUpTaskRecord{}, followUpExecution.RegisteredTasks...)
+			}
+			reportPayload = applyFollowUpExecutionToAssessment(reportPayload, followUpExecution)
+			appendWorkflowLog(w.EventLog, workflowID, "life_event_follow_up_execution", "executed eligible follow-up tasks through runtime capability plane", map[string]string{
+				"graph_id":             followUpExecution.GraphID,
+				"executed_task_ids":    executedTaskIDs(followUpExecution.ExecutedTasks),
+				"latest_state_version": fmt.Sprintf("%d", followUpExecution.LatestCommittedStateSnapshot.State.Version.Sequence),
+			}, now)
 			finalizeStep, err := steps.DispatchReportFinalize(ctx, meta, reportPayload, governanceStep.Disclosure.Decision)
 			if err != nil {
 				return LifeEventTriggerRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "life event assessment finalization failed")
@@ -305,6 +327,7 @@ func (w LifeEventTriggerWorkflow) Run(
 		GeneratedMemories:    memoryStep.Result.GeneratedIDs,
 		TaskGraph:            lifeEventTaskGraph,
 		FollowUpTasks:        registration,
+		FollowUpExecution:    followUpExecution,
 		Report:               report,
 		Artifacts:            artifacts,
 		CoverageReport:       verificationPass2.Result.CoverageReport,

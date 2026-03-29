@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/skills"
 )
@@ -11,13 +12,15 @@ import (
 type ArtifactKind string
 
 const (
-	ArtifactKindMonthlyReviewReport ArtifactKind = "monthly_review_report"
-	ArtifactKindDebtDecisionReport  ArtifactKind = "debt_decision_report"
-	ArtifactKindLifeEventAssessment ArtifactKind = "life_event_assessment_report"
-	ArtifactKindWorkflowTimeline    ArtifactKind = "workflow_timeline"
-	ArtifactKindVerificationReport  ArtifactKind = "verification_report"
-	ArtifactKindCheckpointDump      ArtifactKind = "checkpoint_dump"
-	ArtifactKindApprovalRequest     ArtifactKind = "approval_request"
+	ArtifactKindMonthlyReviewReport      ArtifactKind = "monthly_review_report"
+	ArtifactKindDebtDecisionReport       ArtifactKind = "debt_decision_report"
+	ArtifactKindLifeEventAssessment      ArtifactKind = "life_event_assessment_report"
+	ArtifactKindTaxOptimizationReport    ArtifactKind = "tax_optimization_report"
+	ArtifactKindPortfolioRebalanceReport ArtifactKind = "portfolio_rebalance_report"
+	ArtifactKindWorkflowTimeline         ArtifactKind = "workflow_timeline"
+	ArtifactKindVerificationReport       ArtifactKind = "verification_report"
+	ArtifactKindCheckpointDump           ArtifactKind = "checkpoint_dump"
+	ArtifactKindApprovalRequest          ArtifactKind = "approval_request"
 )
 
 type ArtifactRef struct {
@@ -98,10 +101,42 @@ type LifeEventAssessmentReport struct {
 	GeneratedAt           time.Time                `json:"generated_at"`
 }
 
+type TaxOptimizationReport struct {
+	TaskID               string                   `json:"task_id"`
+	WorkflowID           string                   `json:"workflow_id"`
+	Summary              string                   `json:"summary"`
+	DeterministicMetrics map[string]any           `json:"deterministic_metrics"`
+	RecommendedActions   []skills.SkillItem       `json:"recommended_actions"`
+	SourceBlockIDs       []string                 `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs      []string                 `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs    []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
+	RiskFlags            []analysis.RiskFlag      `json:"risk_flags"`
+	ApprovalRequired     bool                     `json:"approval_required"`
+	Confidence           float64                  `json:"confidence"`
+	GeneratedAt          time.Time                `json:"generated_at"`
+}
+
+type PortfolioRebalanceReport struct {
+	TaskID               string                   `json:"task_id"`
+	WorkflowID           string                   `json:"workflow_id"`
+	Summary              string                   `json:"summary"`
+	DeterministicMetrics map[string]any           `json:"deterministic_metrics"`
+	RecommendedActions   []skills.SkillItem       `json:"recommended_actions"`
+	SourceBlockIDs       []string                 `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs      []string                 `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs    []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
+	RiskFlags            []analysis.RiskFlag      `json:"risk_flags"`
+	ApprovalRequired     bool                     `json:"approval_required"`
+	Confidence           float64                  `json:"confidence"`
+	GeneratedAt          time.Time                `json:"generated_at"`
+}
+
 type ReportPayload struct {
 	MonthlyReview       *MonthlyReviewReport       `json:"monthly_review,omitempty"`
 	DebtDecision        *DebtDecisionReport        `json:"debt_decision,omitempty"`
 	LifeEventAssessment *LifeEventAssessmentReport `json:"life_event_assessment,omitempty"`
+	TaxOptimization     *TaxOptimizationReport     `json:"tax_optimization,omitempty"`
+	PortfolioRebalance  *PortfolioRebalanceReport  `json:"portfolio_rebalance,omitempty"`
 }
 
 func (p ReportPayload) Validate() error {
@@ -113,6 +148,12 @@ func (p ReportPayload) Validate() error {
 		count++
 	}
 	if p.LifeEventAssessment != nil {
+		count++
+	}
+	if p.TaxOptimization != nil {
+		count++
+	}
+	if p.PortfolioRebalance != nil {
 		count++
 	}
 	if count != 1 {
@@ -129,6 +170,10 @@ func (p ReportPayload) Summary() string {
 		return p.DebtDecision.Conclusion
 	case p.LifeEventAssessment != nil:
 		return p.LifeEventAssessment.EventSummary
+	case p.TaxOptimization != nil:
+		return p.TaxOptimization.Summary
+	case p.PortfolioRebalance != nil:
+		return p.PortfolioRebalance.Summary
 	default:
 		return ""
 	}
@@ -142,6 +187,10 @@ func (p ReportPayload) ArtifactKind() ArtifactKind {
 		return ArtifactKindDebtDecisionReport
 	case p.LifeEventAssessment != nil:
 		return ArtifactKindLifeEventAssessment
+	case p.TaxOptimization != nil:
+		return ArtifactKindTaxOptimizationReport
+	case p.PortfolioRebalance != nil:
+		return ArtifactKindPortfolioRebalanceReport
 	default:
 		return ""
 	}
@@ -155,6 +204,10 @@ func (p ReportPayload) ProducedAt() time.Time {
 		return p.DebtDecision.GeneratedAt
 	case p.LifeEventAssessment != nil:
 		return p.LifeEventAssessment.GeneratedAt
+	case p.TaxOptimization != nil:
+		return p.TaxOptimization.GeneratedAt
+	case p.PortfolioRebalance != nil:
+		return p.PortfolioRebalance.GeneratedAt
 	default:
 		return time.Time{}
 	}
@@ -168,6 +221,10 @@ func (p ReportPayload) WorkflowID() string {
 		return p.DebtDecision.WorkflowID
 	case p.LifeEventAssessment != nil:
 		return p.LifeEventAssessment.WorkflowID
+	case p.TaxOptimization != nil:
+		return p.TaxOptimization.WorkflowID
+	case p.PortfolioRebalance != nil:
+		return p.PortfolioRebalance.WorkflowID
 	default:
 		return ""
 	}

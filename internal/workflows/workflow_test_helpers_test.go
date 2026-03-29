@@ -190,6 +190,46 @@ func buildLifeEventWorkflow(t *testing.T, deps phase2Deps, events []observation.
 	t.Helper()
 	deps.EventAdapter.Events = append([]observation.LifeEventRecord{}, events...)
 	deps.DeadlineAdapter.Deadlines = append([]observation.CalendarDeadlineRecord{}, deadlines...)
+	systemSteps := buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
+		MinConfidence:   0.7,
+		RequireEvidence: false,
+		AllowKinds: []memory.MemoryKind{
+			memory.MemoryKindEpisodic,
+			memory.MemoryKindSemantic,
+			memory.MemoryKindProcedural,
+		},
+	})
+	followUpService := FollowUpWorkflowService{
+		QueryEvent:            tools.QueryEventTool{Adapter: deps.EventAdapter},
+		QueryCalendarDeadline: tools.QueryCalendarDeadlineTool{Adapter: deps.DeadlineAdapter},
+		QueryTransaction:      tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+		QueryPortfolio:        tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+		ParseDocument: tools.ParseDocumentTool{
+			Structured: deps.StructuredDocAdapter,
+			Agentic:    deps.AgenticDocAdapter,
+		},
+		ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
+		EventLog:      deps.EventLog,
+	}
+	childRuntime := &runtimepkg.LocalWorkflowRuntime{
+		EventLog: deps.EventLog,
+		Now:      func() time.Time { return deps.Now },
+	}
+	taxWorkflow := TaxOptimizationWorkflow{
+		Service:     followUpService,
+		SystemSteps: systemSteps,
+		Runtime:     childRuntime,
+		EventLog:    deps.EventLog,
+		Now:         func() time.Time { return deps.Now },
+	}
+	portfolioWorkflow := PortfolioRebalanceWorkflow{
+		Service:     followUpService,
+		SystemSteps: systemSteps,
+		Runtime:     childRuntime,
+		EventLog:    deps.EventLog,
+		Now:         func() time.Time { return deps.Now },
+	}
+	taskGraphs := runtimepkg.NewInMemoryTaskGraphStore()
 	return LifeEventTriggerWorkflow{
 		Intake: taskspec.EventTriggeredIntakeService{
 			Now: func() time.Time { return deps.Now },
@@ -207,26 +247,104 @@ func buildLifeEventWorkflow(t *testing.T, deps phase2Deps, events []observation.
 			ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
 			EventLog:      deps.EventLog,
 		},
-		SystemSteps: buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
-			MinConfidence:   0.7,
-			RequireEvidence: false,
-			AllowKinds: []memory.MemoryKind{
-				memory.MemoryKindEpisodic,
-				memory.MemoryKindSemantic,
-				memory.MemoryKindProcedural,
-			},
-		}),
+		SystemSteps: systemSteps,
 		Runtime: &runtimepkg.LocalWorkflowRuntime{
 			EventLog:   deps.EventLog,
-			TaskGraphs: runtimepkg.NewInMemoryTaskGraphStore(),
-			Now:        func() time.Time { return deps.Now },
+			TaskGraphs: taskGraphs,
+			Capabilities: runtimepkg.StaticTaskCapabilityResolver{
+				Capabilities: map[taskspec.UserIntentType]string{
+					taskspec.UserIntentMonthlyReview:      "monthly_review_workflow",
+					taskspec.UserIntentDebtVsInvest:       "debt_vs_invest_workflow",
+					taskspec.UserIntentTaxOptimization:    "tax_optimization_workflow",
+					taskspec.UserIntentPortfolioRebalance: "portfolio_rebalance_workflow",
+				},
+				Workflows: map[taskspec.UserIntentType]runtimepkg.FollowUpWorkflowCapability{
+					taskspec.UserIntentTaxOptimization:    TaxOptimizationWorkflowCapability{Workflow: taxWorkflow},
+					taskspec.UserIntentPortfolioRebalance: PortfolioRebalanceWorkflowCapability{Workflow: portfolioWorkflow},
+				},
+			},
+			Now: func() time.Time { return deps.Now },
 		},
 		EventLog: deps.EventLog,
 		Now:      func() time.Time { return deps.Now },
 	}
 }
 
+func buildTaxOptimizationWorkflow(t *testing.T, deps phase2Deps, events []observation.LifeEventRecord, deadlines []observation.CalendarDeadlineRecord) TaxOptimizationWorkflow {
+	t.Helper()
+	deps.EventAdapter.Events = append([]observation.LifeEventRecord{}, events...)
+	deps.DeadlineAdapter.Deadlines = append([]observation.CalendarDeadlineRecord{}, deadlines...)
+	systemSteps := buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
+		MinConfidence:   0.7,
+		RequireEvidence: false,
+		AllowKinds: []memory.MemoryKind{
+			memory.MemoryKindEpisodic,
+			memory.MemoryKindSemantic,
+			memory.MemoryKindProcedural,
+		},
+	})
+	return TaxOptimizationWorkflow{
+		Service:     buildFollowUpWorkflowService(deps),
+		SystemSteps: systemSteps,
+		Runtime: &runtimepkg.LocalWorkflowRuntime{
+			EventLog: deps.EventLog,
+			Now:      func() time.Time { return deps.Now },
+		},
+		EventLog: deps.EventLog,
+		Now:      func() time.Time { return deps.Now },
+	}
+}
+
+func buildPortfolioRebalanceWorkflow(t *testing.T, deps phase2Deps, events []observation.LifeEventRecord, deadlines []observation.CalendarDeadlineRecord) PortfolioRebalanceWorkflow {
+	t.Helper()
+	deps.EventAdapter.Events = append([]observation.LifeEventRecord{}, events...)
+	deps.DeadlineAdapter.Deadlines = append([]observation.CalendarDeadlineRecord{}, deadlines...)
+	systemSteps := buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
+		MinConfidence:   0.7,
+		RequireEvidence: false,
+		AllowKinds: []memory.MemoryKind{
+			memory.MemoryKindEpisodic,
+			memory.MemoryKindSemantic,
+			memory.MemoryKindProcedural,
+		},
+	})
+	return PortfolioRebalanceWorkflow{
+		Service:     buildFollowUpWorkflowService(deps),
+		SystemSteps: systemSteps,
+		Runtime: &runtimepkg.LocalWorkflowRuntime{
+			EventLog: deps.EventLog,
+			Now:      func() time.Time { return deps.Now },
+		},
+		EventLog: deps.EventLog,
+		Now:      func() time.Time { return deps.Now },
+	}
+}
+
+func buildFollowUpWorkflowService(deps phase2Deps) FollowUpWorkflowService {
+	return FollowUpWorkflowService{
+		QueryEvent:            tools.QueryEventTool{Adapter: deps.EventAdapter},
+		QueryCalendarDeadline: tools.QueryCalendarDeadlineTool{Adapter: deps.DeadlineAdapter},
+		QueryTransaction:      tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+		QueryPortfolio:        tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+		ParseDocument: tools.ParseDocumentTool{
+			Structured: deps.StructuredDocAdapter,
+			Agentic:    deps.AgenticDocAdapter,
+		},
+		ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
+		EventLog:      deps.EventLog,
+	}
+}
+
 func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governance.MemoryWritePolicy) agents.SystemStepBus {
+	return buildSystemStepBusWithApprovalMinRisk(t, deps, memoryWritePolicy, governance.ActionRiskHigh)
+}
+
+func buildSystemStepBusWithApprovalMinRisk(
+	t *testing.T,
+	deps phase2Deps,
+	memoryWritePolicy governance.MemoryWritePolicy,
+	minRisk governance.ActionRiskLevel,
+) agents.SystemStepBus {
 	t.Helper()
 	memoryService := memory.WorkflowMemoryService{
 		Writer:    deps.Writer,
@@ -249,6 +367,12 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 		LifeEventAggregator: reporting.LifeEventAssessmentAggregator{
 			Now: func() time.Time { return deps.Now },
 		},
+		TaxOptimizationAggregator: reporting.TaxOptimizationAggregator{
+			Now: func() time.Time { return deps.Now },
+		},
+		PortfolioRebalanceAggregator: reporting.PortfolioRebalanceAggregator{
+			Now: func() time.Time { return deps.Now },
+		},
 		Artifacts: reporting.ArtifactService{
 			Tool:     tools.GenerateTaskArtifactTool{},
 			Producer: reporting.StaticArtifactProducer{Now: func() time.Time { return deps.Now }},
@@ -269,7 +393,7 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 		PolicyEngine: governance.StaticPolicyEngine{},
 		ApprovalPolicy: governance.ApprovalPolicy{
 			Name:          "system-agent-approval",
-			MinRiskLevel:  governance.ActionRiskHigh,
+			MinRiskLevel:  minRisk,
 			RequiredRoles: []string{"operator"},
 			AutoApprove:   false,
 		},

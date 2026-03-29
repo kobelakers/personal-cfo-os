@@ -759,6 +759,10 @@ func requestedAction(spec taskspec.TaskSpec) string {
 		return "debt_vs_invest_recommendation"
 	case taskspec.UserIntentLifeEventTrigger:
 		return "life_event_follow_up_registration"
+	case taskspec.UserIntentTaxOptimization:
+		return "tax_optimization_report"
+	case taskspec.UserIntentPortfolioRebalance:
+		return "portfolio_rebalance_report"
 	default:
 		return "workflow_output"
 	}
@@ -772,6 +776,10 @@ func reportRequiresApproval(report reporting.ReportPayload) bool {
 		return report.DebtDecision.ApprovalRequired
 	case report.LifeEventAssessment != nil:
 		return false
+	case report.TaxOptimization != nil:
+		return report.TaxOptimization.ApprovalRequired
+	case report.PortfolioRebalance != nil:
+		return report.PortfolioRebalance.ApprovalRequired
 	default:
 		return false
 	}
