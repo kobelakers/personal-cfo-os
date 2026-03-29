@@ -3,6 +3,7 @@ package memory
 import "context"
 
 type EmbeddingProvider interface {
+	GenerateEmbedding(ctx context.Context, request EmbeddingRequest) (EmbeddingResponse, error)
 	Embed(ctx context.Context, text string) ([]float64, error)
 }
 
@@ -23,6 +24,37 @@ type MemoryStore interface {
 	Put(ctx context.Context, record MemoryRecord) error
 	Get(ctx context.Context, id string) (MemoryRecord, bool, error)
 	List(ctx context.Context) ([]MemoryRecord, error)
+}
+
+type MemoryQueryStore interface {
+	LoadByIDs(ctx context.Context, ids []string) ([]MemoryRecord, error)
+	ListByKind(ctx context.Context, filter MemoryListFilter) ([]MemoryRecord, error)
+	ListRecent(ctx context.Context, limit int) ([]MemoryRecord, error)
+	SearchLexical(ctx context.Context, terms []string, limit int) ([]LexicalCandidate, error)
+}
+
+type MemoryRelationStore interface {
+	SaveRelations(ctx context.Context, memoryID string, relations MemoryRelations) error
+	LoadRelations(ctx context.Context, memoryID string) (MemoryRelations, error)
+}
+
+type MemoryAuditStore interface {
+	AppendAccess(ctx context.Context, audit MemoryAccessAudit) error
+	ListAccess(ctx context.Context, memoryID string) ([]MemoryAccessAudit, error)
+}
+
+type MemoryWriteEventStore interface {
+	AppendWriteEvent(ctx context.Context, event MemoryWriteEvent) error
+	ListWriteEvents(ctx context.Context, memoryID string) ([]MemoryWriteEvent, error)
+}
+
+type MemoryEmbeddingStore interface {
+	SaveEmbedding(ctx context.Context, record MemoryEmbeddingRecord) error
+	LoadEmbedding(ctx context.Context, memoryID string, model string) (MemoryEmbeddingRecord, bool, error)
+	ListEmbeddings(ctx context.Context, model string) ([]MemoryEmbeddingRecord, error)
+	DeleteEmbeddings(ctx context.Context, model string) error
+	ReplaceTerms(ctx context.Context, memoryID string, terms map[string]int) error
+	LoadIndexedModels(ctx context.Context) ([]string, error)
 }
 
 type HybridRetriever interface {
@@ -47,4 +79,16 @@ type MemoryWriter interface {
 
 type MemoryWriteGate interface {
 	AllowWrite(ctx context.Context, record MemoryRecord) error
+}
+
+type MemoryTraceRecorder interface {
+	RecordMemoryQuery(record MemoryQueryRecord)
+	RecordMemoryRetrieval(record MemoryRetrievalRecord)
+	RecordMemorySelection(record MemorySelectionRecord)
+}
+
+type MemoryIndexer interface {
+	BackfillEmbeddings(ctx context.Context) (IndexBuildSummary, error)
+	BackfillLexicalTerms(ctx context.Context) (IndexBuildSummary, error)
+	RebuildIndexes(ctx context.Context) (IndexBuildSummary, error)
 }

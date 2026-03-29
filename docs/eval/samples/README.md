@@ -1,18 +1,38 @@
-# Phase 5B Sample Evidence
+# Sample Evidence
 
-These files are stable mock-generated run artifacts for the Phase 5B Monthly Review golden path:
+## Phase 5B
+
+Stable mock-generated artifacts for the real-intelligence-backed Monthly Review golden path:
 
 - `monthly_review_5b_report.json`
 - `monthly_review_5b_trace.json`
 
-Regenerate them from the repository root with:
+Regenerate:
 
 ```bash
 ./scripts/run_monthly_review_5b.sh mock
 ```
 
-For a local live smoke run, provide OpenAI-compatible env vars and choose `live` mode:
+## Phase 5C
+
+Stable mock-generated artifacts for the first real memory substrate on Monthly Review:
+
+- `monthly_review_5c_report.json`
+- `monthly_review_5c_trace.json`
+- `monthly_review_5c_cross_session.json`
+
+Regenerate:
 
 ```bash
-OPENAI_API_KEY=... OPENAI_REASONING_MODEL=... OPENAI_FAST_MODEL=... ./scripts/run_monthly_review_5b.sh live /tmp/monthly-review-5b
+./scripts/run_monthly_review_5c.sh mock
+```
+
+Live mode remains local-only and env-gated:
+
+```bash
+OPENAI_API_KEY=... \
+OPENAI_REASONING_MODEL=... \
+OPENAI_FAST_MODEL=... \
+OPENAI_EMBEDDING_MODEL=... \
+./scripts/run_monthly_review_5c.sh live /tmp/monthly-review-5c /tmp/monthly-review-5c/memory.db
 ```

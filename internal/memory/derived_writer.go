@@ -15,13 +15,18 @@ type WorkflowMemoryResult struct {
 	GeneratedIDs     []string       `json:"generated_ids,omitempty"`
 	GeneratedRecords []MemoryRecord `json:"generated_records,omitempty"`
 	Retrieved        []MemoryRecord `json:"retrieved,omitempty"`
+	PlanningRetrieved []MemoryRecord `json:"planning_retrieved,omitempty"`
+	CashflowRetrieved []MemoryRecord `json:"cashflow_retrieved,omitempty"`
 }
 
 type WorkflowMemoryService struct {
-	Writer    MemoryWriter
-	Gate      MemoryWriteGate
-	Retriever HybridRetriever
-	Now       func() time.Time
+	Writer                MemoryWriter
+	Gate                  MemoryWriteGate
+	Retriever             HybridRetriever
+	PlannerQueryBuilder   MemoryQueryBuilder
+	CashflowQueryBuilder  MemoryQueryBuilder
+	TraceRecorder         MemoryTraceRecorder
+	Now                   func() time.Time
 }
 
 func (s WorkflowMemoryService) SyncMonthlyReview(
@@ -32,17 +37,31 @@ func (s WorkflowMemoryService) SyncMonthlyReview(
 	evidence []observation.EvidenceRecord,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
-	records := deriveMonthlyReviewMemories(spec, workflowID, current, evidence, now)
-	generatedIDs, err := s.writeRecords(ctx, records)
+	planningQuery, planningRetrieved, planningResults, err := s.retrieveQuery(ctx, s.plannerBuilder(), QueryBuildInput{
+		WorkflowID: workflowID,
+		Task:       spec,
+		State:      current,
+		Evidence:   evidence,
+		TraceID:    workflowID,
+	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
 	}
-	retrieved, err := s.retrieve(ctx, RetrievalQuery{
-		Text:         spec.Goal,
-		LexicalTerms: spec.Scope.Areas,
-		SemanticHint: "monthly financial review, risk signals, optimization suggestions",
-		TopK:         4,
+	cashflowQuery, cashflowRetrieved, cashflowResults, err := s.retrieveQuery(ctx, s.cashflowBuilder(), QueryBuildInput{
+		WorkflowID: workflowID,
+		Task:       spec,
+		State:      current,
+		Evidence:   evidence,
+		TraceID:    workflowID,
 	})
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	retrieved := mergeRetrievedMemories(planningRetrieved, cashflowRetrieved)
+	s.recordSelection(workflowID, spec.ID, MemoryConsumerPlanner, planningQuery.QueryID, planningResults)
+	s.recordSelection(workflowID, spec.ID, MemoryConsumerCashflow, cashflowQuery.QueryID, cashflowResults)
+	records := deriveMonthlyReviewMemories(spec, workflowID, current, evidence, now)
+	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
 	}
@@ -50,6 +69,8 @@ func (s WorkflowMemoryService) SyncMonthlyReview(
 		GeneratedIDs:     generatedIDs,
 		GeneratedRecords: records,
 		Retrieved:        retrieved,
+		PlanningRetrieved: planningRetrieved,
+		CashflowRetrieved: cashflowRetrieved,
 	}, nil
 }
 
@@ -180,9 +201,34 @@ func (s WorkflowMemoryService) retrieve(ctx context.Context, query RetrievalQuer
 	}
 	memories := make([]MemoryRecord, 0, len(results))
 	for _, result := range results {
+		if result.Rejected || result.MemoryID == "" {
+			continue
+		}
 		memories = append(memories, result.Memory)
 	}
 	return memories, nil
+}
+
+func (s WorkflowMemoryService) retrieveQuery(ctx context.Context, builder MemoryQueryBuilder, input QueryBuildInput) (RetrievalQuery, []MemoryRecord, []RetrievalResult, error) {
+	if s.Retriever == nil || builder == nil {
+		return RetrievalQuery{}, nil, nil, nil
+	}
+	query := builder.Build(input)
+	s.recordQuery(query)
+	results, err := s.Retriever.Retrieve(ctx, query)
+	if err != nil {
+		return query, nil, nil, err
+	}
+	s.recordRetrieval(query, results)
+	memories := make([]MemoryRecord, 0, len(results))
+	for i := range results {
+		if results[i].Rejected || results[i].MemoryID == "" {
+			continue
+		}
+		results[i].Selected = true
+		memories = append(memories, results[i].Memory)
+	}
+	return query, memories, results, nil
 }
 
 func (s WorkflowMemoryService) writeRecords(ctx context.Context, records []MemoryRecord) ([]string, error) {
@@ -209,6 +255,119 @@ func (s WorkflowMemoryService) now() time.Time {
 		return s.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func (s WorkflowMemoryService) plannerBuilder() MemoryQueryBuilder {
+	if s.PlannerQueryBuilder != nil {
+		return s.PlannerQueryBuilder
+	}
+	return PlannerMemoryQueryBuilder{}
+}
+
+func (s WorkflowMemoryService) cashflowBuilder() MemoryQueryBuilder {
+	if s.CashflowQueryBuilder != nil {
+		return s.CashflowQueryBuilder
+	}
+	return CashflowMemoryQueryBuilder{}
+}
+
+func (s WorkflowMemoryService) recordQuery(query RetrievalQuery) {
+	if s.TraceRecorder == nil {
+		return
+	}
+	s.TraceRecorder.RecordMemoryQuery(MemoryQueryRecord{
+		QueryID:          query.QueryID,
+		WorkflowID:       query.WorkflowID,
+		TaskID:           query.TaskID,
+		TraceID:          query.TraceID,
+		Consumer:         query.Consumer,
+		ContextView:      query.ContextView,
+		Text:             query.Text,
+		LexicalTerms:     append([]string{}, query.LexicalTerms...),
+		SemanticHint:     query.SemanticHint,
+		TopK:             query.TopK,
+		RetrievalPolicy:  query.RetrievalPolicy,
+		FreshnessPolicy:  query.FreshnessPolicy,
+		EmbeddingModel:   query.EmbeddingModel,
+		EmbeddingProfile: query.EmbeddingProfile,
+		OccurredAt:       s.now(),
+	})
+}
+
+func (s WorkflowMemoryService) recordRetrieval(query RetrievalQuery, results []RetrievalResult) {
+	if s.TraceRecorder == nil {
+		return
+	}
+	selected := make([]string, 0)
+	rejected := make([]string, 0)
+	for _, result := range results {
+		if result.MemoryID == "" {
+			continue
+		}
+		if result.Rejected {
+			rejected = append(rejected, result.MemoryID)
+			continue
+		}
+		selected = append(selected, result.MemoryID)
+	}
+	s.TraceRecorder.RecordMemoryRetrieval(MemoryRetrievalRecord{
+		QueryID:          query.QueryID,
+		WorkflowID:       query.WorkflowID,
+		TaskID:           query.TaskID,
+		TraceID:          query.TraceID,
+		Consumer:         query.Consumer,
+		RetrievalPolicy:  query.RetrievalPolicy,
+		FreshnessPolicy:  query.FreshnessPolicy,
+		FusionSummary:    "lexical+semantic via reciprocal rank fusion",
+		SelectedMemoryID: selected,
+		RejectedMemoryID: rejected,
+		Results:          append([]RetrievalResult{}, results...),
+		OccurredAt:       s.now(),
+	})
+}
+
+func (s WorkflowMemoryService) recordSelection(workflowID string, taskID string, consumer string, queryID string, results []RetrievalResult) {
+	if s.TraceRecorder == nil {
+		return
+	}
+	selected := make([]string, 0)
+	rejected := make([]string, 0)
+	for _, result := range results {
+		if result.MemoryID == "" {
+			continue
+		}
+		if result.Rejected {
+			rejected = append(rejected, result.MemoryID)
+			continue
+		}
+		selected = append(selected, result.MemoryID)
+	}
+	s.TraceRecorder.RecordMemorySelection(MemorySelectionRecord{
+		QueryID:           queryID,
+		WorkflowID:        workflowID,
+		TaskID:            taskID,
+		TraceID:           workflowID,
+		Consumer:          consumer,
+		SelectedMemoryIDs: selected,
+		RejectedMemoryIDs: rejected,
+		Reason:            "selected memories injected into downstream context",
+		OccurredAt:        s.now(),
+	})
+}
+
+func mergeRetrievedMemories(groups ...[]MemoryRecord) []MemoryRecord {
+	seen := make(map[string]struct{})
+	result := make([]MemoryRecord, 0)
+	for _, group := range groups {
+		for _, record := range group {
+			if _, ok := seen[record.ID]; ok {
+				continue
+			}
+			seen[record.ID] = struct{}{}
+			result = append(result, record)
+		}
+	}
+	return result
 }
 
 func deriveMonthlyReviewMemories(

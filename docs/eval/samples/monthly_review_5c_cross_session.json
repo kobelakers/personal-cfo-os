@@ -1,0 +1,30 @@
+{
+  "scenario": "monthly_review_5c_cross_session",
+  "description": "Monthly Review was run twice against the same injected memory.db. The second run reopened durable memory written by the first run and selected those memories into planning and cashflow reasoning.",
+  "seed_run_at": "2026-03-30T08:00:00Z",
+  "influenced_run_at": "2026-03-31T08:00:00Z",
+  "control_run_at": "2026-03-31T08:00:00Z",
+  "same_memory_db_reopened": true,
+  "memory_influence_detected": true,
+  "selected_memory_ids": [
+    "workflow-monthly-review-20260330080000-memory-debt-pressure",
+    "workflow-monthly-review-20260330080000-memory-procedure",
+    "workflow-monthly-review-20260330080000-memory-subscriptions"
+  ],
+  "with_durable_memory": {
+    "report_summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+    "primary_recommendation_detail": "跨 session 记忆显示订阅优化曾被连续提及，因此本轮建议把订阅清理放到现金流优化的第一优先级。",
+    "source_memory_ids": [
+      "workflow-monthly-review-20260330080000-memory-debt-pressure",
+      "workflow-monthly-review-20260330080000-memory-procedure",
+      "workflow-monthly-review-20260330080000-memory-subscriptions"
+    ],
+    "trace_file": "monthly_review_5c_trace.json",
+    "artifact_file": "monthly_review_5c_report.json"
+  },
+  "without_prior_memory_control": {
+    "report_summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+    "primary_recommendation_detail": "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。",
+    "source_memory_ids": []
+  }
+}

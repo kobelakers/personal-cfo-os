@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, and a first real-intelligence-backed Monthly Review golden path:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, and a first real memory substrate:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -34,10 +34,26 @@ The repository now runs a real governed finance workflow backbone with system-ag
 16. `CashflowAgent` now has a real provider-backed structured analysis path for Monthly Review, but deterministic finance metrics remain the source of truth
 17. prompts are now versioned system objects under `internal/prompt`, structured output is validated/repaired/fallbacked under `internal/structured`, and token-aware context budgeting now materially changes model inputs
 18. `cmd/eval` plus `scripts/run_monthly_review_5b.sh` can now produce a trace dump and report artifact for the Phase 5B Monthly Review golden path in either mock or env-gated live mode
+19. `cmd/eval --phase 5c` plus `scripts/run_monthly_review_5c.sh` now reopen the same injected `memory.db`, retrieve durable memories through lexical + semantic + fusion + rejection, and show that prior monthly-review memories can change planner/cashflow output in a later session
+
+## Phase 5C Real Memory Substrate
+
+Phase 5C upgrades memory from a shaped interface to a load-bearing substrate for Monthly Review:
+
+- `internal/memory` now has a real SQLite-backed durable memory seam with separate tables for memory records, relations, embeddings, lexical terms, access audit, and write events
+- memory durable plane is intentionally separate from the runtime durable plane introduced in Phase 5A; they may both use SQLite locally, but they are not the same semantic layer
+- semantic retrieval now uses a real embedding provider seam with one OpenAI-compatible live implementation and one deterministic static provider for tests and mock runs
+- retrieval is now a real hybrid stack:
+  - lexical retrieval from durable term postings
+  - semantic retrieval from persisted embeddings
+  - reciprocal-rank fusion
+  - policy-driven rejection with explicit reasons
+- retrieval query formation is no longer workflow-local string glue; planner and cashflow use dedicated typed query builders
+- cross-session influence is now part of the Monthly Review proof: the second run against the same `memory.db` can alter planner rationale, recommendation framing, or report provenance because prior durable memories were selected into context
 
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
@@ -53,6 +69,7 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - operator-facing actions are now formal typed commands with idempotent request ids and optimistic-concurrency transitions instead of ad hoc workflow-local mutation
 - replay queries now read durable `ReplayStore` records rather than in-memory helper timelines
 - only `PlannerAgent` and `CashflowAgent` enter the real provider-backed intelligence path in this phase, and only inside Monthly Review
+- only Monthly Review currently proves durable-memory influence; this is not yet a claim about every workflow or every agent
 - provider-backed intelligence is now a load-bearing substrate layer rather than workflow-local string prompts: prompts are versioned, render policy is real code rather than dead metadata, context is token-aware at MVP scope, outputs are schema-validated/repaired/fallbacked, and traces include provider/prompt/token/cost/fallback evidence
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
@@ -110,6 +127,7 @@ go vet ./...
 go run ./cmd/api --db ./var/runtime.db
 go run ./cmd/worker --db ./var/runtime.db --once
 ./scripts/run_monthly_review_5b.sh mock
+./scripts/run_monthly_review_5c.sh mock
 ```
 
 ### Phase 5B Monthly Review Golden Path
@@ -147,20 +165,57 @@ Mock sample outputs checked into the repo:
 - `docs/eval/samples/monthly_review_5b_report.json`
 - `docs/eval/samples/monthly_review_5b_trace.json`
 
+### Phase 5C Monthly Review With Durable Memory
+
+Mock mode runs Monthly Review twice against the same injected `memory.db`. The second run is the canonical output and should show memory selection / provenance from the first run:
+
+```bash
+./scripts/run_monthly_review_5c.sh mock
+```
+
+Live mode is env-gated and additionally requires an embedding model:
+
+```bash
+export OPENAI_API_KEY=...
+export OPENAI_REASONING_MODEL=...
+export OPENAI_FAST_MODEL=...
+export OPENAI_EMBEDDING_MODEL=...
+./scripts/run_monthly_review_5c.sh live /tmp/monthly-review-5c /tmp/monthly-review-5c/memory.db
+```
+
+You can rebuild embeddings and lexical postings for an existing memory database with:
+
+```bash
+MEMORY_DB_PATH=./var/memory.db ./scripts/rebuild_memory_index.sh mock
+```
+
+Or directly through `cmd/eval`:
+
+```bash
+go run ./cmd/eval --phase 5c --provider-mode mock --memory-db ./var/memory.db --reindex-memory --index-only
+```
+
+Mock sample outputs checked into the repo:
+
+- `docs/eval/samples/monthly_review_5c_report.json`
+- `docs/eval/samples/monthly_review_5c_trace.json`
+- `docs/eval/samples/monthly_review_5c_cross_session.json`
+
 The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 
 ## What Is Still Stubbed
 
 - agentic document parsing is still a deterministic stub behind a formal adapter boundary
-- semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
+- durable memory now exists for Monthly Review through a local SQLite memory seam, but it is still local-first rather than a stronger remote memory substrate
+- semantic retrieval is now real on the Monthly Review path through a true embedding provider seam, but it still uses local brute-force vector scoring rather than ANN / pgvector
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - durable runtime uses a local SQLite seam and metadata/file refs, not Postgres + object storage yet
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
 - repair traces now preserve distinct initial vs repair prompt identity, but that intelligence evidence still only exists on the Monthly Review golden path
 - `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
 - capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
-- no real Postgres / pgvector / MinIO / provider service is required yet
-- semantic retrieval hardening, deterministic finance engine hardening, deeper business-rule validator expansion, and durable memory/embedding promotion are intentionally deferred to later phases instead of being mixed into the 5B intelligence substrate work
+- no real Postgres / pgvector / MinIO / Temporal cluster is required yet
+- finance engine hardening, full replay/eval-plane maturation, broader memory-native workflow rollout, and stronger memory infrastructure promotion are intentionally deferred to later phases instead of being mixed into the current Monthly Review memory substrate work
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.
 

@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
@@ -69,9 +71,16 @@ func (l *MemoryAccessAuditLog) Entries() []MemoryAccessAudit {
 
 type DefaultMemoryWriter struct {
 	Store                      MemoryStore
+	Relations                  MemoryRelationStore
+	AuditStore                 MemoryAuditStore
+	WriteEventStore            MemoryWriteEventStore
+	EmbeddingStore             MemoryEmbeddingStore
+	EmbeddingProvider          EmbeddingProvider
+	EmbeddingModel             string
 	AuditLog                   *MemoryAccessAuditLog
 	MinConfidence              float64
 	LowConfidenceEpisodicFloor float64
+	Now                        func() time.Time
 }
 
 func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) error {
@@ -97,7 +106,7 @@ func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) err
 			return fmt.Errorf("memory confidence %.2f below writer threshold %.2f", record.Confidence.Score, minConfidence)
 		}
 	}
-	record.UpdatedAt = time.Now().UTC()
+	record.UpdatedAt = nowUTC(w.Now)
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = record.UpdatedAt
 	}
@@ -111,24 +120,141 @@ func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) err
 	if err := w.Store.Put(ctx, record); err != nil {
 		return err
 	}
-	if w.AuditLog != nil {
-		w.AuditLog.Append(MemoryAccessAudit{
-			MemoryID:   record.ID,
-			Accessor:   fallbackString(record.Source.Actor, "memory_writer"),
-			Purpose:    "persist memory record",
-			Action:     "write",
-			AccessedAt: record.UpdatedAt,
+	if w.Relations != nil {
+		if err := w.Relations.SaveRelations(ctx, record.ID, MemoryRelations{
+			Relations:  record.Relations,
+			Supersedes: record.Supersedes,
+			Conflicts:  record.Conflicts,
+		}); err != nil {
+			return err
+		}
+	}
+	if w.EmbeddingProvider != nil && w.EmbeddingStore != nil && strings.TrimSpace(w.EmbeddingModel) != "" {
+		response, err := w.EmbeddingProvider.GenerateEmbedding(ctx, EmbeddingRequest{
+			Model:      w.EmbeddingModel,
+			Input:      semanticText(record),
+			WorkflowID: record.Source.WorkflowID,
+			TaskID:     record.Source.TaskID,
+			TraceID:    record.Source.WorkflowID,
+			Actor:      fallbackString(record.Source.Actor, "memory_writer"),
 		})
+		if err != nil {
+			return err
+		}
+		if err := w.EmbeddingStore.SaveEmbedding(ctx, MemoryEmbeddingRecord{
+			MemoryID:    record.ID,
+			Provider:    response.Provider,
+			Model:       response.Model,
+			Vector:      response.Vector,
+			Dimensions:  response.Dimensions,
+			EmbeddedAt:  nowUTC(w.Now),
+			ContentHash: contentHash(semanticText(record)),
+		}); err != nil {
+			return err
+		}
+		if err := w.EmbeddingStore.ReplaceTerms(ctx, record.ID, tokenFrequency(semanticText(record))); err != nil {
+			return err
+		}
+		if w.WriteEventStore != nil {
+			if err := w.WriteEventStore.AppendWriteEvent(ctx, MemoryWriteEvent{
+				ID:         fmt.Sprintf("%s-index-%d", record.ID, record.UpdatedAt.UnixNano()),
+				MemoryID:   record.ID,
+				WorkflowID: record.Source.WorkflowID,
+				TaskID:     record.Source.TaskID,
+				TraceID:    record.Source.WorkflowID,
+				Action:     "index_embedding_and_terms",
+				Summary:    "indexed memory for hybrid retrieval",
+				Provider:   response.Provider,
+				Model:      response.Model,
+				OccurredAt: nowUTC(w.Now),
+				Details:    fmt.Sprintf("dimensions=%d", response.Dimensions),
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	audit := MemoryAccessAudit{
+		ID:         fmt.Sprintf("%s-write-%d", record.ID, record.UpdatedAt.UnixNano()),
+		MemoryID:   record.ID,
+		WorkflowID: record.Source.WorkflowID,
+		TaskID:     record.Source.TaskID,
+		TraceID:    record.Source.WorkflowID,
+		Accessor:   fallbackString(record.Source.Actor, "memory_writer"),
+		Purpose:    "persist memory record",
+		Action:     "write",
+		AccessedAt: record.UpdatedAt,
+	}
+	if w.AuditStore != nil {
+		if err := w.AuditStore.AppendAccess(ctx, audit); err != nil {
+			return err
+		}
+	}
+	if w.AuditLog != nil {
+		w.AuditLog.Append(audit)
+	}
+	if w.WriteEventStore != nil {
+		if err := w.WriteEventStore.AppendWriteEvent(ctx, MemoryWriteEvent{
+			ID:         fmt.Sprintf("%s-write-event-%d", record.ID, record.UpdatedAt.UnixNano()),
+			MemoryID:   record.ID,
+			WorkflowID: record.Source.WorkflowID,
+			TaskID:     record.Source.TaskID,
+			TraceID:    record.Source.WorkflowID,
+			Action:     "write",
+			Summary:    "persisted durable memory record",
+			OccurredAt: record.UpdatedAt,
+			Details:    fmt.Sprintf("kind=%s confidence=%.2f", record.Kind, record.Confidence.Score),
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 type LexicalRetriever struct {
 	Store    MemoryStore
+	Query    MemoryQueryStore
+	Audit    MemoryAuditStore
 	AuditLog *MemoryAccessAuditLog
 }
 
 func (r LexicalRetriever) Retrieve(ctx context.Context, query RetrievalQuery) ([]RetrievalResult, error) {
+	if r.Query != nil {
+		candidates, err := r.Query.SearchLexical(ctx, queryTokens(query), query.TopK*2)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]string, 0, len(candidates))
+		for _, item := range candidates {
+			ids = append(ids, item.MemoryID)
+		}
+		records, err := r.Query.LoadByIDs(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		recordByID := make(map[string]MemoryRecord, len(records))
+		for _, record := range records {
+			recordByID[record.ID] = record
+		}
+		results := make([]RetrievalResult, 0, len(candidates))
+		for _, candidate := range candidates {
+			record, ok := recordByID[candidate.MemoryID]
+			if !ok {
+				continue
+			}
+			results = append(results, RetrievalResult{
+				MemoryID:     candidate.MemoryID,
+				Score:        candidate.Score,
+				LexicalScore: candidate.Score,
+				FusedScore:   candidate.Score,
+				Reason:       "lexical bm25-like scoring",
+				MatchedTerms: append([]string{}, candidate.MatchedTerms...),
+				Memory:       record,
+			})
+		}
+		sortResults(results)
+		logMemoryResults(ctx, r.AuditLog, r.Audit, query, results, "retrieve_lexical", fallbackString(query.Text, "lexical lookup"))
+		return topK(results, query.TopK), nil
+	}
 	records, err := r.Store.List(ctx)
 	if err != nil {
 		return nil, err
@@ -141,20 +267,24 @@ func (r LexicalRetriever) Retrieve(ctx context.Context, query RetrievalQuery) ([
 			continue
 		}
 		results = append(results, RetrievalResult{
-			MemoryID: record.ID,
-			Score:    score,
-			Reason:   "lexical token overlap",
-			Memory:   record,
+			MemoryID:     record.ID,
+			Score:        score,
+			LexicalScore: score,
+			FusedScore:   score,
+			Reason:       "lexical token overlap",
+			MatchedTerms: matchedTerms(tokens, record),
+			Memory:       record,
 		})
 	}
 	sortResults(results)
-	logMemoryResults(r.AuditLog, results, "retrieve_lexical", fallbackString(query.Text, "lexical lookup"))
+	logMemoryResults(ctx, r.AuditLog, r.Audit, query, results, "retrieve_lexical", fallbackString(query.Text, "lexical lookup"))
 	return topK(results, query.TopK), nil
 }
 
 type SemanticRetriever struct {
 	Store    MemoryStore
 	Backend  SemanticSearchBackend
+	Audit    MemoryAuditStore
 	AuditLog *MemoryAccessAuditLog
 }
 
@@ -171,7 +301,15 @@ func (r SemanticRetriever) Retrieve(ctx context.Context, query RetrievalQuery) (
 		return nil, err
 	}
 	sortResults(results)
-	logMemoryResults(r.AuditLog, results, "retrieve_semantic", fallbackString(query.SemanticHint, "semantic lookup"))
+	for i := range results {
+		if results[i].SemanticScore == 0 {
+			results[i].SemanticScore = results[i].Score
+		}
+		if results[i].FusedScore == 0 {
+			results[i].FusedScore = results[i].Score
+		}
+	}
+	logMemoryResults(ctx, r.AuditLog, r.Audit, query, results, "retrieve_semantic", fallbackString(query.SemanticHint, "semantic lookup"))
 	return topK(results, query.TopK), nil
 }
 
@@ -189,14 +327,29 @@ func (f ReciprocalRankFusion) Fuse(lexical []RetrievalResult, semantic []Retriev
 		for rank, result := range results {
 			existing, ok := combined[result.MemoryID]
 			score := 1.0 / (k + float64(rank+1))
+			sourceScore := result.Score
 			if ok {
 				existing.Score += score
+				existing.FusedScore = existing.Score
 				existing.Reason = existing.Reason + "+" + source
+				if source == "lexical" {
+					existing.LexicalScore = sourceScore
+				}
+				if source == "semantic" {
+					existing.SemanticScore = sourceScore
+				}
 				combined[result.MemoryID] = existing
 				continue
 			}
 			result.Score = score
+			result.FusedScore = score
 			result.Reason = "rrf:" + source
+			if source == "lexical" {
+				result.LexicalScore = sourceScore
+			}
+			if source == "semantic" {
+				result.SemanticScore = sourceScore
+			}
 			combined[result.MemoryID] = result
 		}
 	}
@@ -226,23 +379,81 @@ func (BaselineReranker) Rerank(_ context.Context, query RetrievalQuery, results 
 }
 
 type ThresholdRejectionPolicy struct {
-	MinScore float64
+	MinScore      float64
+	DefaultPolicy RetrievalPolicy
+	Policies      map[string]RetrievalPolicy
+	Now           func() time.Time
 }
 
-func (p ThresholdRejectionPolicy) Reject(_ context.Context, _ RetrievalQuery, results []RetrievalResult) ([]RetrievalResult, error) {
+func (p ThresholdRejectionPolicy) Reject(_ context.Context, query RetrievalQuery, results []RetrievalResult) ([]RetrievalResult, error) {
 	threshold := p.MinScore
 	if threshold == 0 {
 		threshold = 0.015
 	}
-	filtered := make([]RetrievalResult, 0, len(results))
-	for _, result := range results {
-		if result.Score < threshold {
-			result.Rejected = true
+	policy := p.resolvePolicy(query)
+	if policy.FreshnessPolicy.MinAcceptedFusedScore > 0 {
+		threshold = policy.FreshnessPolicy.MinAcceptedFusedScore
+	}
+	now := nowUTC(p.Now)
+	for i := range results {
+		if results[i].FusedScore == 0 {
+			results[i].FusedScore = results[i].Score
+		}
+		if results[i].FusedScore < threshold {
+			results[i].Rejected = true
+			results[i].RejectionRule = "low_fused_score"
+			results[i].RejectionReason = fmt.Sprintf("fused score %.4f below threshold %.4f", results[i].FusedScore, threshold)
 			continue
 		}
-		filtered = append(filtered, result)
+		if policy.FreshnessPolicy.RejectLowConfidence && results[i].Memory.Confidence.Score < policy.FreshnessPolicy.LowConfidenceFloor {
+			results[i].Rejected = true
+			results[i].RejectionRule = "low_confidence"
+			results[i].RejectionReason = fmt.Sprintf("confidence %.2f below floor %.2f", results[i].Memory.Confidence.Score, policy.FreshnessPolicy.LowConfidenceFloor)
+			continue
+		}
+		if policy.FreshnessPolicy.EpisodicMaxAge > 0 && results[i].Memory.Kind == MemoryKindEpisodic && !results[i].Memory.UpdatedAt.IsZero() {
+			age := now.Sub(results[i].Memory.UpdatedAt)
+			results[i].FreshnessAgeDays = int(age.Hours() / 24)
+			if age > policy.FreshnessPolicy.EpisodicMaxAge {
+				results[i].Rejected = true
+				results[i].RejectionRule = "stale_episodic"
+				results[i].RejectionReason = fmt.Sprintf("episodic memory age %s exceeds policy %s", age.Truncate(24*time.Hour), policy.FreshnessPolicy.EpisodicMaxAge)
+			}
+		}
 	}
-	return filtered, nil
+	if len(results) == 0 {
+		return []RetrievalResult{{
+			Rejected:        true,
+			RejectionRule:   "empty_hit",
+			RejectionReason: "retrieval returned no candidates",
+		}}, nil
+	}
+	return results, nil
+}
+
+func (p ThresholdRejectionPolicy) resolvePolicy(query RetrievalQuery) RetrievalPolicy {
+	if query.RetrievalPolicy != "" && p.Policies != nil {
+		if policy, ok := p.Policies[query.RetrievalPolicy]; ok {
+			return policy
+		}
+	}
+	policy := p.DefaultPolicy
+	if policy.Name == "" {
+		policy = RetrievalPolicy{
+			Name: "default",
+			FreshnessPolicy: FreshnessPolicy{
+				Name:                  fallbackString(query.FreshnessPolicy, "default"),
+				EpisodicMaxAge:        90 * 24 * time.Hour,
+				RejectLowConfidence:   true,
+				LowConfidenceFloor:    0.7,
+				MinAcceptedFusedScore: p.MinScore,
+			},
+		}
+	}
+	if policy.FreshnessPolicy.Name == "" {
+		policy.FreshnessPolicy.Name = fallbackString(query.FreshnessPolicy, "default")
+	}
+	return policy
 }
 
 type HybridMemoryRetriever struct {
@@ -270,7 +481,23 @@ func (r HybridMemoryRetriever) Retrieve(ctx context.Context, query RetrievalQuer
 	if err != nil {
 		return nil, err
 	}
-	return r.RejectionPolicy.Reject(ctx, query, topK(reranked, query.TopK))
+	results, err := r.RejectionPolicy.Reject(ctx, query, topK(reranked, query.TopK))
+	if err != nil {
+		return nil, err
+	}
+	selected := 0
+	for i := range results {
+		if !results[i].Rejected && results[i].MemoryID != "" {
+			results[i].Selected = true
+			selected++
+		}
+	}
+	if selected == 0 && len(results) > 0 {
+		for i := range results {
+			results[i].Selected = false
+		}
+	}
+	return results, nil
 }
 
 type KeywordEmbeddingProvider struct {
@@ -288,6 +515,31 @@ func (p KeywordEmbeddingProvider) Embed(_ context.Context, text string) ([]float
 		vector[index] += 1
 	}
 	return normalizeVector(vector), nil
+}
+
+func (p KeywordEmbeddingProvider) GenerateEmbedding(ctx context.Context, request EmbeddingRequest) (EmbeddingResponse, error) {
+	vector, err := p.Embed(contextWithEmbeddingRequest(ctx, request), request.Input)
+	if err != nil {
+		return EmbeddingResponse{}, err
+	}
+	return EmbeddingResponse{
+		Provider:   "static-keyword",
+		Model:      fallbackString(request.Model, "keyword-hash"),
+		Vector:     vector,
+		Dimensions: len(vector),
+		Usage: EmbeddingUsageRecord{
+			Provider:    "static-keyword",
+			Model:       fallbackString(request.Model, "keyword-hash"),
+			WorkflowID:  request.WorkflowID,
+			TaskID:      request.TaskID,
+			TraceID:     request.TraceID,
+			Actor:       request.Actor,
+			QueryID:     request.QueryID,
+			InputTokens: maxInt(len(tokenize(request.Input)), 1),
+			RecordedAt:  time.Now().UTC(),
+		},
+		Latency: 5 * time.Millisecond,
+	}, nil
 }
 
 type InMemoryVectorIndex struct {
@@ -389,6 +641,8 @@ func (b FakeSemanticSearchBackend) Search(ctx context.Context, query RetrievalQu
 		}
 		boost, reason := scorer.Score(query, record)
 		result.Score = roundTo((result.Score+boost)/2, 4)
+		result.SemanticScore = result.Score
+		result.FusedScore = result.Score
 		result.Reason = reason
 		result.Memory = record
 		results = append(results, result)
@@ -520,19 +774,32 @@ func topK(results []RetrievalResult, limit int) []RetrievalResult {
 	return results[:limit]
 }
 
-func logMemoryResults(log *MemoryAccessAuditLog, results []RetrievalResult, action string, purpose string) {
-	if log == nil {
-		return
-	}
+func logMemoryResults(ctx context.Context, log *MemoryAccessAuditLog, store MemoryAuditStore, query RetrievalQuery, results []RetrievalResult, action string, purpose string) {
 	now := time.Now().UTC()
 	for _, result := range results {
-		log.Append(MemoryAccessAudit{
+		if result.MemoryID == "" {
+			continue
+		}
+		entry := MemoryAccessAudit{
+			ID:         fmt.Sprintf("%s-%s-%d", result.MemoryID, action, now.UnixNano()),
 			MemoryID:   result.MemoryID,
+			WorkflowID: query.WorkflowID,
+			TaskID:     query.TaskID,
+			TraceID:    query.TraceID,
+			QueryID:    query.QueryID,
 			Accessor:   "hybrid_retriever",
 			Purpose:    purpose,
 			Action:     action,
+			Reason:     result.Reason,
+			Score:      result.FusedScore,
 			AccessedAt: now,
-		})
+		}
+		if store != nil {
+			_ = store.AppendAccess(ctx, entry)
+		}
+		if log != nil {
+			log.Append(entry)
+		}
 	}
 }
 
@@ -595,4 +862,35 @@ func fallbackString(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func matchedTerms(tokens []string, record MemoryRecord) []string {
+	recordText := strings.ToLower(record.Summary + " " + flattenFacts(record.Facts))
+	result := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if strings.Contains(recordText, token) {
+			result = append(result, token)
+		}
+	}
+	return dedupeTokens(result)
+}
+
+func tokenFrequency(text string) map[string]int {
+	freq := make(map[string]int)
+	for _, token := range tokenize(text) {
+		freq[token]++
+	}
+	return freq
+}
+
+func nowUTC(nowFn func() time.Time) time.Time {
+	if nowFn != nil {
+		return nowFn().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func contentHash(text string) string {
+	sum := sha1.Sum([]byte(text))
+	return hex.EncodeToString(sum[:])
 }

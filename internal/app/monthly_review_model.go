@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/model"
 )
 
@@ -18,6 +19,13 @@ func NewLiveMonthlyReviewChatModel(callRecorder model.CallRecorder, usageRecorde
 	return model.NewOpenAICompatibleChatModel(config)
 }
 
+func NewLiveMonthlyReviewEmbeddingProvider(callRecorder memory.EmbeddingCallRecorder, usageRecorder memory.EmbeddingUsageRecorder) memory.EmbeddingProvider {
+	config := memory.OpenAIEmbeddingConfigFromEnv()
+	config.CallRecorder = callRecorder
+	config.UsageRecorder = usageRecorder
+	return memory.NewOpenAIEmbeddingProvider(config)
+}
+
 func NewMockMonthlyReviewChatModel() model.ChatModel {
 	return mockMonthlyReviewChatModel{}
 }
@@ -26,6 +34,14 @@ func NewMockMonthlyReviewChatModelWithTrace(callRecorder model.CallRecorder, usa
 	return mockMonthlyReviewChatModel{
 		callRecorder:  callRecorder,
 		usageRecorder: usageRecorder,
+	}
+}
+
+func NewMockMonthlyReviewEmbeddingProvider(callRecorder memory.EmbeddingCallRecorder, usageRecorder memory.EmbeddingUsageRecorder) memory.EmbeddingProvider {
+	return memory.StaticEmbeddingProvider{
+		Dimensions:    24,
+		CallRecorder:  callRecorder,
+		UsageRecorder: usageRecorder,
 	}
 }
 
@@ -49,23 +65,41 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
 		attemptIndex = 1
 	}
 	content := "{}"
+	selectedMemories := extractSelectedMemories(request.Messages)
+	hasMemoryInfluence := len(selectedMemories) > 0
 	switch {
 	case strings.HasPrefix(request.PromptID, "planner.monthly_review.v1"):
-		content = `{
-  "plan_summary": "本次月度复盘先确认现金流，再检查债务压力。",
-  "rationale": "现金流对本月结余和后续债务判断的影响最大，因此先执行 cashflow block，再执行 debt block。",
-  "verification_focus_notes": ["cashflow_grounding","debt_grounding"],
+		rationale := "现金流对本月结余和后续债务判断的影响最大，因此先执行 cashflow block，再执行 debt block。"
+		planSummary := "本次月度复盘先确认现金流，再检查债务压力。"
+		verificationNotes := `"cashflow_grounding","debt_grounding"`
+		if hasMemoryInfluence {
+			planSummary = "本次月度复盘先确认现金流，并优先检查已沉淀的支出行为记忆。"
+			rationale = "检索到跨 session 的支出行为记忆，因此本次在 cashflow block 中优先验证订阅和夜间消费信号，再进入 debt block。"
+			verificationNotes = `"cashflow_grounding","memory_relevance","debt_grounding"`
+		}
+		content = fmt.Sprintf(`{
+  "plan_summary": %q,
+  "rationale": %q,
+  "verification_focus_notes": [%s],
   "block_order": ["cashflow-review","debt-review"],
   "step_emphasis": [{"step_id":"compute-metrics","emphasis":"先确认结余和储蓄率，再检查债务最低还款压力。"}]
-}`
+}`, planSummary, rationale, verificationNotes)
 	case strings.HasPrefix(request.PromptID, "cashflow.monthly_review.v1"):
 		evidenceRefs := extractEvidenceRefs(request.Messages)
 		if len(evidenceRefs) == 0 {
 			evidenceRefs = []string{"evidence-transaction-batch-user-1-20260328140000"}
 		}
 		primary := evidenceRefs[0]
+		summary := "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。"
+		recommendationDetail := "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。"
+		riskDetail := "当前结余为正，但消费波动仍需要继续监控。"
+		if hasMemoryInfluence {
+			summary = "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+			recommendationDetail = "跨 session 记忆显示订阅优化曾被连续提及，因此本轮建议把订阅清理放到现金流优化的第一优先级。"
+			riskDetail = "虽然当前结余为正，但历史记忆与本期 evidence 一起说明可变支出波动具有持续性。"
+		}
 		content = fmt.Sprintf(`{
-  "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。",
+  "summary": %q,
   "key_findings": [
     "deterministic metrics 显示本月净结余为正，当前现金流没有失控。",
     "经常性订阅和夜间消费信号说明仍有可优化的可变支出。"
@@ -73,7 +107,7 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
   "grounded_recommendations": [
     {
       "title": "继续清理低使用率订阅",
-      "detail": "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。",
+      "detail": %q,
       "severity": "low",
       "evidence_refs": [%q]
     }
@@ -82,7 +116,7 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
     {
       "code": "cashflow_monitoring",
       "severity": "low",
-      "detail": "当前结余为正，但消费波动仍需要继续监控。",
+      "detail": %q,
       "evidence_ids": [%q]
     }
   ],
@@ -90,7 +124,7 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
   "evidence_refs": [%s],
   "confidence": 0.84,
   "caveats": ["所有金额与比率以 deterministic metrics 为准。"]
-}`, primary, primary, joinQuoted(evidenceRefs))
+}`, summary, recommendationDetail, primary, riskDetail, primary, joinQuoted(evidenceRefs))
 	}
 	usage := model.UsageStats{
 		PromptTokens:     estimatePromptTokens(request.Messages),
@@ -175,6 +209,34 @@ func extractEvidenceRefs(messages []model.Message) []string {
 		refs = refs[:2]
 	}
 	return refs
+}
+
+func extractSelectedMemories(messages []model.Message) []string {
+	memories := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, message := range messages {
+		content := message.Content
+		start := strings.Index(content, "selected memories：")
+		if start < 0 {
+			continue
+		}
+		section := content[start+len("selected memories："):]
+		if end := strings.Index(section, "\n\n"); end >= 0 {
+			section = section[:end]
+		}
+		for _, line := range strings.Split(section, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if _, ok := seen[line]; ok {
+				continue
+			}
+			seen[line] = struct{}{}
+			memories = append(memories, line)
+		}
+	}
+	return memories
 }
 
 func extractEvidenceRefsFromSection(messages []model.Message) []string {

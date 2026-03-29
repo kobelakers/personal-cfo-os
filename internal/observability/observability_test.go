@@ -49,7 +49,7 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 		ResultSummary:       "现金流块结论：本月净结余稳定。",
 		OccurredAt:          now,
 	})
-	memoryRecords := memory.ToObservabilityRecords([]memory.MemoryAccessAudit{
+	memoryRecords := observability.MemoryAccessRecords([]memory.MemoryAccessAudit{
 		{MemoryID: "memory-1", Accessor: "hybrid_retriever", Purpose: "monthly review", Action: "retrieve", AccessedAt: now},
 	})
 	policyRecords := governance.ToObservabilityRecords([]governance.AuditEvent{

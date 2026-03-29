@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, and a first real-intelligence-backed Monthly Review golden path.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, and a first real memory substrate.
 
 ## Core Loop
 
@@ -8,7 +8,7 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 2. Ledger and document adapters ingest raw inputs and emit typed `EvidenceRecord` values.
 3. Deterministic reducers convert evidence into state patches and update `FinancialWorldState`.
 4. Workflow services keep observation/reducer orchestration thin and hand execution to a workflow-facing `SystemStepBus`.
-5. `MemorySteward` derives and retrieves memories before planning; retrieved memories now influence downstream block ordering and recommendation emphasis.
+5. `MemorySteward` derives and retrieves memories before planning; retrieved memories now come from a durable memory plane and influence downstream block ordering, planner rationale, and recommendation emphasis.
 6. `PlannerAgent` assembles planning context, renders a versioned prompt with an applied render policy, performs provider-backed structured generation, validates/repairs/fallbacks the output, and still returns the same block-level `ExecutionPlan`; `plan.Blocks` remains the only execution truth source.
 7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent` or `DebtAgent`; `CashflowAgent` now has a real provider-backed structured reasoning path, while `DebtAgent` stays deterministic.
 8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
@@ -17,7 +17,22 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, child workflow execution records, and committed state handoff.
 12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
 13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
-14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, and operator/runtime provenance chains.
+14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, memory query/hit/reject/select traces, embedding calls, and operator/runtime provenance chains.
+
+## Real Memory Substrate (Phase 5C)
+
+Phase 5C promotes memory from a shaped interface to a true system layer:
+
+1. `internal/memory` now has a durable SQLite seam for `MemoryRecord`, relations, embeddings, lexical terms, access audit, and write events.
+2. memory durable plane is explicitly separate from runtime durable plane even though both are local SQLite today.
+3. semantic retrieval is no longer fake on the Monthly Review path; it now uses provider-backed embeddings through a dedicated embedding seam.
+4. retrieval is hybrid and typed:
+   - lexical retrieval from durable token postings
+   - semantic retrieval from persisted embeddings
+   - reciprocal-rank fusion
+   - configurable rejection policy with structured reasons
+5. retrieval query formation is now formalized with distinct planner and cashflow builders instead of workflow-local string assembly.
+6. Monthly Review can now be run across sessions against the same injected `memory.db`, and selected durable memories can change planning and reasoning output on the second run.
 
 ## Real Intelligence Substrate (Phase 5B)
 
@@ -73,7 +88,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -82,7 +97,8 @@ The repository is now best described as **system-agent backbone + first real dom
 ## Current Stubs
 
 - agentic document parsing is still a deterministic stub behind a formal observation adapter
-- semantic retrieval still uses a fake backend behind embedding/vector interfaces
+- durable memory now exists for Monthly Review through a local SQLite memory seam, but it is not yet a stronger remote memory substrate
+- semantic retrieval is now real for the Monthly Review path through provider-backed embeddings, but still uses local brute-force vector scoring instead of ANN/pgvector
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
 - durable persistence is local SQLite + artifact refs rather than Postgres + object storage
 - observability is now durable and queryable for runtime replay, but not yet backed by full tracing infrastructure
@@ -92,6 +108,6 @@ The repository is now best described as **system-agent backbone + first real dom
 - `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
 - follow-up execution is now capability-backed for `tax_optimization` and `portfolio_rebalance`, but only at execution depth 1 and only through runtime allowlist policy
 - other generated intents can still remain `ready`, `dependency_blocked`, `deferred`, or `queued_pending_capability` without being auto-run
-- semantic retrieval hardening, durable memory/embedding promotion, deterministic finance engine hardening, and deeper business-rule validator expansion remain explicitly out of scope for this phase
+- finance engine hardening, broader memory-native workflow rollout, stronger memory infra promotion, and full replay/eval-plane maturation remain explicitly out of scope for this phase
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

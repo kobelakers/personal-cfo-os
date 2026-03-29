@@ -266,8 +266,15 @@ func TestWorkflowMemoryServiceSyncMonthlyReviewDerivesMemories(t *testing.T) {
 	if len(result.GeneratedIDs) == 0 {
 		t.Fatalf("expected derived memories to be written")
 	}
-	if len(result.Retrieved) == 0 {
-		t.Fatalf("expected hybrid retrieval after writes")
+	if len(result.Retrieved) != 0 {
+		t.Fatalf("expected first monthly review sync to retrieve prior durable memories only, got %+v", result.Retrieved)
+	}
+	second, err := service.SyncMonthlyReview(t.Context(), spec, "workflow-2", current, evidence)
+	if err != nil {
+		t.Fatalf("second sync monthly review memories: %v", err)
+	}
+	if len(second.Retrieved) == 0 {
+		t.Fatalf("expected second monthly review sync to retrieve prior memories")
 	}
 }
 

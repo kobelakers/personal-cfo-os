@@ -15,7 +15,7 @@
    - `credit_card_statement`
    - `tax_document`
 5. reducers build a deterministic `EvidencePatch` and update `FinancialWorldState`.
-6. workflow dispatches `memory_sync_request` to `MemorySteward`, which derives memories, applies write gating, and retrieves relevant memories.
+6. workflow dispatches `memory_sync_request` to `MemorySteward`, which derives memories, applies write gating, writes durable memory, builds/reads lexical + semantic retrieval state, and retrieves relevant memories through typed planner/cashflow query builders.
 7. workflow dispatches `plan_request` to `PlannerAgent`, which now uses token-aware planning context, `planner.monthly_review.v1`, an applied prompt render policy, provider-backed structured generation, schema validation, repair/fallback, and then returns a block-level `ExecutionPlan`.
 8. `plan.Blocks` remains the only execution truth source; workflow iterates it in order instead of rebuilding structure from intent.
 9. for each block, workflow assembles block-specific execution context and dispatches:
@@ -28,20 +28,21 @@
 14. workflow dispatches `governance_evaluation_request` to `GovernanceAgent`, which evaluates risk, approval, and report disclosure.
 15. only after governance allows or redacts does workflow dispatch `report_finalize_request` back to `ReportAgent` to produce the final artifact and `report_ready`.
 16. runtime then decides whether the workflow completes, replans, or pauses for approval.
-17. trace dump now includes prompt version, repair prompt identity, provider call, token usage, estimated cost, repair/fallback, and structured-output trace alongside the existing workflow/runtime observability surface.
+17. trace dump now includes prompt version, repair prompt identity, provider call, token usage, estimated cost, repair/fallback, structured-output trace, memory query, hit/reject/select, and embedding usage alongside the existing workflow/runtime observability surface.
 
 ## Structural Boundary After Remediation
 
 - workflow file: orchestration only
 - workflow service: evidence collection + reducer orchestration
 - planner agent: planning context assembly + prompt render + provider-backed structured planning + typed plan compile
-- memory steward: derived memory generation + gating + retrieval
+- memory steward: derived memory generation + gating + durable write + hybrid retrieval
 - cashflow agent: typed cashflow block analysis using deterministic metrics, selected evidence, provider-backed structured reasoning, and deterministic fallback
 - debt agent: typed debt block analysis using deterministic metrics and selected evidence
 - report agent: aggregator + finalize split with governance-aware finalization
 - verification agent: block + final validation pipeline with structured-output/grounding checks and short-circuit on severe block failures
 - governance agent: reusable approval / disclosure evaluation
 - runtime subsystem: checkpoint / replan / approval pause semantics
+- memory subsystem: durable store + embedding provider + lexical retriever + semantic retriever + fusion + rejection + trace
 - protocol layer: typed request/result envelopes with correlation/causation chain
 - prompt system: versioned prompt registry, rendering, and prompt render trace
 - model layer: provider-agnostic chat/structured seam with OpenAI-compatible live adapter
@@ -62,6 +63,10 @@
 - usage / cost traces
 - structured output traces
 - memory access audit entries
+- memory query traces
+- memory retrieval traces
+- memory selection traces
+- embedding call / usage traces
 - policy decision audit entries
 - replay-ready trace dump inputs
 
@@ -72,6 +77,6 @@
 - only `PlannerAgent` and `CashflowAgent` are on the real provider-backed path in this phase; `DebtAgent` stays deterministic, and debt/tax/portfolio/behavior are not being “half-upgraded”
 - portfolio / tax / behavior areas are still residual deterministic sections, not yet domain-agent-executed inside Monthly Review
 - agent execution is local synchronous dispatch, not yet durable remote actor execution
-- durable memory/embedding, retrieval hardening, finance-engine hardening, and full replay/eval-plane maturation are intentionally deferred to later phases
+- full finance-engine hardening and full replay/eval-plane maturation are intentionally deferred to later phases
 
 These stubs do not change the workflow shape: the system is already evidence-first, stateful, context-engineered, verifiable, governed, and now includes first real load-bearing domain execution.

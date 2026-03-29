@@ -1,0 +1,95 @@
+{
+  "task_id": "task-monthly-review-20260331",
+  "workflow_id": "workflow-monthly-review-20260331080000",
+  "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+  "cashflow_metrics": {
+    "duplicate_subscription_count": 2,
+    "late_night_spending_frequency": 0.3333,
+    "monthly_inflow_cents": 800000,
+    "monthly_net_income_cents": 644900,
+    "monthly_outflow_cents": 155100,
+    "savings_rate": 0.8061
+  },
+  "tax_signals": {
+    "childcare_tax_signal": true,
+    "effective_tax_rate": 0.18,
+    "family_tax_notes": [
+      "family-related tax benefit keywords found in document"
+    ],
+    "tax_advantaged_contribution": 50000
+  },
+  "risk_items": [
+    {
+      "title": "cashflow_monitoring",
+      "detail": "虽然当前结余为正，但历史记忆与本期 evidence 一起说明可变支出波动具有持续性。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "title": "debt_caveat",
+      "detail": "当前债务压力可控，但仍需持续关注最低还款覆盖和流动性缓冲。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-transaction-batch-user-1-20260331080000",
+        "evidence-debt-snapshot-user-1-20260331080000"
+      ]
+    }
+  ],
+  "optimization_suggestions": [
+    {
+      "title": "继续清理低使用率订阅",
+      "detail": "跨 session 记忆显示订阅优化曾被连续提及，因此本轮建议把订阅清理放到现金流优化的第一优先级。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "title": "保持债务覆盖并比较投资机会成本",
+      "detail": "当前债务压力可控，但仍需先确保现金流缓冲和最低还款覆盖。",
+      "severity": "medium",
+      "evidence_ids": [
+        "evidence-transaction-batch-user-1-20260331080000",
+        "evidence-debt-snapshot-user-1-20260331080000"
+      ]
+    }
+  ],
+  "todo_items": [
+    {
+      "title": "继续清理低使用率订阅",
+      "detail": "跨 session 记忆显示订阅优化曾被连续提及，因此本轮建议把订阅清理放到现金流优化的第一优先级。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "title": "保持债务覆盖并比较投资机会成本",
+      "detail": "当前债务压力可控，但仍需先确保现金流缓冲和最低还款覆盖。",
+      "severity": "medium",
+      "evidence_ids": [
+        "evidence-transaction-batch-user-1-20260331080000",
+        "evidence-debt-snapshot-user-1-20260331080000"
+      ]
+    }
+  ],
+  "source_block_ids": [
+    "cashflow-review",
+    "debt-review"
+  ],
+  "source_memory_ids": [
+    "workflow-monthly-review-20260330080000-memory-debt-pressure",
+    "workflow-monthly-review-20260330080000-memory-procedure",
+    "workflow-monthly-review-20260330080000-memory-subscriptions"
+  ],
+  "source_evidence_ids": [
+    "evidence-debt-snapshot-user-1-20260331080000",
+    "evidence-document-doc-payslip",
+    "evidence-transaction-batch-user-1-20260331080000"
+  ],
+  "approval_required": false,
+  "confidence": 0.9075,
+  "generated_at": "2026-03-31T08:00:00Z"
+}

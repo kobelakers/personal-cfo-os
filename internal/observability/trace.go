@@ -25,14 +25,6 @@ type CheckpointRecord struct {
 	CapturedAt   time.Time `json:"captured_at"`
 }
 
-type MemoryAccessRecord struct {
-	MemoryID   string    `json:"memory_id"`
-	Accessor   string    `json:"accessor"`
-	Purpose    string    `json:"purpose"`
-	Action     string    `json:"action"`
-	AccessedAt time.Time `json:"accessed_at"`
-}
-
 type PolicyDecisionRecord struct {
 	ID            string    `json:"id"`
 	Actor         string    `json:"actor"`
@@ -52,6 +44,11 @@ type WorkflowTraceDump struct {
 	AgentExecutions   []AgentExecutionRecord     `json:"agent_executions,omitempty"`
 	Events            []LogEntry                 `json:"events,omitempty"`
 	MemoryAccess      []MemoryAccessRecord       `json:"memory_access,omitempty"`
+	MemoryQueries     []MemoryQueryTraceRecord   `json:"memory_queries,omitempty"`
+	MemoryRetrievals  []MemoryRetrievalTraceRecord `json:"memory_retrievals,omitempty"`
+	MemorySelections  []MemorySelectionTraceRecord `json:"memory_selections,omitempty"`
+	EmbeddingCalls    []EmbeddingCallTraceRecord `json:"embedding_calls,omitempty"`
+	EmbeddingUsage    []EmbeddingUsageTraceRecord `json:"embedding_usage,omitempty"`
 	PolicyDecisions   []PolicyDecisionRecord     `json:"policy_decisions,omitempty"`
 	PromptRenders     []prompt.PromptRenderTrace `json:"prompt_renders,omitempty"`
 	LLMCalls          []model.CallRecord         `json:"llm_calls,omitempty"`
