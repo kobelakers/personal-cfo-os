@@ -1,0 +1,296 @@
+package agents
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
+	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/memory"
+	"github.com/kobelakers/personal-cfo-os/internal/model"
+	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/planning"
+	"github.com/kobelakers/personal-cfo-os/internal/prompt"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
+	"github.com/kobelakers/personal-cfo-os/internal/state"
+	"github.com/kobelakers/personal-cfo-os/internal/structured"
+	"github.com/kobelakers/personal-cfo-os/internal/tools"
+	"github.com/kobelakers/personal-cfo-os/internal/verification"
+)
+
+type CashflowReasoner interface {
+	Analyze(ctx context.Context, input CashflowReasonerInput) (analysis.CashflowBlockResult, error)
+}
+
+type CashflowReasonerInput struct {
+	WorkflowID       string
+	TaskID           string
+	TraceID          string
+	CurrentState     state.FinancialWorldState
+	RelevantMemories []memory.MemoryRecord
+	RelevantEvidence []observation.EvidenceRecord
+	Block            planning.ExecutionBlock
+	ExecutionContext contextview.BlockExecutionContext
+}
+
+type DeterministicCashflowReasoner struct {
+	MetricsTool tools.ComputeCashflowMetricsTool
+}
+
+func (r DeterministicCashflowReasoner) Analyze(_ context.Context, input CashflowReasonerInput) (analysis.CashflowBlockResult, error) {
+	metrics := toCashflowMetrics(r.MetricsTool.Compute(input.CurrentState))
+	evidenceIDs := collectEvidenceIDs(input.RelevantEvidence)
+	memoryIDs := collectMemoryIDsFromRecords(input.RelevantMemories)
+	keyFindings := []string{
+		fmt.Sprintf("本期流入 %d 分，流出 %d 分，净结余 %d 分。", metrics.MonthlyInflowCents, metrics.MonthlyOutflowCents, metrics.MonthlyNetIncomeCents),
+		fmt.Sprintf("储蓄率 %.2f，重复订阅 %d，深夜消费频率 %.2f。", metrics.SavingsRate, metrics.DuplicateSubscriptionCount, metrics.LateNightSpendingFrequency),
+	}
+	riskFlags := make([]analysis.RiskFlag, 0, 3)
+	recommendations := make([]skills.SkillItem, 0, 3)
+
+	if metrics.SavingsRate < 0.15 {
+		riskFlags = append(riskFlags, analysis.RiskFlag{
+			Code:        "cashflow_pressure",
+			Severity:    "medium",
+			Detail:      "储蓄率偏低，现金流缓冲较弱。",
+			EvidenceIDs: evidenceIDs,
+		})
+		recommendations = append(recommendations, skills.SkillItem{
+			Title:       "优先修复月度结余",
+			Detail:      "先控制可变支出，确保结余可以覆盖后续债务或投资决策。",
+			Severity:    "medium",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	if metrics.DuplicateSubscriptionCount > 0 || hasMemoryKeyword(input.RelevantMemories, "subscription") {
+		recommendations = append(recommendations, skills.SkillItem{
+			Title:       "梳理经常性订阅",
+			Detail:      "订阅信号说明现金流里存在可优化项，先清理低使用率订阅。",
+			Severity:    "low",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	if metrics.LateNightSpendingFrequency >= 0.2 || hasMemoryKeyword(input.RelevantMemories, "late-night") {
+		riskFlags = append(riskFlags, analysis.RiskFlag{
+			Code:        "late_night_spending",
+			Severity:    "medium",
+			Detail:      "深夜消费波动偏高，建议把这部分支出单独复核。",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	summary := fmt.Sprintf("现金流块结论：当前月度结余 %d 分，储蓄率 %.2f。", metrics.MonthlyNetIncomeCents, metrics.SavingsRate)
+	if hasMemoryKeyword(input.RelevantMemories, "decision") && strings.Contains(string(input.Block.Kind), "liquidity") {
+		summary += " 检索到历史债务决策记忆，本次更强调流动性缓冲与现金流稳定性。"
+	}
+	return analysis.CashflowBlockResult{
+		BlockID:              string(input.Block.ID),
+		Summary:              summary,
+		KeyFindings:          keyFindings,
+		DeterministicMetrics: metrics,
+		EvidenceIDs:          evidenceIDs,
+		MemoryIDsUsed:        memoryIDs,
+		MetricRefs:           allowedCashflowMetricRefs(),
+		RiskFlags:            riskFlags,
+		Recommendations:      recommendations,
+		Caveats: []string{
+			"所有金额与比率以 deterministic metrics 为准，模型层只负责洞察组织与解释。",
+		},
+		Confidence: confidenceFromEvidence(input.RelevantEvidence),
+	}, nil
+}
+
+type ProviderBackedCashflowReasoner struct {
+	Base           DeterministicCashflowReasoner
+	PromptRenderer prompt.PromptRenderer
+	Generator      model.StructuredGenerator
+	TraceRecorder  structured.TraceRecorder
+}
+
+func (r ProviderBackedCashflowReasoner) Analyze(ctx context.Context, input CashflowReasonerInput) (analysis.CashflowBlockResult, error) {
+	fallbackResult, fallbackErr := r.Base.Analyze(ctx, input)
+	if fallbackErr != nil {
+		return analysis.CashflowBlockResult{}, fallbackErr
+	}
+	rendered, err := r.PromptRenderer.Render("cashflow.monthly_review.v1", struct {
+		Goal            string
+		BlockID         string
+		BlockKind       string
+		MetricsSummary  string
+		EvidenceSummary string
+		MemorySummary   string
+		ContextSummary  string
+	}{
+		Goal:            input.Block.Goal,
+		BlockID:         string(input.Block.ID),
+		BlockKind:       string(input.Block.Kind),
+		MetricsSummary:  mustJSON(fallbackResult.DeterministicMetrics),
+		EvidenceSummary: evidenceSummaryText(input.RelevantEvidence),
+		MemorySummary:   memorySummaryText(input.RelevantMemories),
+		ContextSummary:  contextview.ContextSummary(input.ExecutionContext.Slice),
+	}, prompt.PromptTraceInput{
+		SelectedStateBlocks:  append([]string{}, input.ExecutionContext.SelectedStateBlocks...),
+		SelectedMemoryIDs:    append([]string{}, input.ExecutionContext.SelectedMemoryIDs...),
+		SelectedEvidenceIDs:  evidenceIDsToString(input.ExecutionContext.SelectedEvidenceIDs),
+		SelectedSkillNames:   contextview.SkillNames(input.ExecutionContext.Slice),
+		ExcludedBlockRefs:    contextview.ExcludedBlockRefs(input.ExecutionContext.Slice),
+		CompactionDecisions:  contextview.CompactionNotes(input.ExecutionContext.Slice),
+		EstimatedInputTokens: input.ExecutionContext.EstimatedInputTokens,
+	})
+	if err != nil {
+		return fallbackWithReason(fallbackResult, "prompt_render_failed", err.Error()), nil
+	}
+	schema := structured.Schema[analysis.CashflowStructuredCandidate]{
+		Name:   "CashflowAnalysisSchema",
+		Parser: structured.JSONParser[analysis.CashflowStructuredCandidate]{},
+		Validator: structured.ValidatorFunc[analysis.CashflowStructuredCandidate](func(value analysis.CashflowStructuredCandidate) []string {
+			return verification.ValidateCashflowStructuredCandidate(value, allowedCashflowMetricRefs(), input.ExecutionContext.SelectedEvidenceIDs)
+		}),
+	}
+	pipeline := structured.Pipeline[analysis.CashflowStructuredCandidate]{
+		Schema:        schema,
+		Generator:     r.Generator,
+		TraceRecorder: r.TraceRecorder,
+		RepairPolicy:  structured.DefaultRepairPolicy(),
+		FallbackPolicy: structured.FallbackPolicy[analysis.CashflowStructuredCandidate]{
+			Name: "deterministic_cashflow_reasoner",
+			Execute: func() (analysis.CashflowStructuredCandidate, error) {
+				return cashflowCandidateFromFallback(fallbackResult), nil
+			},
+		},
+	}
+	result, err := pipeline.Execute(ctx, model.StructuredGenerationRequest{
+		ModelRequest: model.ModelRequest{
+			Profile:         model.ModelProfileCashflowFast,
+			Messages:        rendered.Messages(),
+			ResponseFormat:  model.ResponseFormat{Type: model.ResponseFormatJSONObject},
+			MaxOutputTokens: 700,
+			Temperature:     0.1,
+			WorkflowID:      input.WorkflowID,
+			TaskID:          input.TaskID,
+			TraceID:         input.TraceID,
+			Agent:           "cashflow_agent",
+			PromptID:        rendered.ID,
+			PromptVersion:   string(rendered.Version),
+		},
+	})
+	if err != nil {
+		return fallbackWithReason(fallbackResult, string(structured.FailureCategoryFallbackFailed), err.Error()), nil
+	}
+	candidate := result.Value
+	if err := verification.RunCashflowGroundingPrecheck(candidate, fallbackResult.DeterministicMetrics, input.ExecutionContext.SelectedEvidenceIDs); err != nil {
+		return fallbackWithReason(fallbackResult, string(structured.FailureCategoryGroundingInvalid), err.Error()), nil
+	}
+	return mergeCashflowCandidate(fallbackResult, candidate), nil
+}
+
+func allowedCashflowMetricRefs() []string {
+	return []string{
+		"monthly_inflow_cents",
+		"monthly_outflow_cents",
+		"monthly_net_income_cents",
+		"savings_rate",
+		"duplicate_subscription_count",
+		"late_night_spending_frequency",
+	}
+}
+
+func cashflowCandidateFromFallback(result analysis.CashflowBlockResult) analysis.CashflowStructuredCandidate {
+	return analysis.CashflowStructuredCandidate{
+		Summary:                 result.Summary,
+		KeyFindings:             append([]string{}, result.KeyFindings...),
+		RiskFlags:               append([]analysis.RiskFlag{}, result.RiskFlags...),
+		MetricRefs:              append([]string{}, result.MetricRefs...),
+		EvidenceRefs:            evidenceIDsToString(result.EvidenceIDs),
+		Confidence:              result.Confidence,
+		Caveats:                 append([]string{}, result.Caveats...),
+		GroundedRecommendations: skillItemsToSuggestions(result.Recommendations),
+	}
+}
+
+func mergeCashflowCandidate(base analysis.CashflowBlockResult, candidate analysis.CashflowStructuredCandidate) analysis.CashflowBlockResult {
+	base.Summary = candidate.Summary
+	base.KeyFindings = append([]string{}, candidate.KeyFindings...)
+	base.RiskFlags = append([]analysis.RiskFlag{}, candidate.RiskFlags...)
+	base.MetricRefs = append([]string{}, candidate.MetricRefs...)
+	base.EvidenceIDs = stringRefsToEvidenceIDs(candidate.EvidenceRefs)
+	base.Recommendations = suggestionsToSkillItems(candidate.GroundedRecommendations)
+	base.Confidence = candidate.Confidence
+	base.Caveats = append([]string{}, candidate.Caveats...)
+	return base
+}
+
+func skillItemsToSuggestions(items []skills.SkillItem) []analysis.CashflowStructuredSuggestion {
+	result := make([]analysis.CashflowStructuredSuggestion, 0, len(items))
+	for _, item := range items {
+		result = append(result, analysis.CashflowStructuredSuggestion{
+			Title:        item.Title,
+			Detail:       item.Detail,
+			Severity:     item.Severity,
+			EvidenceRefs: evidenceIDsToString(item.EvidenceIDs),
+		})
+	}
+	return result
+}
+
+func suggestionsToSkillItems(items []analysis.CashflowStructuredSuggestion) []skills.SkillItem {
+	result := make([]skills.SkillItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, skills.SkillItem{
+			Title:       item.Title,
+			Detail:      item.Detail,
+			Severity:    item.Severity,
+			EvidenceIDs: stringRefsToEvidenceIDs(item.EvidenceRefs),
+		})
+	}
+	return result
+}
+
+func evidenceIDsToString(ids []observation.EvidenceID) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, string(id))
+	}
+	return result
+}
+
+func stringRefsToEvidenceIDs(items []string) []observation.EvidenceID {
+	result := make([]observation.EvidenceID, 0, len(items))
+	for _, item := range items {
+		result = append(result, observation.EvidenceID(item))
+	}
+	return result
+}
+
+func evidenceSummaryText(records []observation.EvidenceRecord) string {
+	lines := make([]string, 0, len(records))
+	for _, record := range records {
+		lines = append(lines, fmt.Sprintf("%s|%s|%s", record.ID, record.Type, record.Summary))
+	}
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
+func memorySummaryText(records []memory.MemoryRecord) string {
+	lines := make([]string, 0, len(records))
+	for _, record := range records {
+		lines = append(lines, fmt.Sprintf("%s|%s|%s", record.ID, record.Kind, record.Summary))
+	}
+	sort.Strings(lines)
+	return strings.Join(lines, "\n")
+}
+
+func mustJSON(value any) string {
+	payload, _ := json.MarshalIndent(value, "", "  ")
+	return string(payload)
+}
+
+func fallbackWithReason(base analysis.CashflowBlockResult, category string, reason string) analysis.CashflowBlockResult {
+	if reason == "" {
+		return base
+	}
+	base.Caveats = append(base.Caveats, fmt.Sprintf("provider-backed cashflow reasoning fallback: %s (%s)", category, reason))
+	return base
+}

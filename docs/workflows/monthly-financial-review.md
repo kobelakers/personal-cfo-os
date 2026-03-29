@@ -16,30 +16,36 @@
    - `tax_document`
 5. reducers build a deterministic `EvidencePatch` and update `FinancialWorldState`.
 6. workflow dispatches `memory_sync_request` to `MemorySteward`, which derives memories, applies write gating, and retrieves relevant memories.
-7. workflow dispatches `plan_request` to `PlannerAgent`, which assembles planning context and returns a block-level `ExecutionPlan`.
-8. `plan.Blocks` becomes the only execution truth source; workflow iterates it in order instead of rebuilding structure from intent.
+7. workflow dispatches `plan_request` to `PlannerAgent`, which now uses token-aware planning context, `planner.monthly_review.v1`, provider-backed structured generation, schema validation, repair/fallback, and then returns a block-level `ExecutionPlan`.
+8. `plan.Blocks` remains the only execution truth source; workflow iterates it in order instead of rebuilding structure from intent.
 9. for each block, workflow assembles block-specific execution context and dispatches:
    - `cashflow_review_block` -> `CashflowAgent`
    - `debt_review_block` -> `DebtAgent`
-10. workflow dispatches `report_draft_request` to `ReportAgent`, which aggregates typed domain block results and residual deterministic sections into a draft, but does not emit a final artifact yet.
-11. workflow dispatches `verification_request` to `VerificationAgent`, which runs block-level validation first, then only runs final report validation if no severe block failure is found.
-12. workflow dispatches `governance_evaluation_request` to `GovernanceAgent`, which evaluates risk, approval, and report disclosure.
-13. only after governance allows or redacts does workflow dispatch `report_finalize_request` back to `ReportAgent` to produce the final artifact and `report_ready`.
-14. runtime then decides whether the workflow completes, replans, or pauses for approval.
+10. `CashflowAgent` now uses token-aware execution context, `cashflow.monthly_review.v1`, provider-backed structured generation, schema validation, grounding pre-check, repair/fallback, and then merges the typed result back onto deterministic cashflow metrics.
+11. `DebtAgent` remains deterministic in this phase.
+12. workflow dispatches `report_draft_request` to `ReportAgent`, which aggregates typed domain block results and residual deterministic sections into a draft, but does not emit a final artifact yet.
+13. workflow dispatches `verification_request` to `VerificationAgent`, which runs block-level validation first, including structured-output and grounding checks for planner/cashflow, then only runs final report validation if no severe block failure is found.
+14. workflow dispatches `governance_evaluation_request` to `GovernanceAgent`, which evaluates risk, approval, and report disclosure.
+15. only after governance allows or redacts does workflow dispatch `report_finalize_request` back to `ReportAgent` to produce the final artifact and `report_ready`.
+16. runtime then decides whether the workflow completes, replans, or pauses for approval.
+17. trace dump now includes prompt version, provider call, token usage, estimated cost, repair/fallback, and structured-output trace alongside the existing workflow/runtime observability surface.
 
 ## Structural Boundary After Remediation
 
 - workflow file: orchestration only
 - workflow service: evidence collection + reducer orchestration
-- planner agent: planning context assembly + deterministic block planning
+- planner agent: planning context assembly + prompt render + provider-backed structured planning + typed plan compile
 - memory steward: derived memory generation + gating + retrieval
-- cashflow agent: typed cashflow block analysis using deterministic metrics and selected evidence
+- cashflow agent: typed cashflow block analysis using deterministic metrics, selected evidence, provider-backed structured reasoning, and deterministic fallback
 - debt agent: typed debt block analysis using deterministic metrics and selected evidence
 - report agent: aggregator + finalize split with governance-aware finalization
-- verification agent: block + final validation pipeline with short-circuit on severe block failures
+- verification agent: block + final validation pipeline with structured-output/grounding checks and short-circuit on severe block failures
 - governance agent: reusable approval / disclosure evaluation
 - runtime subsystem: checkpoint / replan / approval pause semantics
 - protocol layer: typed request/result envelopes with correlation/causation chain
+- prompt system: versioned prompt registry, rendering, and prompt render trace
+- model layer: provider-agnostic chat/structured seam with OpenAI-compatible live adapter
+- structured output layer: parser / validator / repair / fallback / trace for planner and cashflow
 
 ## Current Artifacts
 
@@ -51,6 +57,10 @@
 - workflow checkpoint journal
 - workflow timeline entries
 - agent dispatch lifecycle records
+- prompt render traces
+- provider call traces
+- usage / cost traces
+- structured output traces
 - memory access audit entries
 - policy decision audit entries
 - replay-ready trace dump inputs
@@ -59,7 +69,9 @@
 
 - agentic tax parsing is still a deterministic stub behind a formal adapter
 - timeline is currently local structured dump state, not a remote tracing backend
-- portfolio / tax / behavior areas are still residual deterministic sections, not yet domain-agent-executed
+- only `PlannerAgent` and `CashflowAgent` are on the real provider-backed path in this phase; debt/tax/portfolio/behavior are not being “half-upgraded”
+- portfolio / tax / behavior areas are still residual deterministic sections, not yet domain-agent-executed inside Monthly Review
 - agent execution is local synchronous dispatch, not yet durable remote actor execution
+- durable memory/embedding, retrieval hardening, and finance-engine hardening are intentionally deferred to later phases
 
 These stubs do not change the workflow shape: the system is already evidence-first, stateful, context-engineered, verifiable, governed, and now includes first real load-bearing domain execution.

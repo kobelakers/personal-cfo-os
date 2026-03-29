@@ -1,6 +1,12 @@
 package observability
 
-import "time"
+import (
+	"time"
+
+	"github.com/kobelakers/personal-cfo-os/internal/model"
+	"github.com/kobelakers/personal-cfo-os/internal/prompt"
+	"github.com/kobelakers/personal-cfo-os/internal/structured"
+)
 
 type TimelineRecord struct {
 	State      string    `json:"state"`
@@ -39,13 +45,17 @@ type PolicyDecisionRecord struct {
 }
 
 type WorkflowTraceDump struct {
-	WorkflowID      string                 `json:"workflow_id"`
-	TraceID         string                 `json:"trace_id"`
-	Timeline        []TimelineRecord       `json:"timeline,omitempty"`
-	Checkpoints     []CheckpointRecord     `json:"checkpoints,omitempty"`
-	AgentExecutions []AgentExecutionRecord `json:"agent_executions,omitempty"`
-	Events          []LogEntry             `json:"events,omitempty"`
-	MemoryAccess    []MemoryAccessRecord   `json:"memory_access,omitempty"`
-	PolicyDecisions []PolicyDecisionRecord `json:"policy_decisions,omitempty"`
-	GeneratedAt     time.Time              `json:"generated_at"`
+	WorkflowID        string                     `json:"workflow_id"`
+	TraceID           string                     `json:"trace_id"`
+	Timeline          []TimelineRecord           `json:"timeline,omitempty"`
+	Checkpoints       []CheckpointRecord         `json:"checkpoints,omitempty"`
+	AgentExecutions   []AgentExecutionRecord     `json:"agent_executions,omitempty"`
+	Events            []LogEntry                 `json:"events,omitempty"`
+	MemoryAccess      []MemoryAccessRecord       `json:"memory_access,omitempty"`
+	PolicyDecisions   []PolicyDecisionRecord     `json:"policy_decisions,omitempty"`
+	PromptRenders     []prompt.PromptRenderTrace `json:"prompt_renders,omitempty"`
+	LLMCalls          []model.CallRecord         `json:"llm_calls,omitempty"`
+	Usage             []model.UsageRecord        `json:"usage,omitempty"`
+	StructuredOutputs []structured.TraceRecord   `json:"structured_outputs,omitempty"`
+	GeneratedAt       time.Time                  `json:"generated_at"`
 }

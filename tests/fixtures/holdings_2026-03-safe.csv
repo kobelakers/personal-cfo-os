@@ -1,0 +1,4 @@
+user_id,account_id,snapshot_at,asset_class,symbol,market_value_cents,target_allocation
+user-1,broker-1,2026-03-28T00:00:00Z,equity,VT,500000,0.50
+user-1,broker-1,2026-03-28T00:00:00Z,bond,BND,300000,0.30
+user-1,broker-1,2026-03-28T00:00:00Z,cash,CASH,200000,0.20

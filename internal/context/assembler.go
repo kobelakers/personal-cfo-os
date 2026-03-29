@@ -10,6 +10,7 @@ import (
 type DefaultContextAssembler struct {
 	Budget    ContextBudget
 	Compactor ContextCompactor
+	Estimator TokenEstimator
 }
 
 func (a DefaultContextAssembler) Assemble(
@@ -25,6 +26,7 @@ func (a DefaultContextAssembler) Assemble(
 		TaskID:         spec.ID,
 		Goal:           spec.Goal,
 		Budget:         budget,
+		TokenBudget:    tokenBudgetFor(budget),
 		RequiredSkills: requiredSkillsForIntent(spec.UserIntentType),
 	}
 
@@ -49,7 +51,7 @@ func (a DefaultContextAssembler) Assemble(
 	slice.SkillBlocks = selectSkillBlocks(spec.UserIntentType)
 	compactor := a.Compactor
 	if compactor == nil {
-		compactor = StateAwareCompactor{}
+		compactor = StateAwareCompactor{Estimator: a.Estimator}
 	}
 	return compactor.Compact(slice, strategyForView(view))
 }

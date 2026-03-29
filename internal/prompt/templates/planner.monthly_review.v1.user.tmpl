@@ -1,0 +1,20 @@
+任务目标：{{ .Goal }}
+
+候选 blocks：
+{{ .CandidateBlocks }}
+
+候选步骤：
+{{ .CandidateSteps }}
+
+上下文：
+{{ .ContextSummary }}
+
+请输出 JSON，字段固定为：
+{
+  "plan_summary": "string",
+  "rationale": "string",
+  "verification_focus_notes": ["string"],
+  "block_order": ["block_id"],
+  "step_emphasis": [{"step_id":"string","emphasis":"string"}]
+}
+

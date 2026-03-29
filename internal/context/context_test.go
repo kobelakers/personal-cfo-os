@@ -237,6 +237,65 @@ func TestExecutionContextAssemblerBuildsDifferentBlockContexts(t *testing.T) {
 	}
 }
 
+func TestDefaultBudgetsDifferentiatePlanningAndExecutionTokenWindows(t *testing.T) {
+	planningBudget := DefaultBudgetForView(ContextViewPlanning)
+	executionBudget := DefaultBudgetForView(ContextViewExecution)
+	if planningBudget.MaxInputTokens == 0 || executionBudget.MaxInputTokens == 0 {
+		t.Fatalf("expected token-aware budgets, got planning=%+v execution=%+v", planningBudget, executionBudget)
+	}
+	if planningBudget.MaxInputTokens == executionBudget.MaxInputTokens &&
+		planningBudget.ReservedOutputTokens == executionBudget.ReservedOutputTokens {
+		t.Fatalf("expected planning and execution token budgets to differ, got planning=%+v execution=%+v", planningBudget, executionBudget)
+	}
+}
+
+func TestTokenAwareCompactionPreservesDecisionTrace(t *testing.T) {
+	compactor := StateAwareCompactor{Estimator: HeuristicTokenEstimator{}}
+	slice := ContextSlice{
+		View: ContextViewPlanning,
+		Budget: ContextBudget{
+			MaxStateBlocks:       4,
+			MaxMemoryBlocks:      3,
+			MaxEvidenceItems:     3,
+			MaxCharacters:        4096,
+			MaxInputTokens:       80,
+			ReservedOutputTokens: 20,
+			HardTokenLimit:       80,
+		},
+		TokenBudget: TokenBudget{
+			MaxInputTokens:       80,
+			ReservedOutputTokens: 20,
+			HardTokenLimit:       80,
+		},
+		StateBlocks: []InjectedStateBlock{
+			{Name: "cashflow_state", DataJSON: `{"summary":"0123456789012345678901234567890123456789"}`},
+			{Name: "liability_state", DataJSON: `{"summary":"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"}`},
+		},
+		MemoryBlocks: []MemoryBlock{
+			{MemoryID: "memory-1", Summary: "history one"},
+			{MemoryID: "memory-2", Summary: "history two"},
+		},
+		EvidenceBlocks: []EvidenceSummaryBlock{
+			{EvidenceID: "evidence-1", Summary: "transaction evidence that is intentionally long to consume token budget quickly"},
+			{EvidenceID: "evidence-2", Summary: "secondary evidence that should be excluded under the small token budget"},
+		},
+	}
+
+	compacted, err := compactor.Compact(slice, CompactionStrategyStateAware)
+	if err != nil {
+		t.Fatalf("compact token-aware slice: %v", err)
+	}
+	if compacted.BudgetDecision.TargetInputTokens != 60 {
+		t.Fatalf("expected reserved output tokens to shrink target input tokens, got %+v", compacted.BudgetDecision)
+	}
+	if len(compacted.BudgetDecision.Excluded) == 0 {
+		t.Fatalf("expected token-aware exclusion decisions, got %+v", compacted.BudgetDecision)
+	}
+	if len(compacted.Compaction.Notes) == 0 {
+		t.Fatalf("expected compaction decision trace, got %+v", compacted.Compaction)
+	}
+}
+
 func TestVerificationContextDiffersFromExecutionContext(t *testing.T) {
 	current := state.FinancialWorldState{
 		UserID: "user-1",

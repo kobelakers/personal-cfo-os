@@ -3,6 +3,10 @@ package observability
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/kobelakers/personal-cfo-os/internal/model"
+	"github.com/kobelakers/personal-cfo-os/internal/prompt"
+	"github.com/kobelakers/personal-cfo-os/internal/structured"
 )
 
 func BuildWorkflowTraceDump(
@@ -15,16 +19,50 @@ func BuildWorkflowTraceDump(
 	memoryAccess []MemoryAccessRecord,
 	policyDecisions []PolicyDecisionRecord,
 ) WorkflowTraceDump {
+	return BuildWorkflowTraceDumpWithIntelligence(
+		workflowID,
+		traceID,
+		timeline,
+		checkpoints,
+		agentExecutions,
+		events,
+		memoryAccess,
+		policyDecisions,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+}
+
+func BuildWorkflowTraceDumpWithIntelligence(
+	workflowID string,
+	traceID string,
+	timeline []TimelineRecord,
+	checkpoints []CheckpointRecord,
+	agentExecutions []AgentExecutionRecord,
+	events []LogEntry,
+	memoryAccess []MemoryAccessRecord,
+	policyDecisions []PolicyDecisionRecord,
+	promptRenders []prompt.PromptRenderTrace,
+	llmCalls []model.CallRecord,
+	usage []model.UsageRecord,
+	structuredOutputs []structured.TraceRecord,
+) WorkflowTraceDump {
 	return WorkflowTraceDump{
-		WorkflowID:      workflowID,
-		TraceID:         traceID,
-		Timeline:        timeline,
-		Checkpoints:     checkpoints,
-		AgentExecutions: agentExecutions,
-		Events:          events,
-		MemoryAccess:    memoryAccess,
-		PolicyDecisions: policyDecisions,
-		GeneratedAt:     time.Now().UTC(),
+		WorkflowID:        workflowID,
+		TraceID:           traceID,
+		Timeline:          timeline,
+		Checkpoints:       checkpoints,
+		AgentExecutions:   agentExecutions,
+		Events:            events,
+		MemoryAccess:      memoryAccess,
+		PolicyDecisions:   policyDecisions,
+		PromptRenders:     promptRenders,
+		LLMCalls:          llmCalls,
+		Usage:             usage,
+		StructuredOutputs: structuredOutputs,
+		GeneratedAt:       time.Now().UTC(),
 	}
 }
 

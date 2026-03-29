@@ -53,9 +53,29 @@ type CashflowBlockResult struct {
 	DeterministicMetrics CashflowDeterministicMetrics `json:"deterministic_metrics"`
 	EvidenceIDs          []observation.EvidenceID     `json:"evidence_ids,omitempty"`
 	MemoryIDsUsed        []string                     `json:"memory_ids_used,omitempty"`
+	MetricRefs           []string                     `json:"metric_refs,omitempty"`
 	RiskFlags            []RiskFlag                   `json:"risk_flags,omitempty"`
 	Recommendations      []skills.SkillItem           `json:"recommendations,omitempty"`
+	Caveats              []string                     `json:"caveats,omitempty"`
 	Confidence           float64                      `json:"confidence"`
+}
+
+type CashflowStructuredSuggestion struct {
+	Title        string   `json:"title"`
+	Detail       string   `json:"detail"`
+	Severity     string   `json:"severity"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+}
+
+type CashflowStructuredCandidate struct {
+	Summary                 string                         `json:"summary"`
+	KeyFindings             []string                       `json:"key_findings,omitempty"`
+	GroundedRecommendations []CashflowStructuredSuggestion `json:"grounded_recommendations,omitempty"`
+	RiskFlags               []RiskFlag                     `json:"risk_flags,omitempty"`
+	MetricRefs              []string                       `json:"metric_refs,omitempty"`
+	EvidenceRefs            []string                       `json:"evidence_refs,omitempty"`
+	Confidence              float64                        `json:"confidence"`
+	Caveats                 []string                       `json:"caveats,omitempty"`
 }
 
 type DebtBlockResult struct {

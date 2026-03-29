@@ -1,0 +1,27 @@
+任务目标：{{ .Goal }}
+Block：{{ .BlockID }} / {{ .BlockKind }}
+
+deterministic metrics：
+{{ .MetricsSummary }}
+
+selected evidence：
+{{ .EvidenceSummary }}
+
+selected memories：
+{{ .MemorySummary }}
+
+上下文：
+{{ .ContextSummary }}
+
+请输出 JSON，字段固定为：
+{
+  "summary": "string",
+  "key_findings": ["string"],
+  "grounded_recommendations": [{"title":"string","detail":"string","severity":"low|medium|high","evidence_refs":["evidence_id"]}],
+  "risk_flags": [{"code":"string","severity":"low|medium|high","detail":"string","evidence_ids":["evidence_id"]}],
+  "metric_refs": ["metric_name"],
+  "evidence_refs": ["evidence_id"],
+  "confidence": 0.0,
+  "caveats": ["string"]
+}
+

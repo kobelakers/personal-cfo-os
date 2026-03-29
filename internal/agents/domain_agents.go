@@ -14,6 +14,7 @@ import (
 
 type CashflowAgentHandler struct {
 	MetricsTool tools.ComputeCashflowMetricsTool
+	Reasoner    CashflowReasoner
 }
 
 func (CashflowAgentHandler) Name() string      { return RecipientCashflowAgent }
@@ -22,7 +23,7 @@ func (CashflowAgentHandler) RequestKind() protocol.MessageKind {
 	return protocol.MessageKindCashflowAnalysisRequest
 }
 
-func (a CashflowAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
+func (a CashflowAgentHandler) Handle(handlerCtx AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
 	payload := envelope.Payload.CashflowAnalysisRequest
 	if payload == nil {
 		return AgentHandlerResult{}, &AgentExecutionError{
@@ -31,62 +32,30 @@ func (a CashflowAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.Ag
 			Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "cashflow analysis request payload is required"},
 		}
 	}
-	metrics := toCashflowMetrics(a.MetricsTool.Compute(payload.CurrentState))
-	evidenceIDs := collectEvidenceIDs(payload.RelevantEvidence)
-	memoryIDs := collectMemoryIDsFromRecords(payload.RelevantMemories)
-	keyFindings := []string{
-		fmt.Sprintf("本期流入 %d 分，流出 %d 分，净结余 %d 分。", metrics.MonthlyInflowCents, metrics.MonthlyOutflowCents, metrics.MonthlyNetIncomeCents),
-		fmt.Sprintf("储蓄率 %.2f，重复订阅 %d，深夜消费频率 %.2f。", metrics.SavingsRate, metrics.DuplicateSubscriptionCount, metrics.LateNightSpendingFrequency),
+	reasoner := a.Reasoner
+	if reasoner == nil {
+		reasoner = DeterministicCashflowReasoner{MetricsTool: a.MetricsTool}
 	}
-	riskFlags := make([]analysis.RiskFlag, 0, 3)
-	recommendations := make([]skills.SkillItem, 0, 3)
-
-	if metrics.SavingsRate < 0.15 {
-		riskFlags = append(riskFlags, analysis.RiskFlag{
-			Code:        "cashflow_pressure",
-			Severity:    "medium",
-			Detail:      "储蓄率偏低，现金流缓冲较弱。",
-			EvidenceIDs: evidenceIDs,
-		})
-		recommendations = append(recommendations, skills.SkillItem{
-			Title:       "优先修复月度结余",
-			Detail:      "先控制可变支出，确保结余可以覆盖后续债务或投资决策。",
-			Severity:    "medium",
-			EvidenceIDs: evidenceIDs,
-		})
-	}
-	if metrics.DuplicateSubscriptionCount > 0 || hasMemoryKeyword(payload.RelevantMemories, "subscription") {
-		recommendations = append(recommendations, skills.SkillItem{
-			Title:       "梳理经常性订阅",
-			Detail:      "订阅信号说明现金流里存在可优化项，先清理低使用率订阅。",
-			Severity:    "low",
-			EvidenceIDs: evidenceIDs,
-		})
-	}
-	if metrics.LateNightSpendingFrequency >= 0.2 || hasMemoryKeyword(payload.RelevantMemories, "late-night") {
-		riskFlags = append(riskFlags, analysis.RiskFlag{
-			Code:        "late_night_spending",
-			Severity:    "medium",
-			Detail:      "深夜消费波动偏高，建议把这部分支出单独复核。",
-			EvidenceIDs: evidenceIDs,
-		})
-	}
-
-	summary := fmt.Sprintf("现金流块结论：当前月度结余 %d 分，储蓄率 %.2f。", metrics.MonthlyNetIncomeCents, metrics.SavingsRate)
-	if hasMemoryKeyword(payload.RelevantMemories, "decision") && strings.Contains(string(payload.Block.Kind), "liquidity") {
-		summary += " 检索到历史债务决策记忆，本次更强调流动性缓冲与现金流稳定性。"
-	}
-
-	result := analysis.CashflowBlockResult{
-		BlockID:              string(payload.Block.ID),
-		Summary:              summary,
-		KeyFindings:          keyFindings,
-		DeterministicMetrics: metrics,
-		EvidenceIDs:          evidenceIDs,
-		MemoryIDsUsed:        memoryIDs,
-		RiskFlags:            riskFlags,
-		Recommendations:      recommendations,
-		Confidence:           confidenceFromEvidence(payload.RelevantEvidence),
+	result, err := reasoner.Analyze(handlerCtx.Context, CashflowReasonerInput{
+		WorkflowID:       envelope.Metadata.CorrelationID,
+		TaskID:           envelope.Task.ID,
+		TraceID:          envelope.Metadata.CorrelationID,
+		CurrentState:     payload.CurrentState,
+		RelevantMemories: payload.RelevantMemories,
+		RelevantEvidence: payload.RelevantEvidence,
+		Block:            payload.Block,
+		ExecutionContext: payload.ExecutionContext,
+	})
+	if err != nil {
+		return AgentHandlerResult{}, &AgentExecutionError{
+			Recipient: RecipientCashflowAgent,
+			Kind:      envelope.Kind,
+			Failure: protocol.AgentFailure{
+				Category: protocol.AgentFailureValidation,
+				Message:  "cashflow reasoning failed",
+			},
+			Cause: err,
+		}
 	}
 	return AgentHandlerResult{
 		Kind: protocol.MessageKindCashflowAnalysisResult,

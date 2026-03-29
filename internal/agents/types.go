@@ -174,5 +174,5 @@ type SystemStepBus interface {
 
 type PlannerInputs struct {
 	Assembler contextview.ContextAssembler
-	Planner   *planning.DeterministicPlanner
+	Planner   planning.PlannerEngine
 }

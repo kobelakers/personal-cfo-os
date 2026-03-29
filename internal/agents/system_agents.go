@@ -16,7 +16,7 @@ import (
 
 type PlannerAgentHandler struct {
 	Assembler contextview.ContextAssembler
-	Planner   *planning.DeterministicPlanner
+	Planner   planning.PlannerEngine
 }
 
 func (PlannerAgentHandler) Name() string      { return RecipientPlannerAgent }
@@ -25,7 +25,7 @@ func (PlannerAgentHandler) RequestKind() protocol.MessageKind {
 	return protocol.MessageKindPlanRequest
 }
 
-func (a PlannerAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
+func (a PlannerAgentHandler) Handle(handlerCtx AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
 	payload := envelope.Payload.PlanRequest
 	if payload == nil {
 		return AgentHandlerResult{}, &AgentExecutionError{
@@ -51,7 +51,12 @@ func (a PlannerAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.Age
 			Cause:     err,
 		}
 	}
-	plan := planner.CreatePlan(envelope.Task, slice, envelope.Metadata.CorrelationID)
+	var plan planning.ExecutionPlan
+	if ctxAware, ok := planner.(planning.ContextAwarePlannerEngine); ok {
+		plan = ctxAware.CreatePlanWithContext(handlerCtx.Context, envelope.Task, slice, envelope.Metadata.CorrelationID)
+	} else {
+		plan = planner.CreatePlan(envelope.Task, slice, envelope.Metadata.CorrelationID)
+	}
 	return AgentHandlerResult{
 		Kind: protocol.MessageKindPlanResult,
 		Body: protocol.AgentResultBody{

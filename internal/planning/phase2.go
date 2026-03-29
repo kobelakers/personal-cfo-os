@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"context"
 	"time"
 
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
@@ -14,15 +15,44 @@ type PlanStep struct {
 	RequiredEvidenceTypes []string `json:"required_evidence_types,omitempty"`
 	RequiredTools         []string `json:"required_tools,omitempty"`
 	RequiredSkills        []string `json:"required_skills,omitempty"`
+	Emphasis              string   `json:"emphasis,omitempty"`
+}
+
+type PlanTraceMetadata struct {
+	PromptID             string    `json:"prompt_id,omitempty"`
+	PromptVersion        string    `json:"prompt_version,omitempty"`
+	ModelProfile         string    `json:"model_profile,omitempty"`
+	EstimatedInputTokens int       `json:"estimated_input_tokens,omitempty"`
+	PromptTokens         int       `json:"prompt_tokens,omitempty"`
+	CompletionTokens     int       `json:"completion_tokens,omitempty"`
+	TotalTokens          int       `json:"total_tokens,omitempty"`
+	EstimatedCostUSD     float64   `json:"estimated_cost_usd,omitempty"`
+	FallbackUsed         bool      `json:"fallback_used,omitempty"`
+	FallbackReason       string    `json:"fallback_reason,omitempty"`
+	StructuredFailure    string    `json:"structured_failure,omitempty"`
+	GeneratedAt          time.Time `json:"generated_at,omitempty"`
 }
 
 type ExecutionPlan struct {
-	WorkflowID string           `json:"workflow_id"`
-	TaskID     string           `json:"task_id"`
-	PlanID     string           `json:"plan_id"`
-	CreatedAt  time.Time        `json:"created_at"`
-	Blocks     []ExecutionBlock `json:"blocks"`
-	Steps      []PlanStep       `json:"steps"`
+	WorkflowID             string             `json:"workflow_id"`
+	TaskID                 string             `json:"task_id"`
+	PlanID                 string             `json:"plan_id"`
+	CreatedAt              time.Time          `json:"created_at"`
+	Summary                string             `json:"summary,omitempty"`
+	Rationale              string             `json:"rationale,omitempty"`
+	VerificationFocusNotes []string           `json:"verification_focus_notes,omitempty"`
+	Trace                  *PlanTraceMetadata `json:"trace,omitempty"`
+	Blocks                 []ExecutionBlock   `json:"blocks"`
+	Steps                  []PlanStep         `json:"steps"`
+}
+
+type PlannerEngine interface {
+	CreatePlan(spec taskspec.TaskSpec, slice contextview.ContextSlice, workflowID string) ExecutionPlan
+}
+
+type ContextAwarePlannerEngine interface {
+	PlannerEngine
+	CreatePlanWithContext(ctx context.Context, spec taskspec.TaskSpec, slice contextview.ContextSlice, workflowID string) ExecutionPlan
 }
 
 type DeterministicPlanner struct {

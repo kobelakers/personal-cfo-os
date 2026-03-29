@@ -44,10 +44,40 @@ const (
 )
 
 type ContextBudget struct {
-	MaxStateBlocks   int `json:"max_state_blocks"`
-	MaxMemoryBlocks  int `json:"max_memory_blocks"`
-	MaxEvidenceItems int `json:"max_evidence_items"`
-	MaxCharacters    int `json:"max_characters"`
+	MaxStateBlocks       int `json:"max_state_blocks"`
+	MaxMemoryBlocks      int `json:"max_memory_blocks"`
+	MaxEvidenceItems     int `json:"max_evidence_items"`
+	MaxCharacters        int `json:"max_characters"`
+	MaxInputTokens       int `json:"max_input_tokens,omitempty"`
+	ReservedOutputTokens int `json:"reserved_output_tokens,omitempty"`
+	HardTokenLimit       int `json:"hard_token_limit,omitempty"`
+}
+
+type TokenBudget struct {
+	MaxInputTokens       int `json:"max_input_tokens,omitempty"`
+	ReservedOutputTokens int `json:"reserved_output_tokens,omitempty"`
+	HardTokenLimit       int `json:"hard_token_limit,omitempty"`
+}
+
+type ContextBlockDecision struct {
+	Source          ContextBlockSource `json:"source"`
+	Ref             string             `json:"ref"`
+	EstimatedTokens int                `json:"estimated_tokens"`
+	Reason          string             `json:"reason"`
+}
+
+type ContextBudgetDecision struct {
+	EstimatedInputTokens int                    `json:"estimated_input_tokens,omitempty"`
+	TargetInputTokens    int                    `json:"target_input_tokens,omitempty"`
+	Included             []ContextBlockDecision `json:"included,omitempty"`
+	Excluded             []ContextBlockDecision `json:"excluded,omitempty"`
+}
+
+type ContextCompactionResult struct {
+	Strategy             CompactionStrategy `json:"strategy"`
+	InitialTokenEstimate int                `json:"initial_token_estimate,omitempty"`
+	FinalTokenEstimate   int                `json:"final_token_estimate,omitempty"`
+	Notes                []string           `json:"notes,omitempty"`
 }
 
 type InjectedStateBlock struct {
@@ -88,6 +118,9 @@ type ContextSlice struct {
 	TaskID         string                   `json:"task_id"`
 	Goal           string                   `json:"goal"`
 	Budget         ContextBudget            `json:"budget"`
+	TokenBudget    TokenBudget              `json:"token_budget,omitempty"`
+	BudgetDecision ContextBudgetDecision    `json:"budget_decision,omitempty"`
+	Compaction     ContextCompactionResult  `json:"compaction,omitempty"`
 	EvidenceIDs    []observation.EvidenceID `json:"evidence_ids,omitempty"`
 	MemoryIDs      []string                 `json:"memory_ids,omitempty"`
 	StateBlocks    []InjectedStateBlock     `json:"state_blocks,omitempty"`

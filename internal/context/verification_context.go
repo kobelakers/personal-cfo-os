@@ -10,22 +10,24 @@ import (
 )
 
 type BlockVerificationContext struct {
-	View                ContextView              `json:"view"`
-	PlanID              string                   `json:"plan_id"`
-	BlockID             string                   `json:"block_id"`
-	BlockKind           string                   `json:"block_kind"`
-	SelectionReason     ContextSelectionReason   `json:"selection_reason"`
-	SelectedMemoryIDs   []string                 `json:"selected_memory_ids,omitempty"`
-	SelectedEvidenceIDs []observation.EvidenceID `json:"selected_evidence_ids,omitempty"`
-	SelectedStateBlocks []string                 `json:"selected_state_blocks,omitempty"`
-	VerificationRules   []string                 `json:"verification_rules,omitempty"`
-	ResultSummary       string                   `json:"result_summary"`
-	Slice               ContextSlice             `json:"slice"`
+	View                 ContextView              `json:"view"`
+	PlanID               string                   `json:"plan_id"`
+	BlockID              string                   `json:"block_id"`
+	BlockKind            string                   `json:"block_kind"`
+	SelectionReason      ContextSelectionReason   `json:"selection_reason"`
+	SelectedMemoryIDs    []string                 `json:"selected_memory_ids,omitempty"`
+	SelectedEvidenceIDs  []observation.EvidenceID `json:"selected_evidence_ids,omitempty"`
+	SelectedStateBlocks  []string                 `json:"selected_state_blocks,omitempty"`
+	EstimatedInputTokens int                      `json:"estimated_input_tokens,omitempty"`
+	VerificationRules    []string                 `json:"verification_rules,omitempty"`
+	ResultSummary        string                   `json:"result_summary"`
+	Slice                ContextSlice             `json:"slice"`
 }
 
 type VerificationContextAssembler struct {
 	Budget    ContextBudget
 	Compactor ContextCompactor
+	Estimator TokenEstimator
 }
 
 func (a VerificationContextAssembler) AssembleBlock(
@@ -49,6 +51,7 @@ func (a VerificationContextAssembler) AssembleBlock(
 		TaskID:         spec.BlockID,
 		Goal:           spec.Goal,
 		Budget:         budget,
+		TokenBudget:    tokenBudgetFor(budget),
 		StateBlocks:    stateBlocks,
 		MemoryBlocks:   memoryBlocks,
 		EvidenceBlocks: evidenceBlocks,
@@ -57,7 +60,7 @@ func (a VerificationContextAssembler) AssembleBlock(
 	slice.EvidenceIDs = collectEvidenceIDs(evidenceBlocks)
 	compactor := a.Compactor
 	if compactor == nil {
-		compactor = StateAwareCompactor{}
+		compactor = StateAwareCompactor{Estimator: a.Estimator}
 	}
 	compacted, err := compactor.Compact(slice, CompactionStrategyVerificationLean)
 	if err != nil {
@@ -67,17 +70,18 @@ func (a VerificationContextAssembler) AssembleBlock(
 		return BlockVerificationContext{}, fmt.Errorf("verification context for block %q requires selected evidence", spec.BlockID)
 	}
 	return BlockVerificationContext{
-		View:                ContextViewVerification,
-		PlanID:              spec.PlanID,
-		BlockID:             spec.BlockID,
-		BlockKind:           spec.BlockKind,
-		SelectionReason:     ContextSelectionVerificationGap,
-		SelectedMemoryIDs:   compacted.MemoryIDs,
-		SelectedEvidenceIDs: compacted.EvidenceIDs,
-		SelectedStateBlocks: stateBlockNames(compacted.StateBlocks),
-		VerificationRules:   spec.VerificationRules,
-		ResultSummary:       result.Summary(),
-		Slice:               compacted,
+		View:                 ContextViewVerification,
+		PlanID:               spec.PlanID,
+		BlockID:              spec.BlockID,
+		BlockKind:            spec.BlockKind,
+		SelectionReason:      ContextSelectionVerificationGap,
+		SelectedMemoryIDs:    compacted.MemoryIDs,
+		SelectedEvidenceIDs:  compacted.EvidenceIDs,
+		SelectedStateBlocks:  stateBlockNames(compacted.StateBlocks),
+		EstimatedInputTokens: compacted.BudgetDecision.EstimatedInputTokens,
+		VerificationRules:    spec.VerificationRules,
+		ResultSummary:        result.Summary(),
+		Slice:                compacted,
 	}, nil
 }
 
@@ -98,6 +102,7 @@ func (a VerificationContextAssembler) AssembleFinal(
 		TaskID:         planID,
 		Goal:           "final_report_verification",
 		Budget:         budget,
+		TokenBudget:    tokenBudgetFor(budget),
 		StateBlocks:    stateBlocks,
 		MemoryBlocks:   selectMemoryBlocks(memories, ContextViewVerification, budget),
 		EvidenceBlocks: selectEvidenceBlocks(evidence, ContextViewVerification, budget),
@@ -106,24 +111,25 @@ func (a VerificationContextAssembler) AssembleFinal(
 	slice.EvidenceIDs = collectEvidenceIDs(slice.EvidenceBlocks)
 	compactor := a.Compactor
 	if compactor == nil {
-		compactor = StateAwareCompactor{}
+		compactor = StateAwareCompactor{Estimator: a.Estimator}
 	}
 	compacted, err := compactor.Compact(slice, CompactionStrategyVerificationLean)
 	if err != nil {
 		return BlockVerificationContext{}, err
 	}
 	return BlockVerificationContext{
-		View:                ContextViewVerification,
-		PlanID:              planID,
-		BlockID:             "final-report",
-		BlockKind:           "final_report",
-		SelectionReason:     ContextSelectionVerificationGap,
-		SelectedMemoryIDs:   compacted.MemoryIDs,
-		SelectedEvidenceIDs: compacted.EvidenceIDs,
-		SelectedStateBlocks: stateBlockNames(compacted.StateBlocks),
-		VerificationRules:   []string{"final_report_schema", "final_report_grounding"},
-		ResultSummary:       reportSummary,
-		Slice:               compacted,
+		View:                 ContextViewVerification,
+		PlanID:               planID,
+		BlockID:              "final-report",
+		BlockKind:            "final_report",
+		SelectionReason:      ContextSelectionVerificationGap,
+		SelectedMemoryIDs:    compacted.MemoryIDs,
+		SelectedEvidenceIDs:  compacted.EvidenceIDs,
+		SelectedStateBlocks:  stateBlockNames(compacted.StateBlocks),
+		EstimatedInputTokens: compacted.BudgetDecision.EstimatedInputTokens,
+		VerificationRules:    []string{"final_report_schema", "final_report_grounding"},
+		ResultSummary:        reportSummary,
+		Slice:                compacted,
 	}, nil
 }
 

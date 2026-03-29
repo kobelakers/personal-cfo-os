@@ -38,6 +38,12 @@ func (CashflowBlockValidator) Validate(
 	if !recommendationsGrounded(result.Recommendations, verificationContext.SelectedEvidenceIDs) {
 		failedRules = append(failedRules, "grounding_failure")
 	}
+	if len(result.Caveats) == 0 {
+		failedRules = append(failedRules, "caveat_missing")
+	}
+	if !cashflowMetricRefsConsistent(result.MetricRefs) {
+		failedRules = append(failedRules, "metric_ref_invalid")
+	}
 	if !cashflowMetricsConsistent(result.DeterministicMetrics, currentState.CashflowState) {
 		failedRules = append(failedRules, "metric_consistency")
 	}
@@ -63,6 +69,23 @@ func (CashflowBlockValidator) Validate(
 		EvidenceCoverage: fullCoverage(spec.ID),
 		CheckedAt:        time.Now().UTC(),
 	}
+}
+
+func cashflowMetricRefsConsistent(metricRefs []string) bool {
+	allowed := map[string]struct{}{
+		"monthly_inflow_cents":          {},
+		"monthly_outflow_cents":         {},
+		"monthly_net_income_cents":      {},
+		"savings_rate":                  {},
+		"duplicate_subscription_count":  {},
+		"late_night_spending_frequency": {},
+	}
+	for _, ref := range metricRefs {
+		if _, ok := allowed[ref]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (DebtBlockValidator) Validate(

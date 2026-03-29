@@ -9,22 +9,24 @@ import (
 )
 
 type BlockExecutionContext struct {
-	View                ContextView              `json:"view"`
-	PlanID              string                   `json:"plan_id"`
-	BlockID             string                   `json:"block_id"`
-	BlockKind           string                   `json:"block_kind"`
-	AssignedRecipient   string                   `json:"assigned_recipient"`
-	Goal                string                   `json:"goal"`
-	SelectionReason     ContextSelectionReason   `json:"selection_reason"`
-	SelectedMemoryIDs   []string                 `json:"selected_memory_ids,omitempty"`
-	SelectedEvidenceIDs []observation.EvidenceID `json:"selected_evidence_ids,omitempty"`
-	SelectedStateBlocks []string                 `json:"selected_state_blocks,omitempty"`
-	Slice               ContextSlice             `json:"slice"`
+	View                 ContextView              `json:"view"`
+	PlanID               string                   `json:"plan_id"`
+	BlockID              string                   `json:"block_id"`
+	BlockKind            string                   `json:"block_kind"`
+	AssignedRecipient    string                   `json:"assigned_recipient"`
+	Goal                 string                   `json:"goal"`
+	SelectionReason      ContextSelectionReason   `json:"selection_reason"`
+	SelectedMemoryIDs    []string                 `json:"selected_memory_ids,omitempty"`
+	SelectedEvidenceIDs  []observation.EvidenceID `json:"selected_evidence_ids,omitempty"`
+	SelectedStateBlocks  []string                 `json:"selected_state_blocks,omitempty"`
+	EstimatedInputTokens int                      `json:"estimated_input_tokens,omitempty"`
+	Slice                ContextSlice             `json:"slice"`
 }
 
 type ExecutionContextAssembler struct {
 	Budget    ContextBudget
 	Compactor ContextCompactor
+	Estimator TokenEstimator
 }
 
 func (a ExecutionContextAssembler) Assemble(
@@ -52,6 +54,7 @@ func (a ExecutionContextAssembler) Assemble(
 		TaskID:         spec.BlockID,
 		Goal:           spec.Goal,
 		Budget:         budget,
+		TokenBudget:    tokenBudgetFor(budget),
 		StateBlocks:    stateBlocks,
 		MemoryBlocks:   memoryBlocks,
 		EvidenceBlocks: evidenceBlocks,
@@ -61,24 +64,25 @@ func (a ExecutionContextAssembler) Assemble(
 	slice.EvidenceIDs = collectEvidenceIDs(evidenceBlocks)
 	compactor := a.Compactor
 	if compactor == nil {
-		compactor = StateAwareCompactor{}
+		compactor = StateAwareCompactor{Estimator: a.Estimator}
 	}
 	compacted, err := compactor.Compact(slice, CompactionStrategyEvidenceFocused)
 	if err != nil {
 		return BlockExecutionContext{}, err
 	}
 	result := BlockExecutionContext{
-		View:                view,
-		PlanID:              spec.PlanID,
-		BlockID:             spec.BlockID,
-		BlockKind:           spec.BlockKind,
-		AssignedRecipient:   spec.AssignedRecipient,
-		Goal:                spec.Goal,
-		SelectionReason:     blockSelectionReason(spec.BlockKind),
-		SelectedMemoryIDs:   compacted.MemoryIDs,
-		SelectedEvidenceIDs: compacted.EvidenceIDs,
-		SelectedStateBlocks: stateBlockNames(compacted.StateBlocks),
-		Slice:               compacted,
+		View:                 view,
+		PlanID:               spec.PlanID,
+		BlockID:              spec.BlockID,
+		BlockKind:            spec.BlockKind,
+		AssignedRecipient:    spec.AssignedRecipient,
+		Goal:                 spec.Goal,
+		SelectionReason:      blockSelectionReason(spec.BlockKind),
+		SelectedMemoryIDs:    compacted.MemoryIDs,
+		SelectedEvidenceIDs:  compacted.EvidenceIDs,
+		SelectedStateBlocks:  stateBlockNames(compacted.StateBlocks),
+		EstimatedInputTokens: compacted.BudgetDecision.EstimatedInputTokens,
+		Slice:                compacted,
 	}
 	if len(result.SelectedEvidenceIDs) == 0 {
 		return BlockExecutionContext{}, fmt.Errorf("execution context for block %q requires selected evidence", spec.BlockID)
