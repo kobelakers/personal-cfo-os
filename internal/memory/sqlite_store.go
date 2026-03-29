@@ -38,6 +38,12 @@ type sqliteMemoryStore struct {
 	db *SQLiteMemoryDB
 }
 
+type sqliteExecer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 func NewSQLiteMemoryStores(config SQLiteStoreConfig) (*SQLiteMemoryStores, error) {
 	db, err := NewSQLiteMemoryDB(config)
 	if err != nil {
@@ -188,6 +194,55 @@ func (db *SQLiteMemoryDB) EnsureSchema() error {
 }
 
 func (s *sqliteMemoryStore) Put(ctx context.Context, record MemoryRecord) error {
+	return s.putMemoryRecord(ctx, s.db.db, record)
+}
+
+func (s *sqliteMemoryStore) CommitPreparedWrite(ctx context.Context, prepared PreparedMemoryWrite) (result DurableWriteResult, err error) {
+	tx, err := s.db.db.BeginTx(ctx, nil)
+	if err != nil {
+		return DurableWriteResult{}, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	if err = s.putMemoryRecord(ctx, tx, prepared.Record); err != nil {
+		return DurableWriteResult{}, err
+	}
+	if err = s.saveRelations(ctx, tx, prepared.Record.ID, prepared.Relations); err != nil {
+		return DurableWriteResult{}, err
+	}
+	if prepared.Embedding != nil {
+		if err = s.saveEmbedding(ctx, tx, *prepared.Embedding); err != nil {
+			return DurableWriteResult{}, err
+		}
+		if err = s.replaceTerms(ctx, tx, prepared.Record.ID, prepared.Terms); err != nil {
+			return DurableWriteResult{}, err
+		}
+	}
+	if prepared.Audit != nil {
+		if err = s.appendAccess(ctx, tx, *prepared.Audit); err != nil {
+			return DurableWriteResult{}, err
+		}
+	}
+	for _, event := range prepared.WriteEvents {
+		if err = s.appendWriteEvent(ctx, tx, event); err != nil {
+			return DurableWriteResult{}, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return DurableWriteResult{}, err
+	}
+	return DurableWriteResult{
+		MemoryID:     prepared.Record.ID,
+		CommittedAt:  prepared.Record.UpdatedAt,
+		EmbeddingSet: prepared.Embedding != nil,
+		TermsSet:     len(prepared.Terms) > 0,
+	}, nil
+}
+
+func (s *sqliteMemoryStore) putMemoryRecord(ctx context.Context, exec sqliteExecer, record MemoryRecord) error {
 	if err := record.Validate(); err != nil {
 		return err
 	}
@@ -204,7 +259,7 @@ func (s *sqliteMemoryStore) Put(ctx context.Context, record MemoryRecord) error 
 		return err
 	}
 	searchText := semanticText(record)
-	_, err = s.db.db.ExecContext(ctx, `
+	_, err = exec.ExecContext(ctx, `
 		INSERT INTO memory_records(memory_id, kind, summary, facts_json, source_json, confidence_json, created_at, updated_at, search_text, token_count)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(memory_id) DO UPDATE SET
@@ -217,7 +272,7 @@ func (s *sqliteMemoryStore) Put(ctx context.Context, record MemoryRecord) error 
 			updated_at = excluded.updated_at,
 			search_text = excluded.search_text,
 			token_count = excluded.token_count
-	`, record.ID, string(record.Kind), record.Summary, string(factsJSON), string(sourceJSON), string(confidenceJSON), record.CreatedAt.Format(time.RFC3339Nano), record.UpdatedAt.Format(time.RFC3339Nano), searchText, len(tokenize(searchText)))
+	`, record.ID, string(record.Kind), record.Summary, string(factsJSON), string(sourceJSON), string(confidenceJSON), record.CreatedAt.Format(time.RFC3339Nano), record.UpdatedAt.Format(time.RFC3339Nano), searchText, len(tokenizeForIndexing(searchText)))
 	return err
 }
 
@@ -478,25 +533,33 @@ func (s *sqliteMemoryStore) SaveRelations(ctx context.Context, memoryID string, 
 			_ = tx.Rollback()
 		}
 	}()
-	if _, err = tx.ExecContext(ctx, `DELETE FROM memory_relations WHERE memory_id = ?`, memoryID); err != nil {
+	if err = s.saveRelations(ctx, tx, memoryID, relations); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteMemoryStore) saveRelations(ctx context.Context, exec sqliteExecer, memoryID string, relations MemoryRelations) (err error) {
+	_, err = exec.ExecContext(ctx, `DELETE FROM memory_relations WHERE memory_id = ?`, memoryID)
+	if err != nil {
 		return err
 	}
 	for _, relation := range relations.Relations {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "relation:"+relation.Type, relation.TargetMemoryID, relation.Description); err != nil {
+		if _, err = exec.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "relation:"+relation.Type, relation.TargetMemoryID, relation.Description); err != nil {
 			return err
 		}
 	}
 	for _, relation := range relations.Supersedes {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "supersedes", relation.MemoryID, relation.Reason); err != nil {
+		if _, err = exec.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "supersedes", relation.MemoryID, relation.Reason); err != nil {
 			return err
 		}
 	}
 	for _, relation := range relations.Conflicts {
-		if _, err = tx.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "conflicts_with", relation.MemoryID, relation.Reason); err != nil {
+		if _, err = exec.ExecContext(ctx, `INSERT INTO memory_relations(memory_id, relation_type, target_memory_id, description) VALUES (?, ?, ?, ?)`, memoryID, "conflicts_with", relation.MemoryID, relation.Reason); err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *sqliteMemoryStore) LoadRelations(ctx context.Context, memoryID string) (MemoryRelations, error) {
@@ -533,7 +596,11 @@ func (s *sqliteMemoryStore) LoadRelations(ctx context.Context, memoryID string) 
 }
 
 func (s *sqliteMemoryStore) AppendAccess(ctx context.Context, audit MemoryAccessAudit) error {
-	_, err := s.db.db.ExecContext(ctx, `
+	return s.appendAccess(ctx, s.db.db, audit)
+}
+
+func (s *sqliteMemoryStore) appendAccess(ctx context.Context, exec sqliteExecer, audit MemoryAccessAudit) error {
+	_, err := exec.ExecContext(ctx, `
 		INSERT INTO memory_access_audit(audit_id, memory_id, workflow_id, task_id, trace_id, query_id, accessor, purpose, action, reason, score, accessed_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, audit.ID, audit.MemoryID, audit.WorkflowID, audit.TaskID, audit.TraceID, audit.QueryID, audit.Accessor, audit.Purpose, audit.Action, audit.Reason, audit.Score, audit.AccessedAt.Format(time.RFC3339Nano))
@@ -568,11 +635,15 @@ func (s *sqliteMemoryStore) ListAccess(ctx context.Context, memoryID string) ([]
 }
 
 func (s *sqliteMemoryStore) AppendWriteEvent(ctx context.Context, event MemoryWriteEvent) error {
+	return s.appendWriteEvent(ctx, s.db.db, event)
+}
+
+func (s *sqliteMemoryStore) appendWriteEvent(ctx context.Context, exec sqliteExecer, event MemoryWriteEvent) error {
 	detailsJSON, err := json.Marshal(event.Details)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.db.ExecContext(ctx, `
+	_, err = exec.ExecContext(ctx, `
 		INSERT INTO memory_write_events(event_id, memory_id, workflow_id, task_id, trace_id, action, summary, provider, model, occurred_at, details_json)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, event.ID, event.MemoryID, event.WorkflowID, event.TaskID, event.TraceID, event.Action, event.Summary, event.Provider, event.Model, event.OccurredAt.Format(time.RFC3339Nano), string(detailsJSON))
@@ -609,11 +680,15 @@ func (s *sqliteMemoryStore) ListWriteEvents(ctx context.Context, memoryID string
 }
 
 func (s *sqliteMemoryStore) SaveEmbedding(ctx context.Context, record MemoryEmbeddingRecord) error {
+	return s.saveEmbedding(ctx, s.db.db, record)
+}
+
+func (s *sqliteMemoryStore) saveEmbedding(ctx context.Context, exec sqliteExecer, record MemoryEmbeddingRecord) error {
 	vectorJSON, err := json.Marshal(record.Vector)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.db.ExecContext(ctx, `
+	_, err = exec.ExecContext(ctx, `
 		INSERT INTO memory_embeddings(memory_id, provider, model, vector_json, dimensions, embedded_at, content_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(memory_id, model) DO UPDATE SET
@@ -680,18 +755,25 @@ func (s *sqliteMemoryStore) ReplaceTerms(ctx context.Context, memoryID string, t
 			_ = tx.Rollback()
 		}
 	}()
-	if _, err = tx.ExecContext(ctx, `DELETE FROM memory_terms WHERE memory_id = ?`, memoryID); err != nil {
+	if err = s.replaceTerms(ctx, tx, memoryID, terms); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteMemoryStore) replaceTerms(ctx context.Context, exec sqliteExecer, memoryID string, terms map[string]int) (err error) {
+	if _, err = exec.ExecContext(ctx, `DELETE FROM memory_terms WHERE memory_id = ?`, memoryID); err != nil {
 		return err
 	}
 	for term, freq := range terms {
 		if strings.TrimSpace(term) == "" || freq <= 0 {
 			continue
 		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO memory_terms(memory_id, term, term_freq) VALUES (?, ?, ?)`, memoryID, term, freq); err != nil {
+		if _, err = exec.ExecContext(ctx, `INSERT INTO memory_terms(memory_id, term, term_freq) VALUES (?, ?, ?)`, memoryID, term, freq); err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *sqliteMemoryStore) LoadIndexedModels(ctx context.Context) ([]string, error) {
@@ -799,9 +881,9 @@ func scanMemoryRecordFromRows(rows *sql.Rows) (MemoryRecord, error) {
 
 func scanEmbedding(row *sql.Row) (MemoryEmbeddingRecord, bool, error) {
 	var (
-		record       MemoryEmbeddingRecord
-		vectorJSON   string
-		embeddedAt   string
+		record     MemoryEmbeddingRecord
+		vectorJSON string
+		embeddedAt string
 	)
 	if err := row.Scan(&record.MemoryID, &record.Provider, &record.Model, &vectorJSON, &record.Dimensions, &embeddedAt, &record.ContentHash); err != nil {
 		if err == sql.ErrNoRows {

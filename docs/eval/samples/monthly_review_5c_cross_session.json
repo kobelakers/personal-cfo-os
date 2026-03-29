@@ -1,6 +1,6 @@
 {
   "scenario": "monthly_review_5c_cross_session",
-  "description": "Monthly Review was run twice against the same injected memory.db. The second run reopened durable memory written by the first run and selected those memories into planning and cashflow reasoning.",
+  "description": "Monthly Review was run twice against the same injected memory.db. The second run reopened durable memory written by the first run, retained explicit stale/low-confidence rejection evidence, and selected accepted memories into planning and cashflow reasoning.",
   "seed_run_at": "2026-03-30T08:00:00Z",
   "influenced_run_at": "2026-03-31T08:00:00Z",
   "control_run_at": "2026-03-31T08:00:00Z",
@@ -10,6 +10,10 @@
     "workflow-monthly-review-20260330080000-memory-debt-pressure",
     "workflow-monthly-review-20260330080000-memory-procedure",
     "workflow-monthly-review-20260330080000-memory-subscriptions"
+  ],
+  "rejected_memory_ids": [
+    "memory-sample-low-confidence",
+    "memory-sample-stale-episodic"
   ],
   "with_durable_memory": {
     "report_summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",

@@ -43,11 +43,22 @@ We add a local-first real memory substrate with the following boundaries:
    - semantic retrieval from provider-backed embeddings
    - reciprocal-rank fusion
    - policy-driven rejection with explicit rule ids and reasons
+   - rejection runs after fusion/rerank, and final selected `topK` is chosen only from accepted candidates
 
 5. Memory influence must be observable and testable.
    - memory query / hit / reject / selection enter workflow trace
    - selected durable memories are injected into planning / execution context
    - Monthly Review is run twice against the same `memory.db` to prove cross-session influence
+
+6. Durable memory write is atomic.
+   - memory write now follows `prepare -> commit`
+   - provenance/confidence validation, conflict/supersedes detection, lexical term generation, and embedding generation complete before commit
+   - one SQLite transaction then commits records, relations, embeddings, lexical terms, access audit, and write events together
+
+7. Conflict and supersedence remain intentionally narrow and explainable.
+   - conflict: same kind, different record id, same fact key, different value
+   - supersedes: same kind, different record id, same summary semantics, newer update time
+   - explicit `conflicts_with` / `supersedes` still persist as-is; automatic detection only fills the minimal gap needed for 5C
 
 ## Consequences
 
@@ -56,6 +67,7 @@ We add a local-first real memory substrate with the following boundaries:
 - Personal CFO OS now has a first real memory substrate instead of a fake semantic-memory story.
 - durable memory survives restart and can influence later workflow runs.
 - memory can now be explained through query, score, fusion, rejection, selection, audit, and write-event evidence.
+- memory write no longer risks leaving partial durable state when an embedding/terms/audit/write-event step fails mid-write.
 - the design stays upgrade-friendly for stronger stores in later phases without forcing workflow rewrites.
 
 ### Negative / Deferred

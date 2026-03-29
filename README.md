@@ -41,14 +41,18 @@ The repository now runs a real governed finance workflow backbone with system-ag
 Phase 5C upgrades memory from a shaped interface to a load-bearing substrate for Monthly Review:
 
 - `internal/memory` now has a real SQLite-backed durable memory seam with separate tables for memory records, relations, embeddings, lexical terms, access audit, and write events
+- memory writes now follow `prepare -> single durable commit`: provenance/confidence validation, conflict/supersedes detection, lexical term generation, and embedding generation happen before one SQLite transaction atomically commits records, relations, embeddings, terms, audit, and write events
 - memory durable plane is intentionally separate from the runtime durable plane introduced in Phase 5A; they may both use SQLite locally, but they are not the same semantic layer
 - semantic retrieval now uses a real embedding provider seam with one OpenAI-compatible live implementation and one deterministic static provider for tests and mock runs
 - retrieval is now a real hybrid stack:
   - lexical retrieval from durable term postings
   - semantic retrieval from persisted embeddings
   - reciprocal-rank fusion
-  - policy-driven rejection with explicit reasons
+  - policy-driven rejection with explicit reasons, applied after fusion/rerank and before final accepted `topK` selection
 - retrieval query formation is no longer workflow-local string glue; planner and cashflow use dedicated typed query builders
+- conflict / supersedes auto-detection is now explicit and intentionally narrow:
+  - `conflict`: same memory kind, different record id, same fact key, different value
+  - `supersedes`: same memory kind, different record id, same summary semantics, newer update time
 - cross-session influence is now part of the Monthly Review proof: the second run against the same `memory.db` can alter planner rationale, recommendation framing, or report provenance because prior durable memories were selected into context
 
 ## Current Positioning
@@ -200,6 +204,12 @@ Mock sample outputs checked into the repo:
 - `docs/eval/samples/monthly_review_5c_report.json`
 - `docs/eval/samples/monthly_review_5c_trace.json`
 - `docs/eval/samples/monthly_review_5c_cross_session.json`
+
+The checked-in 5C trace sample now includes both accepted and rejected memory evidence:
+
+- stale episodic rejection
+- low-confidence rejection
+- selected memories that still influence planner/cashflow output after rejection is applied
 
 The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 

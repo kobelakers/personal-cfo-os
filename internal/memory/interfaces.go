@@ -26,6 +26,10 @@ type MemoryStore interface {
 	List(ctx context.Context) ([]MemoryRecord, error)
 }
 
+type MemoryWriteCommitter interface {
+	CommitPreparedWrite(ctx context.Context, prepared PreparedMemoryWrite) (DurableWriteResult, error)
+}
+
 type MemoryQueryStore interface {
 	LoadByIDs(ctx context.Context, ids []string) ([]MemoryRecord, error)
 	ListByKind(ctx context.Context, filter MemoryListFilter) ([]MemoryRecord, error)
@@ -75,6 +79,14 @@ type RejectionPolicy interface {
 
 type MemoryWriter interface {
 	Write(ctx context.Context, record MemoryRecord) error
+}
+
+type ConflictDetector interface {
+	Detect(existing []MemoryRecord, candidate MemoryRecord) []ConflictRef
+}
+
+type SupersedenceDetector interface {
+	Detect(existing []MemoryRecord, candidate MemoryRecord) []SupersedesRef
 }
 
 type MemoryWriteGate interface {

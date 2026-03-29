@@ -24,15 +24,20 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 Phase 5C promotes memory from a shaped interface to a true system layer:
 
 1. `internal/memory` now has a durable SQLite seam for `MemoryRecord`, relations, embeddings, lexical terms, access audit, and write events.
-2. memory durable plane is explicitly separate from runtime durable plane even though both are local SQLite today.
-3. semantic retrieval is no longer fake on the Monthly Review path; it now uses provider-backed embeddings through a dedicated embedding seam.
-4. retrieval is hybrid and typed:
+2. memory write now follows `prepare -> atomic commit`, so records, relations, embeddings, lexical terms, access audit, and write events either persist together or roll back together.
+3. memory durable plane is explicitly separate from runtime durable plane even though both are local SQLite today.
+4. semantic retrieval is no longer fake on the Monthly Review path; it now uses provider-backed embeddings through a dedicated embedding seam.
+5. retrieval is hybrid and typed:
    - lexical retrieval from durable token postings
    - semantic retrieval from persisted embeddings
    - reciprocal-rank fusion
    - configurable rejection policy with structured reasons
-5. retrieval query formation is now formalized with distinct planner and cashflow builders instead of workflow-local string assembly.
-6. Monthly Review can now be run across sessions against the same injected `memory.db`, and selected durable memories can change planning and reasoning output on the second run.
+   - rejection happens after fusion/rerank, and final selected `topK` is chosen only from accepted candidates
+6. retrieval query formation is now formalized with distinct planner and cashflow builders instead of workflow-local string assembly.
+7. conflict and supersedence remain explicit and intentionally narrow:
+   - same fact key + different value => conflict
+   - same summary semantics + newer update => supersedes
+8. Monthly Review can now be run across sessions against the same injected `memory.db`, and selected durable memories can change planning and reasoning output on the second run.
 
 ## Real Intelligence Substrate (Phase 5B)
 

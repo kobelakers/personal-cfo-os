@@ -50,6 +50,18 @@ func (s *InMemoryMemoryStore) List(_ context.Context) ([]MemoryRecord, error) {
 	return records, nil
 }
 
+func (s *InMemoryMemoryStore) CommitPreparedWrite(_ context.Context, prepared PreparedMemoryWrite) (DurableWriteResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.records[prepared.Record.ID] = prepared.Record
+	return DurableWriteResult{
+		MemoryID:     prepared.Record.ID,
+		CommittedAt:  prepared.Record.UpdatedAt,
+		EmbeddingSet: prepared.Embedding != nil,
+		TermsSet:     len(prepared.Terms) > 0,
+	}, nil
+}
+
 type MemoryAccessAuditLog struct {
 	mu      sync.Mutex
 	entries []MemoryAccessAudit
@@ -71,6 +83,7 @@ func (l *MemoryAccessAuditLog) Entries() []MemoryAccessAudit {
 
 type DefaultMemoryWriter struct {
 	Store                      MemoryStore
+	Committer                  MemoryWriteCommitter
 	Relations                  MemoryRelationStore
 	AuditStore                 MemoryAuditStore
 	WriteEventStore            MemoryWriteEventStore
@@ -78,6 +91,8 @@ type DefaultMemoryWriter struct {
 	EmbeddingProvider          EmbeddingProvider
 	EmbeddingModel             string
 	AuditLog                   *MemoryAccessAuditLog
+	ConflictDetector           ConflictDetector
+	SupersedenceDetector       SupersedenceDetector
 	MinConfidence              float64
 	LowConfidenceEpisodicFloor float64
 	Now                        func() time.Time
@@ -115,33 +130,67 @@ func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) err
 	if err != nil {
 		return err
 	}
-	record.Conflicts = append(record.Conflicts, detectConflicts(existing, record)...)
-	record.Supersedes = append(record.Supersedes, detectSupersedes(existing, record)...)
-	if err := w.Store.Put(ctx, record); err != nil {
+	record.Conflicts = dedupeConflictRefs(append(record.Conflicts, w.conflictDetector().Detect(existing, record)...))
+	record.Supersedes = dedupeSupersedesRefs(append(record.Supersedes, w.supersedenceDetector().Detect(existing, record)...))
+	prepared, err := w.prepareWrite(ctx, record)
+	if err != nil {
 		return err
 	}
-	if w.Relations != nil {
-		if err := w.Relations.SaveRelations(ctx, record.ID, MemoryRelations{
+	if _, err := w.committer().CommitPreparedWrite(ctx, prepared); err != nil {
+		return err
+	}
+	if w.AuditLog != nil {
+		if prepared.Audit != nil {
+			w.AuditLog.Append(*prepared.Audit)
+		}
+	}
+	return nil
+}
+
+func (w DefaultMemoryWriter) prepareWrite(ctx context.Context, record MemoryRecord) (PreparedMemoryWrite, error) {
+	prepared := PreparedMemoryWrite{
+		Record: record,
+		Relations: MemoryRelations{
 			Relations:  record.Relations,
 			Supersedes: record.Supersedes,
 			Conflicts:  record.Conflicts,
-		}); err != nil {
-			return err
-		}
+		},
+		Audit: &MemoryAccessAudit{
+			ID:         fmt.Sprintf("%s-write-%d", record.ID, record.UpdatedAt.UnixNano()),
+			MemoryID:   record.ID,
+			WorkflowID: record.Source.WorkflowID,
+			TaskID:     record.Source.TaskID,
+			TraceID:    record.Source.TraceID,
+			Accessor:   fallbackString(record.Source.Actor, "memory_writer"),
+			Purpose:    "persist memory record",
+			Action:     "write",
+			AccessedAt: record.UpdatedAt,
+		},
+		WriteEvents: []MemoryWriteEvent{{
+			ID:         fmt.Sprintf("%s-write-event-%d", record.ID, record.UpdatedAt.UnixNano()),
+			MemoryID:   record.ID,
+			WorkflowID: record.Source.WorkflowID,
+			TaskID:     record.Source.TaskID,
+			TraceID:    record.Source.TraceID,
+			Action:     "write",
+			Summary:    "persisted durable memory record",
+			OccurredAt: record.UpdatedAt,
+			Details:    fmt.Sprintf("kind=%s confidence=%.2f", record.Kind, record.Confidence.Score),
+		}},
 	}
-	if w.EmbeddingProvider != nil && w.EmbeddingStore != nil && strings.TrimSpace(w.EmbeddingModel) != "" {
+	if w.EmbeddingProvider != nil && strings.TrimSpace(w.EmbeddingModel) != "" {
 		response, err := w.EmbeddingProvider.GenerateEmbedding(ctx, EmbeddingRequest{
 			Model:      w.EmbeddingModel,
 			Input:      semanticText(record),
 			WorkflowID: record.Source.WorkflowID,
 			TaskID:     record.Source.TaskID,
-			TraceID:    record.Source.WorkflowID,
+			TraceID:    record.Source.TraceID,
 			Actor:      fallbackString(record.Source.Actor, "memory_writer"),
 		})
 		if err != nil {
-			return err
+			return PreparedMemoryWrite{}, err
 		}
-		if err := w.EmbeddingStore.SaveEmbedding(ctx, MemoryEmbeddingRecord{
+		prepared.Embedding = &MemoryEmbeddingRecord{
 			MemoryID:    record.ID,
 			Provider:    response.Provider,
 			Model:       response.Model,
@@ -149,65 +198,79 @@ func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) err
 			Dimensions:  response.Dimensions,
 			EmbeddedAt:  nowUTC(w.Now),
 			ContentHash: contentHash(semanticText(record)),
-		}); err != nil {
-			return err
 		}
-		if err := w.EmbeddingStore.ReplaceTerms(ctx, record.ID, tokenFrequency(semanticText(record))); err != nil {
-			return err
-		}
-		if w.WriteEventStore != nil {
-			if err := w.WriteEventStore.AppendWriteEvent(ctx, MemoryWriteEvent{
-				ID:         fmt.Sprintf("%s-index-%d", record.ID, record.UpdatedAt.UnixNano()),
-				MemoryID:   record.ID,
-				WorkflowID: record.Source.WorkflowID,
-				TaskID:     record.Source.TaskID,
-				TraceID:    record.Source.WorkflowID,
-				Action:     "index_embedding_and_terms",
-				Summary:    "indexed memory for hybrid retrieval",
-				Provider:   response.Provider,
-				Model:      response.Model,
-				OccurredAt: nowUTC(w.Now),
-				Details:    fmt.Sprintf("dimensions=%d", response.Dimensions),
-			}); err != nil {
-				return err
-			}
-		}
-	}
-	audit := MemoryAccessAudit{
-		ID:         fmt.Sprintf("%s-write-%d", record.ID, record.UpdatedAt.UnixNano()),
-		MemoryID:   record.ID,
-		WorkflowID: record.Source.WorkflowID,
-		TaskID:     record.Source.TaskID,
-		TraceID:    record.Source.WorkflowID,
-		Accessor:   fallbackString(record.Source.Actor, "memory_writer"),
-		Purpose:    "persist memory record",
-		Action:     "write",
-		AccessedAt: record.UpdatedAt,
-	}
-	if w.AuditStore != nil {
-		if err := w.AuditStore.AppendAccess(ctx, audit); err != nil {
-			return err
-		}
-	}
-	if w.AuditLog != nil {
-		w.AuditLog.Append(audit)
-	}
-	if w.WriteEventStore != nil {
-		if err := w.WriteEventStore.AppendWriteEvent(ctx, MemoryWriteEvent{
-			ID:         fmt.Sprintf("%s-write-event-%d", record.ID, record.UpdatedAt.UnixNano()),
+		prepared.Terms = tokenFrequency(semanticText(record))
+		prepared.WriteEvents = append(prepared.WriteEvents, MemoryWriteEvent{
+			ID:         fmt.Sprintf("%s-index-%d", record.ID, record.UpdatedAt.UnixNano()),
 			MemoryID:   record.ID,
 			WorkflowID: record.Source.WorkflowID,
 			TaskID:     record.Source.TaskID,
-			TraceID:    record.Source.WorkflowID,
-			Action:     "write",
-			Summary:    "persisted durable memory record",
-			OccurredAt: record.UpdatedAt,
-			Details:    fmt.Sprintf("kind=%s confidence=%.2f", record.Kind, record.Confidence.Score),
-		}); err != nil {
-			return err
-		}
+			TraceID:    record.Source.TraceID,
+			Action:     "index_embedding_and_terms",
+			Summary:    "indexed memory for hybrid retrieval",
+			Provider:   response.Provider,
+			Model:      response.Model,
+			OccurredAt: nowUTC(w.Now),
+			Details:    fmt.Sprintf("dimensions=%d", response.Dimensions),
+		})
 	}
-	return nil
+	return prepared, nil
+}
+
+func (w DefaultMemoryWriter) committer() MemoryWriteCommitter {
+	if w.Committer != nil {
+		return w.Committer
+	}
+	if committer, ok := w.Store.(MemoryWriteCommitter); ok {
+		return committer
+	}
+	return fallbackMemoryWriteCommitter{
+		store:          w.Store,
+		relations:      w.Relations,
+		auditStore:     w.AuditStore,
+		writeEvents:    w.WriteEventStore,
+		embeddingStore: w.EmbeddingStore,
+	}
+}
+
+func (w DefaultMemoryWriter) conflictDetector() ConflictDetector {
+	if w.ConflictDetector != nil {
+		return w.ConflictDetector
+	}
+	return DefaultConflictDetector{}
+}
+
+func (w DefaultMemoryWriter) supersedenceDetector() SupersedenceDetector {
+	if w.SupersedenceDetector != nil {
+		return w.SupersedenceDetector
+	}
+	return DefaultSupersedenceDetector{}
+}
+
+type fallbackMemoryWriteCommitter struct {
+	store          MemoryStore
+	relations      MemoryRelationStore
+	auditStore     MemoryAuditStore
+	writeEvents    MemoryWriteEventStore
+	embeddingStore MemoryEmbeddingStore
+}
+
+func (c fallbackMemoryWriteCommitter) CommitPreparedWrite(ctx context.Context, prepared PreparedMemoryWrite) (DurableWriteResult, error) {
+	if c.store == nil {
+		return DurableWriteResult{}, fmt.Errorf("memory write committer requires a store")
+	}
+	if c.relations != nil || c.auditStore != nil || c.writeEvents != nil || c.embeddingStore != nil {
+		return DurableWriteResult{}, fmt.Errorf("memory write requires a transactional committer when auxiliary durable stores are configured")
+	}
+	if err := c.store.Put(ctx, prepared.Record); err != nil {
+		return DurableWriteResult{}, err
+	}
+	return DurableWriteResult{
+		MemoryID:     prepared.Record.ID,
+		CommittedAt:  prepared.Record.UpdatedAt,
+		EmbeddingSet: prepared.Embedding != nil,
+		TermsSet:     len(prepared.Terms) > 0,
+	}, nil
 }
 
 type LexicalRetriever struct {
@@ -465,11 +528,14 @@ type HybridMemoryRetriever struct {
 }
 
 func (r HybridMemoryRetriever) Retrieve(ctx context.Context, query RetrievalQuery) ([]RetrievalResult, error) {
-	lexical, err := r.Lexical.Retrieve(ctx, query)
+	expandedQuery := query
+	expandedQuery.TopK = retrievalCandidateWindow(query.TopK)
+
+	lexical, err := r.Lexical.Retrieve(ctx, expandedQuery)
 	if err != nil {
 		return nil, err
 	}
-	semantic, err := r.Semantic.Retrieve(ctx, query)
+	semantic, err := r.Semantic.Retrieve(ctx, expandedQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -481,23 +547,47 @@ func (r HybridMemoryRetriever) Retrieve(ctx context.Context, query RetrievalQuer
 	if err != nil {
 		return nil, err
 	}
-	results, err := r.RejectionPolicy.Reject(ctx, query, topK(reranked, query.TopK))
+	results, err := r.RejectionPolicy.Reject(ctx, query, reranked)
 	if err != nil {
 		return nil, err
 	}
-	selected := 0
+	accepted := make([]int, 0, len(results))
 	for i := range results {
 		if !results[i].Rejected && results[i].MemoryID != "" {
-			results[i].Selected = true
-			selected++
+			accepted = append(accepted, i)
 		}
 	}
-	if selected == 0 && len(results) > 0 {
+	if len(accepted) == 0 && len(results) > 0 {
 		for i := range results {
 			results[i].Selected = false
 		}
+		if allCandidatesRejected(results) {
+			results = append(results, RetrievalResult{
+				Rejected:        true,
+				RejectionRule:   "fully_rejected",
+				RejectionReason: "all fused candidates were rejected before final topK selection",
+			})
+		}
+		return results, nil
+	}
+	for index, resultIndex := range accepted {
+		if query.TopK > 0 && index >= query.TopK {
+			break
+		}
+		results[resultIndex].Selected = true
 	}
 	return results, nil
+}
+
+func retrievalCandidateWindow(topK int) int {
+	switch {
+	case topK <= 0:
+		return 8
+	case topK < 3:
+		return topK + 5
+	default:
+		return maxInt(topK*3, topK+4)
+	}
 }
 
 type KeywordEmbeddingProvider struct {
@@ -510,7 +600,7 @@ func (p KeywordEmbeddingProvider) Embed(_ context.Context, text string) ([]float
 		dims = 16
 	}
 	vector := make([]float64, dims)
-	for _, token := range tokenize(text) {
+	for _, token := range tokenizeForIndexing(text) {
 		index := tokenHash(token) % dims
 		vector[index] += 1
 	}
@@ -535,7 +625,7 @@ func (p KeywordEmbeddingProvider) GenerateEmbedding(ctx context.Context, request
 			TraceID:     request.TraceID,
 			Actor:       request.Actor,
 			QueryID:     request.QueryID,
-			InputTokens: maxInt(len(tokenize(request.Input)), 1),
+			InputTokens: maxInt(len(tokenizeForIndexing(request.Input)), 1),
 			RecordedAt:  time.Now().UTC(),
 		},
 		Latency: 5 * time.Millisecond,
@@ -583,7 +673,7 @@ func (DefaultRetrievalScorer) Score(query RetrievalQuery, record MemoryRecord) (
 	text := strings.ToLower(query.Text + " " + query.SemanticHint)
 	recordText := strings.ToLower(record.Summary + " " + flattenFacts(record.Facts))
 	shared := 0
-	for _, token := range tokenize(text) {
+	for _, token := range tokenizeForQuery(text) {
 		if strings.Contains(recordText, token) {
 			shared++
 		}
@@ -651,48 +741,10 @@ func (b FakeSemanticSearchBackend) Search(ctx context.Context, query RetrievalQu
 	return topK(results, query.TopK), nil
 }
 
-func detectConflicts(existing []MemoryRecord, candidate MemoryRecord) []ConflictRef {
-	conflicts := make([]ConflictRef, 0)
-	for _, record := range existing {
-		if record.ID == candidate.ID || record.Kind != candidate.Kind {
-			continue
-		}
-		for _, fact := range candidate.Facts {
-			for _, existingFact := range record.Facts {
-				if fact.Key == existingFact.Key && fact.Value != existingFact.Value {
-					conflicts = append(conflicts, ConflictRef{
-						MemoryID: record.ID,
-						Reason:   "same fact key with different value",
-					})
-					goto nextRecord
-				}
-			}
-		}
-	nextRecord:
-	}
-	return conflicts
-}
-
-func detectSupersedes(existing []MemoryRecord, candidate MemoryRecord) []SupersedesRef {
-	supersedes := make([]SupersedesRef, 0)
-	for _, record := range existing {
-		if record.ID == candidate.ID || record.Kind != candidate.Kind {
-			continue
-		}
-		if strings.EqualFold(record.Summary, candidate.Summary) && candidate.UpdatedAt.After(record.UpdatedAt) {
-			supersedes = append(supersedes, SupersedesRef{
-				MemoryID: record.ID,
-				Reason:   "same summary updated with newer evidence",
-			})
-		}
-	}
-	return supersedes
-}
-
 func queryTokens(query RetrievalQuery) []string {
 	parts := make([]string, 0, len(query.LexicalTerms)+8)
 	parts = append(parts, query.LexicalTerms...)
-	parts = append(parts, tokenize(query.Text)...)
+	parts = append(parts, tokenizeForQuery(query.Text)...)
 	return dedupeTokens(parts)
 }
 
@@ -722,11 +774,18 @@ func containsAllTokens(text string, tokens []string) bool {
 	return true
 }
 
-func tokenize(text string) []string {
+func normalizeTokens(text string) []string {
 	replacer := strings.NewReplacer(",", " ", ".", " ", ":", " ", ";", " ", "\n", " ", "\t", " ", "/", " ", "_", " ")
 	text = replacer.Replace(strings.ToLower(text))
-	fields := strings.Fields(text)
-	return dedupeTokens(fields)
+	return strings.Fields(text)
+}
+
+func tokenizeForIndexing(text string) []string {
+	return normalizeTokens(text)
+}
+
+func tokenizeForQuery(text string) []string {
+	return dedupeTokens(normalizeTokens(text))
 }
 
 func dedupeTokens(items []string) []string {
@@ -877,10 +936,24 @@ func matchedTerms(tokens []string, record MemoryRecord) []string {
 
 func tokenFrequency(text string) map[string]int {
 	freq := make(map[string]int)
-	for _, token := range tokenize(text) {
+	for _, token := range tokenizeForIndexing(text) {
 		freq[token]++
 	}
 	return freq
+}
+
+func allCandidatesRejected(results []RetrievalResult) bool {
+	hasCandidate := false
+	for _, result := range results {
+		if result.MemoryID == "" {
+			continue
+		}
+		hasCandidate = true
+		if !result.Rejected {
+			return false
+		}
+	}
+	return hasCandidate
 }
 
 func nowUTC(nowFn func() time.Time) time.Time {

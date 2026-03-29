@@ -45,7 +45,7 @@ func (p StaticEmbeddingProvider) GenerateEmbedding(_ context.Context, request Em
 			TraceID:          request.TraceID,
 			Actor:            request.Actor,
 			QueryID:          request.QueryID,
-			InputTokens:      maxInt(len(tokenize(request.Input)), 1),
+			InputTokens:      maxInt(len(tokenizeForIndexing(request.Input)), 1),
 			EstimatedCostUSD: 0,
 			RecordedAt:       time.Now().UTC(),
 		},
@@ -69,4 +69,3 @@ func (p StaticEmbeddingProvider) GenerateEmbedding(_ context.Context, request Em
 	}
 	return response, nil
 }
-

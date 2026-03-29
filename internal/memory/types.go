@@ -31,6 +31,7 @@ type MemorySource struct {
 	EvidenceIDs []observation.EvidenceID `json:"evidence_ids,omitempty"`
 	TaskID      string                   `json:"task_id,omitempty"`
 	WorkflowID  string                   `json:"workflow_id,omitempty"`
+	TraceID     string                   `json:"trace_id,omitempty"`
 	Actor       string                   `json:"actor,omitempty"`
 }
 
@@ -184,6 +185,40 @@ type MemoryEmbeddingRecord struct {
 	Dimensions  int       `json:"dimensions"`
 	EmbeddedAt  time.Time `json:"embedded_at"`
 	ContentHash string    `json:"content_hash,omitempty"`
+}
+
+// PreparedMemoryWrite belongs to the memory layer, not the workflow layer.
+// It lets the subsystem compute embeddings, relations, terms, and audit records
+// first, then commit all durable memory state atomically in one store-level step.
+type PreparedMemoryWrite struct {
+	Record      MemoryRecord           `json:"record"`
+	Relations   MemoryRelations        `json:"relations,omitempty"`
+	Embedding   *MemoryEmbeddingRecord `json:"embedding,omitempty"`
+	Terms       map[string]int         `json:"terms,omitempty"`
+	Audit       *MemoryAccessAudit     `json:"audit,omitempty"`
+	WriteEvents []MemoryWriteEvent     `json:"write_events,omitempty"`
+}
+
+type DurableWriteResult struct {
+	MemoryID     string    `json:"memory_id"`
+	CommittedAt  time.Time `json:"committed_at"`
+	EmbeddingSet bool      `json:"embedding_set,omitempty"`
+	TermsSet     bool      `json:"terms_set,omitempty"`
+}
+
+type MemoryWriteContext struct {
+	WorkflowID string `json:"workflow_id,omitempty"`
+	TaskID     string `json:"task_id,omitempty"`
+	TraceID    string `json:"trace_id,omitempty"`
+	Actor      string `json:"actor,omitempty"`
+}
+
+type MemoryRetrievalContext struct {
+	WorkflowID string `json:"workflow_id,omitempty"`
+	TaskID     string `json:"task_id,omitempty"`
+	TraceID    string `json:"trace_id,omitempty"`
+	Consumer   string `json:"consumer,omitempty"`
+	QueryID    string `json:"query_id,omitempty"`
 }
 
 type LexicalCandidate struct {

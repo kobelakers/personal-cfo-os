@@ -246,7 +246,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		Now:        nowFn,
 		WorkflowID: "monthly-review-5c-indexer",
 		TaskID:     "monthly-review-5c-indexer",
-		TraceID:    "monthly-review-5c-indexer",
+		TraceID:    "trace-monthly-review-5c-indexer",
 	}
 	timeline := &runtimepkg.WorkflowTimeline{}
 	journal := &runtimepkg.CheckpointJournal{}
@@ -502,4 +502,3 @@ func (o MonthlyReview5CRunOutput) WriteTrace(path string) error {
 	}
 	return os.WriteFile(path, payload, 0o644)
 }
-

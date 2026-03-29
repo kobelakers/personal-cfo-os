@@ -12,21 +12,22 @@ import (
 )
 
 type WorkflowMemoryResult struct {
-	GeneratedIDs     []string       `json:"generated_ids,omitempty"`
-	GeneratedRecords []MemoryRecord `json:"generated_records,omitempty"`
-	Retrieved        []MemoryRecord `json:"retrieved,omitempty"`
+	GeneratedIDs      []string       `json:"generated_ids,omitempty"`
+	GeneratedRecords  []MemoryRecord `json:"generated_records,omitempty"`
+	Retrieved         []MemoryRecord `json:"retrieved,omitempty"`
 	PlanningRetrieved []MemoryRecord `json:"planning_retrieved,omitempty"`
 	CashflowRetrieved []MemoryRecord `json:"cashflow_retrieved,omitempty"`
 }
 
 type WorkflowMemoryService struct {
-	Writer                MemoryWriter
-	Gate                  MemoryWriteGate
-	Retriever             HybridRetriever
-	PlannerQueryBuilder   MemoryQueryBuilder
-	CashflowQueryBuilder  MemoryQueryBuilder
-	TraceRecorder         MemoryTraceRecorder
-	Now                   func() time.Time
+	Writer               MemoryWriter
+	Gate                 MemoryWriteGate
+	Retriever            HybridRetriever
+	PlannerQueryBuilder  MemoryQueryBuilder
+	CashflowQueryBuilder MemoryQueryBuilder
+	TraceRecorder        MemoryTraceRecorder
+	TraceIDBuilder       func(workflowID string, taskID string, consumer string) string
+	Now                  func() time.Time
 }
 
 func (s WorkflowMemoryService) SyncMonthlyReview(
@@ -37,12 +38,19 @@ func (s WorkflowMemoryService) SyncMonthlyReview(
 	evidence []observation.EvidenceRecord,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{
+		WorkflowID: workflowID,
+		TaskID:     spec.ID,
+		TraceID:    traceID,
+		Actor:      "memory_steward",
+	}
 	planningQuery, planningRetrieved, planningResults, err := s.retrieveQuery(ctx, s.plannerBuilder(), QueryBuildInput{
 		WorkflowID: workflowID,
 		Task:       spec,
 		State:      current,
 		Evidence:   evidence,
-		TraceID:    workflowID,
+		TraceID:    traceID,
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -52,23 +60,23 @@ func (s WorkflowMemoryService) SyncMonthlyReview(
 		Task:       spec,
 		State:      current,
 		Evidence:   evidence,
-		TraceID:    workflowID,
+		TraceID:    traceID,
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
 	}
 	retrieved := mergeRetrievedMemories(planningRetrieved, cashflowRetrieved)
-	s.recordSelection(workflowID, spec.ID, MemoryConsumerPlanner, planningQuery.QueryID, planningResults)
-	s.recordSelection(workflowID, spec.ID, MemoryConsumerCashflow, cashflowQuery.QueryID, cashflowResults)
-	records := deriveMonthlyReviewMemories(spec, workflowID, current, evidence, now)
+	s.recordSelection(planningQuery, planningResults)
+	s.recordSelection(cashflowQuery, cashflowResults)
+	records := deriveMonthlyReviewMemories(spec, writeCtx, current, evidence, now)
 	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
 	}
 	return WorkflowMemoryResult{
-		GeneratedIDs:     generatedIDs,
-		GeneratedRecords: records,
-		Retrieved:        retrieved,
+		GeneratedIDs:      generatedIDs,
+		GeneratedRecords:  records,
+		Retrieved:         retrieved,
 		PlanningRetrieved: planningRetrieved,
 		CashflowRetrieved: cashflowRetrieved,
 	}, nil
@@ -83,7 +91,9 @@ func (s WorkflowMemoryService) SyncDebtDecision(
 	conclusion string,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
-	records := deriveDebtDecisionMemories(spec, workflowID, current, evidence, conclusion, now)
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{WorkflowID: workflowID, TaskID: spec.ID, TraceID: traceID, Actor: "memory_steward"}
+	records := deriveDebtDecisionMemories(spec, writeCtx, current, evidence, conclusion, now)
 	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -93,6 +103,10 @@ func (s WorkflowMemoryService) SyncDebtDecision(
 		LexicalTerms: spec.Scope.Areas,
 		SemanticHint: "debt paydown versus investing decision, liquidity, risk tradeoffs",
 		TopK:         4,
+		WorkflowID:   workflowID,
+		TaskID:       spec.ID,
+		TraceID:      traceID,
+		Consumer:     "memory_steward",
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -112,7 +126,9 @@ func (s WorkflowMemoryService) SyncLifeEvent(
 	evidence []observation.EvidenceRecord,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
-	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{WorkflowID: workflowID, TaskID: spec.ID, TraceID: traceID, Actor: "memory_steward"}
+	records := deriveLifeEventMemories(spec, writeCtx, current, evidence, now)
 	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -122,6 +138,10 @@ func (s WorkflowMemoryService) SyncLifeEvent(
 		LexicalTerms: spec.Scope.Areas,
 		SemanticHint: "life event impact, follow-up task generation, deadline awareness, tax signal, debt pressure",
 		TopK:         5,
+		WorkflowID:   workflowID,
+		TaskID:       spec.ID,
+		TraceID:      traceID,
+		Consumer:     "memory_steward",
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -141,7 +161,9 @@ func (s WorkflowMemoryService) SyncTaxOptimization(
 	evidence []observation.EvidenceRecord,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
-	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{WorkflowID: workflowID, TaskID: spec.ID, TraceID: traceID, Actor: "memory_steward"}
+	records := deriveLifeEventMemories(spec, writeCtx, current, evidence, now)
 	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -151,6 +173,10 @@ func (s WorkflowMemoryService) SyncTaxOptimization(
 		LexicalTerms: spec.Scope.Areas,
 		SemanticHint: "tax optimization, withholding review, tax deadlines, tax-advantaged contribution follow-up",
 		TopK:         5,
+		WorkflowID:   workflowID,
+		TaskID:       spec.ID,
+		TraceID:      traceID,
+		Consumer:     "memory_steward",
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -170,7 +196,9 @@ func (s WorkflowMemoryService) SyncPortfolioRebalance(
 	evidence []observation.EvidenceRecord,
 ) (WorkflowMemoryResult, error) {
 	now := s.now()
-	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{WorkflowID: workflowID, TaskID: spec.ID, TraceID: traceID, Actor: "memory_steward"}
+	records := deriveLifeEventMemories(spec, writeCtx, current, evidence, now)
 	generatedIDs, err := s.writeRecords(ctx, records)
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -180,6 +208,10 @@ func (s WorkflowMemoryService) SyncPortfolioRebalance(
 		LexicalTerms: spec.Scope.Areas,
 		SemanticHint: "portfolio rebalance, liquidity buffer, allocation drift, event-driven contribution changes",
 		TopK:         5,
+		WorkflowID:   workflowID,
+		TaskID:       spec.ID,
+		TraceID:      traceID,
+		Consumer:     "memory_steward",
 	})
 	if err != nil {
 		return WorkflowMemoryResult{}, err
@@ -201,7 +233,7 @@ func (s WorkflowMemoryService) retrieve(ctx context.Context, query RetrievalQuer
 	}
 	memories := make([]MemoryRecord, 0, len(results))
 	for _, result := range results {
-		if result.Rejected || result.MemoryID == "" {
+		if !result.Selected || result.MemoryID == "" {
 			continue
 		}
 		memories = append(memories, result.Memory)
@@ -221,12 +253,11 @@ func (s WorkflowMemoryService) retrieveQuery(ctx context.Context, builder Memory
 	}
 	s.recordRetrieval(query, results)
 	memories := make([]MemoryRecord, 0, len(results))
-	for i := range results {
-		if results[i].Rejected || results[i].MemoryID == "" {
+	for _, result := range results {
+		if !result.Selected || result.MemoryID == "" {
 			continue
 		}
-		results[i].Selected = true
-		memories = append(memories, results[i].Memory)
+		memories = append(memories, result.Memory)
 	}
 	return query, memories, results, nil
 }
@@ -304,11 +335,13 @@ func (s WorkflowMemoryService) recordRetrieval(query RetrievalQuery, results []R
 		if result.MemoryID == "" {
 			continue
 		}
-		if result.Rejected {
-			rejected = append(rejected, result.MemoryID)
+		if result.Selected {
+			selected = append(selected, result.MemoryID)
 			continue
 		}
-		selected = append(selected, result.MemoryID)
+		if result.Rejected {
+			rejected = append(rejected, result.MemoryID)
+		}
 	}
 	s.TraceRecorder.RecordMemoryRetrieval(MemoryRetrievalRecord{
 		QueryID:          query.QueryID,
@@ -326,7 +359,7 @@ func (s WorkflowMemoryService) recordRetrieval(query RetrievalQuery, results []R
 	})
 }
 
-func (s WorkflowMemoryService) recordSelection(workflowID string, taskID string, consumer string, queryID string, results []RetrievalResult) {
+func (s WorkflowMemoryService) recordSelection(query RetrievalQuery, results []RetrievalResult) {
 	if s.TraceRecorder == nil {
 		return
 	}
@@ -336,23 +369,34 @@ func (s WorkflowMemoryService) recordSelection(workflowID string, taskID string,
 		if result.MemoryID == "" {
 			continue
 		}
-		if result.Rejected {
-			rejected = append(rejected, result.MemoryID)
+		if result.Selected {
+			selected = append(selected, result.MemoryID)
 			continue
 		}
-		selected = append(selected, result.MemoryID)
+		if result.Rejected {
+			rejected = append(rejected, result.MemoryID)
+		}
 	}
 	s.TraceRecorder.RecordMemorySelection(MemorySelectionRecord{
-		QueryID:           queryID,
-		WorkflowID:        workflowID,
-		TaskID:            taskID,
-		TraceID:           workflowID,
-		Consumer:          consumer,
+		QueryID:           query.QueryID,
+		WorkflowID:        query.WorkflowID,
+		TaskID:            query.TaskID,
+		TraceID:           query.TraceID,
+		Consumer:          query.Consumer,
 		SelectedMemoryIDs: selected,
 		RejectedMemoryIDs: rejected,
 		Reason:            "selected memories injected into downstream context",
 		OccurredAt:        s.now(),
 	})
+}
+
+func (s WorkflowMemoryService) traceID(workflowID string, taskID string, consumer string) string {
+	if s.TraceIDBuilder != nil {
+		if traceID := strings.TrimSpace(s.TraceIDBuilder(workflowID, taskID, consumer)); traceID != "" {
+			return traceID
+		}
+	}
+	return fmt.Sprintf("trace:%s:%s:%s", workflowID, taskID, consumer)
 }
 
 func mergeRetrievedMemories(groups ...[]MemoryRecord) []MemoryRecord {
@@ -372,7 +416,7 @@ func mergeRetrievedMemories(groups ...[]MemoryRecord) []MemoryRecord {
 
 func deriveMonthlyReviewMemories(
 	spec taskspec.TaskSpec,
-	workflowID string,
+	writeCtx MemoryWriteContext,
 	current state.FinancialWorldState,
 	evidence []observation.EvidenceRecord,
 	now time.Time,
@@ -380,7 +424,7 @@ func deriveMonthlyReviewMemories(
 	records := make([]MemoryRecord, 0, 5)
 	if current.BehaviorState.DuplicateSubscriptionCount > 0 {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-subscriptions",
+			ID:      writeCtx.WorkflowID + "-memory-subscriptions",
 			Kind:    MemoryKindSemantic,
 			Summary: "User has recurring subscriptions that should be reviewed during monthly review.",
 			Facts: []MemoryFact{
@@ -389,8 +433,9 @@ func deriveMonthlyReviewMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByPredicate(evidence, "duplicate_subscription_count"),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.88, Rationale: "derived from recurring subscription evidence"},
 			CreatedAt:  now,
@@ -399,7 +444,7 @@ func deriveMonthlyReviewMemories(
 	}
 	if current.BehaviorState.LateNightSpendingFrequency > 0 {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-late-night",
+			ID:      writeCtx.WorkflowID + "-memory-late-night",
 			Kind:    MemoryKindEpisodic,
 			Summary: "A late-night spending pattern was observed in the current review window.",
 			Facts: []MemoryFact{
@@ -408,8 +453,9 @@ func deriveMonthlyReviewMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeLateNightSpendingSignal),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.72, Rationale: "derived from late-night spending signal"},
 			CreatedAt:  now,
@@ -418,7 +464,7 @@ func deriveMonthlyReviewMemories(
 	}
 	if current.LiabilityState.DebtBurdenRatio > 0 {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-debt-pressure",
+			ID:      writeCtx.WorkflowID + "-memory-debt-pressure",
 			Kind:    MemoryKindSemantic,
 			Summary: "Monthly review observed current debt pressure and minimum payment load.",
 			Facts: []MemoryFact{
@@ -428,8 +474,9 @@ func deriveMonthlyReviewMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeDebtObligationSnapshot),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.9, Rationale: "derived from debt obligation snapshot"},
 			CreatedAt:  now,
@@ -444,15 +491,16 @@ func deriveMonthlyReviewMemories(
 			facts = append(facts, MemoryFact{Key: "family_tax_notes", Value: notes})
 		}
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-tax-signal",
+			ID:      writeCtx.WorkflowID + "-memory-tax-signal",
 			Kind:    MemoryKindSemantic,
 			Summary: "Family-related tax optimization signal was present during the review.",
 			Facts:   facts,
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypePayslipStatement, observation.EvidenceTypeTaxDocument),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.84, Rationale: "consistent payroll and tax document signal"},
 			CreatedAt:  now,
@@ -460,7 +508,7 @@ func deriveMonthlyReviewMemories(
 		})
 	}
 	records = append(records, MemoryRecord{
-		ID:      workflowID + "-memory-procedure",
+		ID:      writeCtx.WorkflowID + "-memory-procedure",
 		Kind:    MemoryKindProcedural,
 		Summary: "Monthly review should always cover cashflow, debt, portfolio, tax, behavior, and risk blocks.",
 		Facts: []MemoryFact{
@@ -468,8 +516,9 @@ func deriveMonthlyReviewMemories(
 		},
 		Source: MemorySource{
 			TaskID:     spec.ID,
-			WorkflowID: workflowID,
-			Actor:      "memory_steward",
+			WorkflowID: writeCtx.WorkflowID,
+			TraceID:    writeCtx.TraceID,
+			Actor:      writeCtx.Actor,
 		},
 		Confidence: MemoryConfidence{Score: 0.95, Rationale: "workflow-generated procedural memory"},
 		CreatedAt:  now,
@@ -480,7 +529,7 @@ func deriveMonthlyReviewMemories(
 
 func deriveDebtDecisionMemories(
 	spec taskspec.TaskSpec,
-	workflowID string,
+	writeCtx MemoryWriteContext,
 	current state.FinancialWorldState,
 	evidence []observation.EvidenceRecord,
 	conclusion string,
@@ -489,7 +538,7 @@ func deriveDebtDecisionMemories(
 	records := make([]MemoryRecord, 0, 2)
 	if current.LiabilityState.DebtBurdenRatio > 0 || current.LiabilityState.MinimumPaymentPressure > 0 {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-debt-comparison",
+			ID:      writeCtx.WorkflowID + "-memory-debt-comparison",
 			Kind:    MemoryKindSemantic,
 			Summary: "Debt-versus-invest decisions should include debt burden, minimum payment pressure, and liquidity coverage.",
 			Facts: []MemoryFact{
@@ -499,8 +548,9 @@ func deriveDebtDecisionMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeDebtObligationSnapshot, observation.EvidenceTypeTransactionBatch),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.87, Rationale: "derived from debt decision baseline evidence"},
 			CreatedAt:  now,
@@ -509,7 +559,7 @@ func deriveDebtDecisionMemories(
 	}
 	if strings.TrimSpace(conclusion) != "" {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-latest-decision",
+			ID:      writeCtx.WorkflowID + "-memory-latest-decision",
 			Kind:    MemoryKindEpisodic,
 			Summary: "A debt-versus-invest decision was produced for the current analysis window.",
 			Facts: []MemoryFact{
@@ -518,8 +568,9 @@ func deriveDebtDecisionMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeDebtObligationSnapshot, observation.EvidenceTypePortfolioAllocationSnap),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.8, Rationale: "workflow conclusion backed by current evidence window"},
 			CreatedAt:  now,
@@ -531,7 +582,7 @@ func deriveDebtDecisionMemories(
 
 func deriveLifeEventMemories(
 	spec taskspec.TaskSpec,
-	workflowID string,
+	writeCtx MemoryWriteContext,
 	current state.FinancialWorldState,
 	evidence []observation.EvidenceRecord,
 	now time.Time,
@@ -540,7 +591,7 @@ func deriveLifeEventMemories(
 	eventKind := detectLifeEventKind(evidence)
 	if eventKind != "" {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-life-event",
+			ID:      writeCtx.WorkflowID + "-memory-life-event",
 			Kind:    MemoryKindEpisodic,
 			Summary: fmt.Sprintf("Life event %s was ingested and reduced into state for proactive follow-up generation.", eventKind),
 			Facts: []MemoryFact{
@@ -549,8 +600,9 @@ func deriveLifeEventMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.86, Rationale: "derived from normalized life event evidence"},
 			CreatedAt:  now,
@@ -559,7 +611,7 @@ func deriveLifeEventMemories(
 	}
 	if current.TaxState.ChildcareTaxSignal || len(current.TaxState.UpcomingDeadlines) > 0 || hasEvidencePredicate(evidence, "withholding_review_required") {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-life-event-tax-signal",
+			ID:      writeCtx.WorkflowID + "-memory-life-event-tax-signal",
 			Kind:    MemoryKindSemantic,
 			Summary: "Life event introduced tax signal, withholding review, or deadline-sensitive tax follow-up.",
 			Facts: []MemoryFact{
@@ -569,8 +621,9 @@ func deriveLifeEventMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal, observation.EvidenceTypeCalendarDeadline, observation.EvidenceTypeTaxDocument, observation.EvidenceTypePayslipStatement),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.88, Rationale: "event evidence and tax/deadline state indicate tax-priority follow-up"},
 			CreatedAt:  now,
@@ -579,7 +632,7 @@ func deriveLifeEventMemories(
 	}
 	if eventKind == string(observation.LifeEventHousingChange) || current.LiabilityState.DebtBurdenRatio > 0.18 || hasEvidencePredicate(evidence, "mortgage_balance_cents") {
 		records = append(records, MemoryRecord{
-			ID:      workflowID + "-memory-life-event-debt-pressure",
+			ID:      writeCtx.WorkflowID + "-memory-life-event-debt-pressure",
 			Kind:    MemoryKindSemantic,
 			Summary: "Life event may elevate debt pressure and housing-related liability review priority.",
 			Facts: []MemoryFact{
@@ -589,8 +642,9 @@ func deriveLifeEventMemories(
 			Source: MemorySource{
 				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal, observation.EvidenceTypeDebtObligationSnapshot),
 				TaskID:      spec.ID,
-				WorkflowID:  workflowID,
-				Actor:       "memory_steward",
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
 			},
 			Confidence: MemoryConfidence{Score: 0.84, Rationale: "housing/debt evidence suggests elevated debt review priority"},
 			CreatedAt:  now,
@@ -598,7 +652,7 @@ func deriveLifeEventMemories(
 		})
 	}
 	records = append(records, MemoryRecord{
-		ID:      workflowID + "-memory-life-event-procedure",
+		ID:      writeCtx.WorkflowID + "-memory-life-event-procedure",
 		Kind:    MemoryKindProcedural,
 		Summary: "Life event workflows should update state, verify generated tasks, and register follow-up TaskSpec objects in runtime.",
 		Facts: []MemoryFact{
@@ -606,8 +660,9 @@ func deriveLifeEventMemories(
 		},
 		Source: MemorySource{
 			TaskID:     spec.ID,
-			WorkflowID: workflowID,
-			Actor:      "memory_steward",
+			WorkflowID: writeCtx.WorkflowID,
+			TraceID:    writeCtx.TraceID,
+			Actor:      writeCtx.Actor,
 		},
 		Confidence: MemoryConfidence{Score: 0.95, Rationale: "workflow-generated procedural memory"},
 		CreatedAt:  now,

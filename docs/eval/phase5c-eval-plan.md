@@ -4,6 +4,7 @@ Phase 5C validates the first real memory substrate without widening scope into 5
 
 ## Covered Checks
 
+- memory write is now `prepare + atomic commit` across records, relations, embeddings, lexical terms, access audit, and write events
 - durable SQLite-backed memory store persists records, relations, write events, access audit, lexical terms, and embeddings across restart
 - live embedding path is OpenAI-compatible and env-driven; deterministic static embedding remains the CI-safe stub
 - hybrid retrieval is real and typed:
@@ -11,16 +12,22 @@ Phase 5C validates the first real memory substrate without widening scope into 5
   - semantic retrieval via provider-backed embeddings
   - reciprocal-rank fusion
   - policy-driven rejection with rule ids and reasons
+  - final selected `topK` is chosen only after rejection, not before
 - retrieval query formation is formalized through planner vs cashflow query builders instead of workflow-local string assembly
+- conflict / supersedes auto-detection is explicit and testable:
+  - same fact key + different value => conflict
+  - same summary semantics + newer update => supersedes
 - Monthly Review golden path runs twice against the same `memory.db`, and the second run shows durable memory influence on planner/cashflow output
 - trace dump now includes memory query, retrieval hit/reject, selection, embedding call, embedding usage, and final memory ids consumed by planner/cashflow
 - reindex/backfill can rebuild embeddings and lexical postings for existing durable memory records
 
 ## Important Negative Paths
 
+- embedding failure, lexical-term failure, or audit/write-event failure must roll back the entire durable write
 - missing `OPENAI_EMBEDDING_MODEL` in live embedding mode
 - stale episodic memory rejected by freshness policy
 - low-confidence memory rejected by retrieval policy
+- memory write gate rejects missing provenance or below-floor confidence before any durable record is written
 - empty or low-score retrieval rejected with explicit reasons
 - old records require backfill before semantic/lexical retrieval is complete
 
