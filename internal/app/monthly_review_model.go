@@ -40,6 +40,14 @@ func (m mockMonthlyReviewChatModel) Generate(_ context.Context, request model.Mo
 
 func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.ModelResponse, error) {
 	start := time.Now().UTC()
+	phase := request.GenerationPhase
+	if phase == "" {
+		phase = model.GenerationPhaseInitial
+	}
+	attemptIndex := request.AttemptIndex
+	if attemptIndex == 0 {
+		attemptIndex = 1
+	}
 	content := "{}"
 	switch {
 	case strings.HasPrefix(request.PromptID, "planner.monthly_review.v1"):
@@ -103,18 +111,20 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
 	}
 	if m.callRecorder != nil {
 		m.callRecorder.RecordCall(model.CallRecord{
-			Provider:      response.Provider,
-			Model:         response.Model,
-			Profile:       request.Profile,
-			WorkflowID:    request.WorkflowID,
-			TaskID:        request.TaskID,
-			TraceID:       request.TraceID,
-			Agent:         request.Agent,
-			PromptID:      request.PromptID,
-			PromptVersion: request.PromptVersion,
-			LatencyMS:     response.Latency.Milliseconds(),
-			StartedAt:     start,
-			CompletedAt:   time.Now().UTC(),
+			Provider:        response.Provider,
+			Model:           response.Model,
+			Profile:         request.Profile,
+			WorkflowID:      request.WorkflowID,
+			TaskID:          request.TaskID,
+			TraceID:         request.TraceID,
+			Agent:           request.Agent,
+			PromptID:        request.PromptID,
+			PromptVersion:   request.PromptVersion,
+			GenerationPhase: phase,
+			AttemptIndex:    attemptIndex,
+			LatencyMS:       response.Latency.Milliseconds(),
+			StartedAt:       start,
+			CompletedAt:     time.Now().UTC(),
 		})
 	}
 	if m.usageRecorder != nil {
@@ -128,6 +138,8 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
 			Agent:            request.Agent,
 			PromptID:         request.PromptID,
 			PromptVersion:    request.PromptVersion,
+			GenerationPhase:  phase,
+			AttemptIndex:     attemptIndex,
 			PromptTokens:     usage.PromptTokens,
 			CompletionTokens: usage.CompletionTokens,
 			TotalTokens:      usage.TotalTokens,

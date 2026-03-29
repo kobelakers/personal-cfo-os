@@ -219,6 +219,45 @@ func TestOpenAICompatibleChatModelHandlesMalformedBodies(t *testing.T) {
 	}
 }
 
+func TestOpenAICompatibleChatModelRequiresReasoningModelInLiveMode(t *testing.T) {
+	model := NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
+		APIKey: "test-key",
+	})
+
+	_, err := model.Generate(context.Background(), ModelRequest{
+		Profile:        ModelProfilePlannerReasoning,
+		Messages:       []Message{{Role: MessageRoleUser, Content: "plan"}},
+		ResponseFormat: ResponseFormat{Type: ResponseFormatJSONObject},
+	})
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) {
+		t.Fatalf("expected provider config error, got %v", err)
+	}
+	if providerErr.Category != ProviderErrorConfig || providerErr.Message == "" {
+		t.Fatalf("expected config error, got %+v", providerErr)
+	}
+}
+
+func TestOpenAICompatibleChatModelRequiresFastModelInLiveMode(t *testing.T) {
+	model := NewOpenAICompatibleChatModel(OpenAICompatibleConfig{
+		APIKey:         "test-key",
+		ReasoningModel: "reasoning-live",
+	})
+
+	_, err := model.Generate(context.Background(), ModelRequest{
+		Profile:        ModelProfileCashflowFast,
+		Messages:       []Message{{Role: MessageRoleUser, Content: "analyze"}},
+		ResponseFormat: ResponseFormat{Type: ResponseFormatJSONObject},
+	})
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) {
+		t.Fatalf("expected provider config error, got %v", err)
+	}
+	if providerErr.Category != ProviderErrorConfig || providerErr.Message == "" {
+		t.Fatalf("expected config error, got %+v", providerErr)
+	}
+}
+
 type callRecorderFunc func(record CallRecord)
 
 func (f callRecorderFunc) RecordCall(record CallRecord) { f(record) }

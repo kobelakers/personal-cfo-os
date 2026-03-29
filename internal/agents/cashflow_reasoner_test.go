@@ -136,6 +136,203 @@ func TestProviderBackedCashflowReasonerFallsBackOnGroundingFailure(t *testing.T)
 	}
 }
 
+func TestProviderBackedCashflowReasonerRepairSuccessRecordsRepairTrace(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	structuredTrace := &observability.StructuredOutputTraceLog{}
+	callLog := &cashflowCallRecorder{}
+	usageLog := &cashflowUsageRecorder{}
+	reasoner := ProviderBackedCashflowReasoner{
+		Base:           DeterministicCashflowReasoner{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: &model.ScriptedChatModel{
+				Steps: []model.ScriptedChatStep{
+					{
+						ExpectPromptIDPrefix: "cashflow.monthly_review.v1",
+						ExpectPhase:          model.GenerationPhaseInitial,
+						Response:             model.ModelResponse{Content: `{"summary":`},
+					},
+					{
+						ExpectPromptIDPrefix: "cashflow.monthly_review.v1.repair",
+						ExpectPhase:          model.GenerationPhaseRepair,
+						Response: model.ModelResponse{
+							Content: `{
+								"summary":"本月现金流整体稳定，数字引用与 deterministic metrics 保持一致。",
+								"key_findings":["月度净结余为 644900 分。","储蓄率 0.81，当前缓冲仍然充足。"],
+								"grounded_recommendations":[{"title":"优先清理 2 个重复订阅","detail":"重复订阅 2 个，先清理低使用率项目。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+								"risk_flags":[{"code":"late_night_spending","severity":"low","detail":"深夜消费频率 0.12，建议继续观察。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
+								"metric_refs":["monthly_net_income_cents","savings_rate","duplicate_subscription_count","late_night_spending_frequency"],
+								"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
+								"confidence":0.82,
+								"caveats":["所有金额与比率仍以 deterministic metrics 为准。"]
+							}`,
+						},
+					},
+				},
+				CallRecorder:  callLog,
+				UsageRecorder: usageLog,
+			},
+		},
+		TraceRecorder: structuredTrace,
+	}
+
+	result, err := reasoner.Analyze(t.Context(), sampleCashflowReasonerInput())
+	if err != nil {
+		t.Fatalf("analyze: %v", err)
+	}
+	if result.Summary == "" || len(result.KeyFindings) == 0 {
+		t.Fatalf("expected repaired cashflow result, got %+v", result)
+	}
+	if len(structuredTrace.Records()) != 2 {
+		t.Fatalf("expected initial + repair structured traces, got %+v", structuredTrace.Records())
+	}
+	last := structuredTrace.Records()[1]
+	if last.GenerationPhase != model.GenerationPhaseRepair || last.PromptID != "cashflow.monthly_review.v1.repair" {
+		t.Fatalf("expected repair structured trace, got %+v", last)
+	}
+	if len(callLog.records) != 2 || callLog.records[1].PromptID != "cashflow.monthly_review.v1.repair" {
+		t.Fatalf("expected repair call trace, got %+v", callLog.records)
+	}
+	if len(usageLog.records) != 2 || usageLog.records[1].PromptID != "cashflow.monthly_review.v1.repair" {
+		t.Fatalf("expected repair usage trace, got %+v", usageLog.records)
+	}
+}
+
+func TestProviderBackedCashflowReasonerFallsBackWhenRepairStillInvalid(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	structuredTrace := &observability.StructuredOutputTraceLog{}
+	reasoner := ProviderBackedCashflowReasoner{
+		Base:           DeterministicCashflowReasoner{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: &model.ScriptedChatModel{
+				Steps: []model.ScriptedChatStep{
+					{
+						ExpectPromptIDPrefix: "cashflow.monthly_review.v1",
+						ExpectPhase:          model.GenerationPhaseInitial,
+						Response:             model.ModelResponse{Content: `{"summary":`},
+					},
+					{
+						ExpectPromptIDPrefix: "cashflow.monthly_review.v1.repair",
+						ExpectPhase:          model.GenerationPhaseRepair,
+						Response:             model.ModelResponse{Content: `{"summary":`},
+					},
+				},
+			},
+		},
+		TraceRecorder: structuredTrace,
+	}
+
+	result, err := reasoner.Analyze(t.Context(), sampleCashflowReasonerInput())
+	if err != nil {
+		t.Fatalf("analyze with fallback: %v", err)
+	}
+	if result.Summary == "" || len(result.Caveats) == 0 {
+		t.Fatalf("expected deterministic fallback result, got %+v", result)
+	}
+	records := structuredTrace.Records()
+	if len(records) < 3 {
+		t.Fatalf("expected repair attempt and fallback trace, got %+v", records)
+	}
+	last := records[len(records)-1]
+	if last.GenerationPhase != model.GenerationPhaseRepair || !last.FallbackUsed || last.FallbackReason == "" {
+		t.Fatalf("expected repair-phase fallback trace, got %+v", last)
+	}
+}
+
+func TestProviderBackedCashflowReasonerFallsBackOnUnsupportedNumericClaim(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	structuredTrace := &observability.StructuredOutputTraceLog{}
+	reasoner := ProviderBackedCashflowReasoner{
+		Base:           DeterministicCashflowReasoner{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: model.StaticChatModel{
+				Provider: "test-provider",
+				Responder: func(request model.ModelRequest) (model.ModelResponse, error) {
+					return model.ModelResponse{
+						Provider: "test-provider",
+						Model:    "fast-model",
+						Profile:  request.Profile,
+						Content: `{
+							"summary":"本月净结余为 700000 分，现金流依然可控。",
+							"key_findings":["重复订阅仍是主要可优化项。"],
+							"grounded_recommendations":[{"title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"建议继续跟踪波动支出。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"metric_refs":["monthly_net_income_cents"],
+							"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
+							"confidence":0.82,
+							"caveats":["所有金额与比率仍以 deterministic metrics 为准。"]
+						}`,
+					}, nil
+				},
+			},
+		},
+		TraceRecorder: structuredTrace,
+	}
+
+	result, err := reasoner.Analyze(t.Context(), sampleCashflowReasonerInput())
+	if err != nil {
+		t.Fatalf("analyze with fallback: %v", err)
+	}
+	if result.Summary == "本月净结余为 700000 分，现金流依然可控。" {
+		t.Fatalf("expected unsupported numeric claim to force fallback, got %+v", result)
+	}
+	if len(result.Caveats) == 0 {
+		t.Fatalf("expected fallback caveat, got %+v", result.Caveats)
+	}
+}
+
+func TestProviderBackedCashflowReasonerFallsBackOnMetricSpecificNumericMismatch(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	reasoner := ProviderBackedCashflowReasoner{
+		Base:           DeterministicCashflowReasoner{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: model.StaticChatModel{
+				Provider: "test-provider",
+				Responder: func(request model.ModelRequest) (model.ModelResponse, error) {
+					return model.ModelResponse{
+						Provider: "test-provider",
+						Model:    "fast-model",
+						Profile:  request.Profile,
+						Content: `{
+							"summary":"本月流入 644900 分，整体可控。",
+							"key_findings":["储蓄率 0.81，当前缓冲仍然充足。"],
+							"grounded_recommendations":[{"title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"建议继续跟踪波动支出。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"metric_refs":["monthly_inflow_cents","savings_rate"],
+							"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
+							"confidence":0.82,
+							"caveats":["所有金额与比率仍以 deterministic metrics 为准。"]
+						}`,
+					}, nil
+				},
+			},
+		},
+	}
+
+	result, err := reasoner.Analyze(t.Context(), sampleCashflowReasonerInput())
+	if err != nil {
+		t.Fatalf("analyze with fallback: %v", err)
+	}
+	if result.Summary == "本月流入 644900 分，整体可控。" {
+		t.Fatalf("expected metric-specific mismatch to force fallback, got %+v", result)
+	}
+}
+
 func sampleCashflowReasonerInput() CashflowReasonerInput {
 	evidenceID := observation.EvidenceID("evidence-transaction-batch-user-1-20260329080000")
 	return CashflowReasonerInput{
@@ -204,4 +401,20 @@ func sampleCashflowReasonerInput() CashflowReasonerInput {
 			},
 		},
 	}
+}
+
+type cashflowCallRecorder struct {
+	records []model.CallRecord
+}
+
+func (r *cashflowCallRecorder) RecordCall(record model.CallRecord) {
+	r.records = append(r.records, record)
+}
+
+type cashflowUsageRecorder struct {
+	records []model.UsageRecord
+}
+
+func (r *cashflowUsageRecorder) RecordUsage(record model.UsageRecord) {
+	r.records = append(r.records, record)
 }

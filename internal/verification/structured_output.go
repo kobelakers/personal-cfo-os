@@ -18,7 +18,7 @@ func ValidatePlannerStructuredCandidate(candidate planning.PlannerStructuredCand
 	return schema.Validate(candidate)
 }
 
-func ValidateCashflowStructuredCandidate(candidate analysis.CashflowStructuredCandidate, allowedMetricRefs []string, selectedEvidenceIDs []observation.EvidenceID) []string {
+func ValidateCashflowStructuredCandidate(candidate analysis.CashflowStructuredCandidate, allowedMetricRefs []string, selectedEvidenceIDs []observation.EvidenceID, metrics analysis.CashflowDeterministicMetrics) []string {
 	diagnostics := make([]string, 0)
 	if strings.TrimSpace(candidate.Summary) == "" {
 		diagnostics = append(diagnostics, "summary is required")
@@ -67,6 +67,7 @@ func ValidateCashflowStructuredCandidate(candidate analysis.CashflowStructuredCa
 			diagnostics = append(diagnostics, err.Error())
 		}
 	}
+	diagnostics = append(diagnostics, cashflowNumericGroundingDiagnostics(candidate, metrics)...)
 	return diagnostics
 }
 

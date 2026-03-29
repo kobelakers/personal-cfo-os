@@ -17,6 +17,12 @@ func TestMonthlyReview5BLiveSmoke(t *testing.T) {
 	if os.Getenv("OPENAI_API_KEY") == "" {
 		t.Skip("OPENAI_API_KEY is required for live provider smoke")
 	}
+	if os.Getenv("OPENAI_REASONING_MODEL") == "" {
+		t.Skip("OPENAI_REASONING_MODEL is required for live provider smoke")
+	}
+	if os.Getenv("OPENAI_FAST_MODEL") == "" {
+		t.Skip("OPENAI_FAST_MODEL is required for live provider smoke")
+	}
 
 	env, err := OpenMonthlyReview5BEnvironment(MonthlyReview5BOptions{
 		FixtureDir:      monthlyReview5BFixtureDir(),

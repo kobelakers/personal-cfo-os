@@ -39,6 +39,12 @@ func TestMonthlyReview5BMockGoldenPath(t *testing.T) {
 	if result.Trace.PromptRenders[0].PromptID == "" || result.Trace.PromptRenders[1].PromptVersion == "" {
 		t.Fatalf("expected prompt version metadata, got %+v", result.Trace.PromptRenders)
 	}
+	if result.Trace.PromptRenders[0].AppliedPolicy == "" || result.Trace.PromptRenders[1].AppliedPolicy == "" {
+		t.Fatalf("expected applied render policy metadata, got %+v", result.Trace.PromptRenders)
+	}
+	if result.Trace.PromptRenders[0].EstimatedInputTokens == result.Trace.PromptRenders[1].EstimatedInputTokens {
+		t.Fatalf("expected planning and execution prompt traces to show different estimated token usage, got %+v", result.Trace.PromptRenders)
+	}
 	for _, call := range result.Trace.LLMCalls {
 		if call.Agent == "" || call.PromptID == "" {
 			t.Fatalf("expected llm call trace to include agent/prompt, got %+v", call)

@@ -854,8 +854,13 @@
       "selected_skill_names": [
         "monthly_review"
       ],
+      "applied_policy": "context_then_candidate_catalog",
+      "render_decisions": [
+        "applied_policy=context_then_candidate_catalog",
+        "section_order=context-\u003ecandidate_blocks-\u003ecandidate_steps"
+      ],
       "estimated_input_tokens": 830,
-      "rendered_at": "2026-03-29T13:57:42.448856Z"
+      "rendered_at": "2026-03-29T14:37:14.510041Z"
     },
     {
       "prompt_id": "cashflow.monthly_review.v1",
@@ -875,8 +880,13 @@
         "evidence-transaction-batch-user-1-20260329080000",
         "evidence-document-doc-payslip"
       ],
+      "applied_policy": "context_then_grounded_metrics",
+      "render_decisions": [
+        "applied_policy=context_then_grounded_metrics",
+        "section_order=context-\u003egrounded_metrics-\u003eevidence-\u003ememory"
+      ],
       "estimated_input_tokens": 795,
-      "rendered_at": "2026-03-29T13:57:42.448917Z"
+      "rendered_at": "2026-03-29T14:37:14.510196Z"
     }
   ],
   "llm_calls": [
@@ -890,9 +900,11 @@
       "agent": "planner_agent",
       "prompt_id": "planner.monthly_review.v1",
       "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
       "latency_ms": 20,
-      "started_at": "2026-03-29T13:57:42.448856Z",
-      "completed_at": "2026-03-29T13:57:42.448858Z"
+      "started_at": "2026-03-29T14:37:14.510042Z",
+      "completed_at": "2026-03-29T14:37:14.510046Z"
     },
     {
       "provider": "mock-openai-compatible",
@@ -904,9 +916,11 @@
       "agent": "cashflow_agent",
       "prompt_id": "cashflow.monthly_review.v1",
       "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
       "latency_ms": 20,
-      "started_at": "2026-03-29T13:57:42.448917Z",
-      "completed_at": "2026-03-29T13:57:42.448929Z"
+      "started_at": "2026-03-29T14:37:14.510197Z",
+      "completed_at": "2026-03-29T14:37:14.510206Z"
     }
   ],
   "usage": [
@@ -920,11 +934,13 @@
       "agent": "planner_agent",
       "prompt_id": "planner.monthly_review.v1",
       "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
       "prompt_tokens": 828,
       "completion_tokens": 96,
       "total_tokens": 924,
       "estimated_cost_usd": 0.000924,
-      "recorded_at": "2026-03-29T13:57:42.448858Z"
+      "recorded_at": "2026-03-29T14:37:14.510046Z"
     },
     {
       "provider": "mock-openai-compatible",
@@ -936,11 +952,13 @@
       "agent": "cashflow_agent",
       "prompt_id": "cashflow.monthly_review.v1",
       "prompt_version": "v1",
-      "prompt_tokens": 795,
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "prompt_tokens": 794,
       "completion_tokens": 230,
-      "total_tokens": 1025,
-      "estimated_cost_usd": 0.001025,
-      "recorded_at": "2026-03-29T13:57:42.448929Z"
+      "total_tokens": 1024,
+      "estimated_cost_usd": 0.001024,
+      "recorded_at": "2026-03-29T14:37:14.510207Z"
     }
   ],
   "structured_outputs": [
@@ -952,10 +970,12 @@
       "agent": "planner_agent",
       "prompt_id": "planner.monthly_review.v1",
       "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
       "parse_attempts": 1,
       "repair_attempts": 0,
       "fallback_used": false,
-      "recorded_at": "2026-03-29T13:57:42.448868Z"
+      "recorded_at": "2026-03-29T14:37:14.510071Z"
     },
     {
       "schema_name": "CashflowAnalysisSchema",
@@ -965,11 +985,13 @@
       "agent": "cashflow_agent",
       "prompt_id": "cashflow.monthly_review.v1",
       "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
       "parse_attempts": 1,
       "repair_attempts": 0,
       "fallback_used": false,
-      "recorded_at": "2026-03-29T13:57:42.448956Z"
+      "recorded_at": "2026-03-29T14:37:14.510362Z"
     }
   ],
-  "generated_at": "2026-03-29T13:57:42.449166Z"
+  "generated_at": "2026-03-29T14:37:14.510711Z"
 }

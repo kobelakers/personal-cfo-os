@@ -32,3 +32,4 @@
 - Phase 5B narrative update: the repo now has a `real-intelligence-backed Monthly Review golden path`; `PlannerAgent` and `CashflowAgent` are the only agents on the real provider-backed path in this phase.
 - Phase 5B architecture boundary update: prompt system, provider/model layer, structured output pipeline, and token-aware context budget are now load-bearing sublayers; workflows still stay thin and deterministic finance truth remains in code.
 - Phase 5B scope guard: durable memory/embedding, finance hardening, deeper validator expansion, and broader domain-model rollout remain deferred; this phase only upgrades Monthly Review intelligence substrate.
+- Phase 5B closure boundary update: repair prompt identity must stay visible in trace, live provider model selection must be config-only, and cashflow narrative grounding only adds narrow numeric-consistency guards for key deterministic metrics; full finance hardening still belongs to 5D.

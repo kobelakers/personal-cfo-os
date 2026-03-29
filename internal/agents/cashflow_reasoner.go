@@ -146,7 +146,7 @@ func (r ProviderBackedCashflowReasoner) Analyze(ctx context.Context, input Cashf
 		Name:   "CashflowAnalysisSchema",
 		Parser: structured.JSONParser[analysis.CashflowStructuredCandidate]{},
 		Validator: structured.ValidatorFunc[analysis.CashflowStructuredCandidate](func(value analysis.CashflowStructuredCandidate) []string {
-			return verification.ValidateCashflowStructuredCandidate(value, allowedCashflowMetricRefs(), input.ExecutionContext.SelectedEvidenceIDs)
+			return verification.ValidateCashflowStructuredCandidate(value, allowedCashflowMetricRefs(), input.ExecutionContext.SelectedEvidenceIDs, fallbackResult.DeterministicMetrics)
 		}),
 	}
 	pipeline := structured.Pipeline[analysis.CashflowStructuredCandidate]{

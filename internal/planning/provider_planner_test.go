@@ -124,8 +124,124 @@ func TestProviderBackedPlannerFallsBackWhenStructuredOutputIsMalformed(t *testin
 	if plan.Summary == "" || plan.Trace.StructuredFailure == "" {
 		t.Fatalf("expected fallback summary and structured failure, got %+v", plan)
 	}
-	if len(structuredTrace.Records()) != 1 || !structuredTrace.Records()[0].FallbackUsed {
-		t.Fatalf("expected structured fallback trace, got %+v", structuredTrace.Records())
+	records := structuredTrace.Records()
+	if len(records) == 0 || !records[len(records)-1].FallbackUsed {
+		t.Fatalf("expected structured fallback trace, got %+v", records)
+	}
+}
+
+func TestProviderBackedPlannerRepairSuccessRecordsRepairTrace(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	structuredTrace := &observability.StructuredOutputTraceLog{}
+	callLog := &modelCallRecorder{}
+	usageLog := &modelUsageRecorder{}
+	planner := ProviderBackedPlanner{
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: &model.ScriptedChatModel{
+				Steps: []model.ScriptedChatStep{
+					{
+						ExpectPromptIDPrefix: "planner.monthly_review.v1",
+						ExpectPhase:          model.GenerationPhaseInitial,
+						Response:             model.ModelResponse{Content: `{"plan_summary":`},
+					},
+					{
+						ExpectPromptIDPrefix: "planner.monthly_review.v1.repair",
+						ExpectPhase:          model.GenerationPhaseRepair,
+						Response: model.ModelResponse{
+							Content: `{
+								"plan_summary":"repair fixed the plan output",
+								"rationale":"repair preserved block order",
+								"verification_focus_notes":["cashflow_grounding","debt_grounding"],
+								"block_order":["cashflow-review","debt-review"],
+								"step_emphasis":[{"step_id":"compute-metrics","emphasis":"repair kept the focus on deterministic metrics."}]
+							}`,
+						},
+					},
+				},
+				CallRecorder:  callLog,
+				UsageRecorder: usageLog,
+			},
+		},
+		TraceRecorder: structuredTrace,
+		CatalogBuilder: CandidatePlanCatalogBuilder{
+			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		},
+		Compiler: PlanCompiler{},
+		Fallback: DeterministicFallbackPlanner{
+			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		},
+		Now: fixedPlannerNow,
+	}
+
+	plan := planner.CreatePlan(sampleMonthlyReviewTaskSpec(), samplePlanningContextSlice(), "workflow-monthly-review")
+	if plan.Trace == nil || plan.Trace.FallbackUsed {
+		t.Fatalf("expected repair success without fallback, got %+v", plan.Trace)
+	}
+	if len(structuredTrace.Records()) != 2 {
+		t.Fatalf("expected initial + repair structured trace, got %+v", structuredTrace.Records())
+	}
+	lastTrace := structuredTrace.Records()[1]
+	if lastTrace.GenerationPhase != model.GenerationPhaseRepair || lastTrace.PromptID != "planner.monthly_review.v1.repair" {
+		t.Fatalf("expected repair prompt identity in structured trace, got %+v", lastTrace)
+	}
+	if len(callLog.records) != 2 || callLog.records[1].PromptID != "planner.monthly_review.v1.repair" {
+		t.Fatalf("expected repair call trace, got %+v", callLog.records)
+	}
+	if len(usageLog.records) != 2 || usageLog.records[1].PromptID != "planner.monthly_review.v1.repair" {
+		t.Fatalf("expected repair usage trace, got %+v", usageLog.records)
+	}
+}
+
+func TestProviderBackedPlannerRepairFailureFallsBackAndRecordsRepairAttempt(t *testing.T) {
+	registry, err := prompt.NewRegistry()
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	structuredTrace := &observability.StructuredOutputTraceLog{}
+	planner := ProviderBackedPlanner{
+		PromptRenderer: prompt.PromptRenderer{Registry: registry},
+		Generator: model.DefaultStructuredGenerator{
+			Model: &model.ScriptedChatModel{
+				Steps: []model.ScriptedChatStep{
+					{
+						ExpectPromptIDPrefix: "planner.monthly_review.v1",
+						ExpectPhase:          model.GenerationPhaseInitial,
+						Response:             model.ModelResponse{Content: `{"plan_summary":`},
+					},
+					{
+						ExpectPromptIDPrefix: "planner.monthly_review.v1.repair",
+						ExpectPhase:          model.GenerationPhaseRepair,
+						Response:             model.ModelResponse{Content: `{"plan_summary":`},
+					},
+				},
+			},
+		},
+		TraceRecorder: structuredTrace,
+		CatalogBuilder: CandidatePlanCatalogBuilder{
+			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		},
+		Compiler: PlanCompiler{},
+		Fallback: DeterministicFallbackPlanner{
+			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		},
+		Now: fixedPlannerNow,
+	}
+
+	plan := planner.CreatePlan(sampleMonthlyReviewTaskSpec(), samplePlanningContextSlice(), "workflow-monthly-review")
+	if plan.Trace == nil || !plan.Trace.FallbackUsed {
+		t.Fatalf("expected planner fallback after failed repair, got %+v", plan.Trace)
+	}
+	records := structuredTrace.Records()
+	if len(records) < 3 {
+		t.Fatalf("expected fallback trace to retain repair attempt evidence, got %+v", records)
+	}
+	last := records[len(records)-1]
+	if last.GenerationPhase != model.GenerationPhaseRepair || !last.FallbackUsed {
+		t.Fatalf("expected repair-phase fallback trace, got %+v", last)
 	}
 }
 
@@ -152,4 +268,20 @@ func samplePlanningContextSlice() contextview.ContextSlice {
 
 func fixedPlannerNow() time.Time {
 	return time.Date(2026, 3, 29, 8, 0, 0, 0, time.UTC)
+}
+
+type modelCallRecorder struct {
+	records []model.CallRecord
+}
+
+func (r *modelCallRecorder) RecordCall(record model.CallRecord) {
+	r.records = append(r.records, record)
+}
+
+type modelUsageRecorder struct {
+	records []model.UsageRecord
+}
+
+func (r *modelUsageRecorder) RecordUsage(record model.UsageRecord) {
+	r.records = append(r.records, record)
 }

@@ -37,7 +37,7 @@ func NewRegistry() (*PromptRegistry, error) {
 			ModelProfile: model.ModelProfilePlannerReasoning,
 			SystemPath:   "templates/planner.monthly_review.v1.system.tmpl",
 			UserPath:     "templates/planner.monthly_review.v1.user.tmpl",
-			RenderPolicy: PromptRenderPolicy{ContextInjectionPolicy: "context_then_candidate_catalog"},
+			RenderPolicy: PromptRenderPolicy{ContextInjectionPolicy: ContextInjectionPolicyContextThenCandidateCatalog},
 		},
 		{
 			ID:           "cashflow.monthly_review.v1",
@@ -45,7 +45,7 @@ func NewRegistry() (*PromptRegistry, error) {
 			ModelProfile: model.ModelProfileCashflowFast,
 			SystemPath:   "templates/cashflow.monthly_review.v1.system.tmpl",
 			UserPath:     "templates/cashflow.monthly_review.v1.user.tmpl",
-			RenderPolicy: PromptRenderPolicy{ContextInjectionPolicy: "context_then_grounded_metrics"},
+			RenderPolicy: PromptRenderPolicy{ContextInjectionPolicy: ContextInjectionPolicyContextThenGroundedMetrics},
 		},
 	}
 	for _, item := range defaults {

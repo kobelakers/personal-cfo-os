@@ -9,7 +9,7 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 3. Deterministic reducers convert evidence into state patches and update `FinancialWorldState`.
 4. Workflow services keep observation/reducer orchestration thin and hand execution to a workflow-facing `SystemStepBus`.
 5. `MemorySteward` derives and retrieves memories before planning; retrieved memories now influence downstream block ordering and recommendation emphasis.
-6. `PlannerAgent` assembles planning context, renders a versioned prompt, performs provider-backed structured generation, validates/repairs/fallbacks the output, and still returns the same block-level `ExecutionPlan`; `plan.Blocks` remains the only execution truth source.
+6. `PlannerAgent` assembles planning context, renders a versioned prompt with an applied render policy, performs provider-backed structured generation, validates/repairs/fallbacks the output, and still returns the same block-level `ExecutionPlan`; `plan.Blocks` remains the only execution truth source.
 7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent` or `DebtAgent`; `CashflowAgent` now has a real provider-backed structured reasoning path, while `DebtAgent` stays deterministic.
 8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
 9. `VerificationAgent` runs block-level validation first, including structured-output/grounding checks for the new intelligence path, and may short-circuit final report validation with structured replan diagnostics.
@@ -17,20 +17,20 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, child workflow execution records, and committed state handoff.
 12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
 13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
-14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, provider calls, token usage, estimated cost, structured-output repair/fallback, and operator/runtime provenance chains.
+14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, and operator/runtime provenance chains.
 
 ## Real Intelligence Substrate (Phase 5B)
 
 Phase 5B does not merely sprinkle model calls into workflows. It adds a load-bearing cognition chain beneath the existing backbone:
 
 1. `internal/context` now makes token-aware budget decisions for planning and cashflow execution instead of only block-count/character-count compaction.
-2. `internal/prompt` owns versioned prompt templates and render traces for `planner.monthly_review.v1` and `cashflow.monthly_review.v1`.
+2. `internal/prompt` owns versioned prompt templates, render policies, and render traces for `planner.monthly_review.v1` and `cashflow.monthly_review.v1`.
 3. `internal/model` owns the provider-agnostic chat/structured seam, with one real OpenAI-compatible adapter plus stub seams for future providers.
-4. `internal/structured` owns schema validation, parse retry, repair retry, deterministic fallback, and trace recording.
+4. `internal/structured` owns schema validation, parse retry, repair retry, deterministic fallback, and trace recording with distinct initial/repair generation identity.
 5. `PlannerAgent` and `CashflowAgent` are the only two agents on the real provider-backed path in this phase.
-6. Deterministic finance truth remains in code: state, reducers, and finance metrics still come from deterministic tools rather than model-invented numbers.
+6. Deterministic finance truth remains in code: state, reducers, and finance metrics still come from deterministic tools rather than model-invented numbers, and 5B closure now adds a narrow numeric-consistency guard so cashflow narrative text cannot freely invent key metrics.
 
-This means Monthly Review can now show a full evidence chain from context selection -> prompt render -> provider call -> structured output -> verification -> report artifact without breaking workflow thinness or typed protocol boundaries.
+This means Monthly Review can now show a full evidence chain from context selection -> prompt render -> provider call -> structured output -> verification -> report artifact without breaking workflow thinness or typed protocol boundaries. It does not mean that every workflow or every domain agent is already intelligence-promoted.
 
 ## Proactive Life Event Loop
 

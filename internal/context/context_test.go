@@ -367,3 +367,119 @@ func TestVerificationContextDiffersFromExecutionContext(t *testing.T) {
 		t.Fatalf("expected verification context to carry verification hooks, got %+v", verifyContext)
 	}
 }
+
+func TestDefaultBudgetsDifferentiateAllContextViews(t *testing.T) {
+	planning := DefaultBudgetForView(ContextViewPlanning)
+	execution := DefaultBudgetForView(ContextViewExecution)
+	verification := DefaultBudgetForView(ContextViewVerification)
+
+	if planning.MaxInputTokens == execution.MaxInputTokens || execution.MaxInputTokens == verification.MaxInputTokens || planning.MaxInputTokens == verification.MaxInputTokens {
+		t.Fatalf("expected distinct token budgets across views, got planning=%+v execution=%+v verification=%+v", planning, execution, verification)
+	}
+	if planning.ReservedOutputTokens == execution.ReservedOutputTokens || execution.ReservedOutputTokens == verification.ReservedOutputTokens {
+		t.Fatalf("expected distinct reserved output budgets across views, got planning=%+v execution=%+v verification=%+v", planning, execution, verification)
+	}
+}
+
+func TestPlanningExecutionVerificationProduceDifferentTokenSelections(t *testing.T) {
+	current := state.FinancialWorldState{
+		UserID: "user-1",
+		CashflowState: state.CashflowState{
+			MonthlyInflowCents:    900000,
+			MonthlyOutflowCents:   350000,
+			MonthlyNetIncomeCents: 550000,
+			SavingsRate:           0.61,
+		},
+		LiabilityState: state.LiabilityState{
+			DebtBurdenRatio: 0.22,
+		},
+		RiskState: state.RiskState{
+			OverallRisk: "medium",
+		},
+		Version: state.StateVersion{Sequence: 9},
+	}
+	memories := []memory.MemoryRecord{
+		{ID: "memory-1", Kind: memory.MemoryKindSemantic, Summary: "cashflow memory one", Source: memory.MemorySource{TaskID: "task-3"}, Confidence: memory.MemoryConfidence{Score: 0.9, Rationale: "test"}},
+		{ID: "memory-2", Kind: memory.MemoryKindSemantic, Summary: "cashflow memory two", Source: memory.MemorySource{TaskID: "task-3"}, Confidence: memory.MemoryConfidence{Score: 0.9, Rationale: "test"}},
+		{ID: "memory-3", Kind: memory.MemoryKindSemantic, Summary: "cashflow memory three", Source: memory.MemorySource{TaskID: "task-3"}, Confidence: memory.MemoryConfidence{Score: 0.9, Rationale: "test"}},
+		{ID: "memory-4", Kind: memory.MemoryKindSemantic, Summary: "cashflow memory four", Source: memory.MemorySource{TaskID: "task-3"}, Confidence: memory.MemoryConfidence{Score: 0.9, Rationale: "test"}},
+	}
+	evidence := []observation.EvidenceRecord{
+		sampleContextEvidence("evidence-1", observation.EvidenceTypeTransactionBatch, "transactions one"),
+		sampleContextEvidence("evidence-2", observation.EvidenceTypeTransactionBatch, "transactions two"),
+		sampleContextEvidence("evidence-3", observation.EvidenceTypeTransactionBatch, "transactions three"),
+		sampleContextEvidence("evidence-4", observation.EvidenceTypeTransactionBatch, "transactions four"),
+		sampleContextEvidence("evidence-5", observation.EvidenceTypeTransactionBatch, "transactions five"),
+		sampleContextEvidence("evidence-6", observation.EvidenceTypeTransactionBatch, "transactions six"),
+		sampleContextEvidence("evidence-7", observation.EvidenceTypeTransactionBatch, "transactions seven"),
+	}
+	spec := taskspec.TaskSpec{
+		ID:             "task-3",
+		Goal:           "请帮我做一份月度财务复盘",
+		UserIntentType: taskspec.UserIntentMonthlyReview,
+	}
+	planningSlice, err := DefaultContextAssembler{}.Assemble(spec, current, memories, evidence, ContextViewPlanning)
+	if err != nil {
+		t.Fatalf("assemble planning context: %v", err)
+	}
+	blockSpec := BlockContextSpec{
+		PlanID:               "plan-3",
+		BlockID:              "cashflow-review",
+		BlockKind:            "cashflow_review_block",
+		AssignedRecipient:    "cashflow_agent",
+		Goal:                 "cashflow",
+		RequiredEvidenceRefs: []string{"transaction_batch"},
+		RequiredStateBlocks:  []string{"cashflow_state", "risk_state"},
+		ExecutionView:        ContextViewExecution,
+		VerificationRules:    []string{"cashflow_grounding"},
+	}
+	executionContext, err := ExecutionContextAssembler{}.Assemble(blockSpec, current, memories, evidence)
+	if err != nil {
+		t.Fatalf("assemble execution context: %v", err)
+	}
+	verificationContext, err := VerificationContextAssembler{}.AssembleBlock(blockSpec, analysis.BlockResultEnvelope{
+		BlockID:           "cashflow-review",
+		BlockKind:         "cashflow_review_block",
+		AssignedRecipient: "cashflow_agent",
+		Cashflow: &analysis.CashflowBlockResult{
+			BlockID: "cashflow-review",
+			Summary: "cashflow ok",
+			DeterministicMetrics: analysis.CashflowDeterministicMetrics{
+				MonthlyInflowCents:         900000,
+				MonthlyOutflowCents:        350000,
+				MonthlyNetIncomeCents:      550000,
+				SavingsRate:                0.61,
+				DuplicateSubscriptionCount: 2,
+				LateNightSpendingFrequency: 0.11,
+			},
+			EvidenceIDs:   []observation.EvidenceID{"evidence-1", "evidence-2", "evidence-3", "evidence-4", "evidence-5", "evidence-6", "evidence-7"},
+			MemoryIDsUsed: []string{"memory-1", "memory-2", "memory-3", "memory-4"},
+			Confidence:    0.9,
+		},
+	}, current, memories, evidence)
+	if err != nil {
+		t.Fatalf("assemble verification context: %v", err)
+	}
+
+	if planningSlice.BudgetDecision.TargetInputTokens == executionContext.Slice.BudgetDecision.TargetInputTokens || executionContext.Slice.BudgetDecision.TargetInputTokens == verificationContext.Slice.BudgetDecision.TargetInputTokens {
+		t.Fatalf("expected different token targets across views, got planning=%+v execution=%+v verification=%+v", planningSlice.BudgetDecision, executionContext.Slice.BudgetDecision, verificationContext.Slice.BudgetDecision)
+	}
+	if len(planningSlice.MemoryBlocks) == len(executionContext.Slice.MemoryBlocks) && len(executionContext.Slice.MemoryBlocks) == len(verificationContext.Slice.MemoryBlocks) {
+		t.Fatalf("expected at least one memory selection difference across views, got planning=%d execution=%d verification=%d", len(planningSlice.MemoryBlocks), len(executionContext.Slice.MemoryBlocks), len(verificationContext.Slice.MemoryBlocks))
+	}
+	if planningSlice.BudgetDecision.EstimatedInputTokens == executionContext.Slice.BudgetDecision.EstimatedInputTokens && executionContext.Slice.BudgetDecision.EstimatedInputTokens == verificationContext.Slice.BudgetDecision.EstimatedInputTokens {
+		t.Fatalf("expected different estimated token usage across views, got planning=%d execution=%d verification=%d", planningSlice.BudgetDecision.EstimatedInputTokens, executionContext.Slice.BudgetDecision.EstimatedInputTokens, verificationContext.Slice.BudgetDecision.EstimatedInputTokens)
+	}
+}
+
+func sampleContextEvidence(id string, evidenceType observation.EvidenceType, summary string) observation.EvidenceRecord {
+	return observation.EvidenceRecord{
+		ID:            observation.EvidenceID(id),
+		Type:          evidenceType,
+		Summary:       summary,
+		Source:        observation.EvidenceSource{Kind: "ledger", Adapter: "test", Reference: id, Provenance: "fixture"},
+		TimeRange:     observation.EvidenceTimeRange{ObservedAt: time.Date(2026, 3, 29, 8, 0, 0, 0, time.UTC)},
+		Confidence:    observation.EvidenceConfidence{Score: 0.9, Reason: "test"},
+		Normalization: observation.EvidenceNormalizationResult{Status: observation.EvidenceNormalizationNormalized},
+	}
+}

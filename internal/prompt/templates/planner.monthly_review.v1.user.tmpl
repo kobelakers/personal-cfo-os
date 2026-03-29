@@ -1,13 +1,6 @@
 任务目标：{{ .Goal }}
 
-候选 blocks：
-{{ .CandidateBlocks }}
-
-候选步骤：
-{{ .CandidateSteps }}
-
-上下文：
-{{ .ContextSummary }}
+{{ .PolicyOrderedSections }}
 
 请输出 JSON，字段固定为：
 {
@@ -17,4 +10,3 @@
   "block_order": ["block_id"],
   "step_emphasis": [{"step_id":"string","emphasis":"string"}]
 }
-

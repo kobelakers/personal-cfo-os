@@ -33,12 +33,13 @@ The implementation adds four load-bearing subsystems:
    - versioned prompt registry
    - file-backed templates
    - render trace metadata
+   - render policy that now materially changes prompt shaping instead of remaining dead metadata
 3. `internal/structured`
    - schema validation
    - parser
    - repair retry
    - deterministic fallback
-   - structured trace metadata
+   - structured trace metadata, including distinct initial vs repair prompt identity
 4. token-aware upgrades in `internal/context`
    - planning and cashflow execution budgets now reflect model-window constraints
 
@@ -56,13 +57,16 @@ This is additive-only to the existing backbone:
 - Monthly Review now has a real provider-backed intelligence path that is still typed, verifiable, governed, and observable.
 - `PlannerAgent` and `CashflowAgent` can use real model output without pushing provider/prompt/parser logic into workflow files.
 - prompt version, provider call, token usage, estimated cost, repair, and fallback now become first-class trace evidence.
+- live provider mode now requires explicit model configuration instead of baked-in default model names.
 - deterministic finance truth remains in code, so model output does not become the source of truth for amounts or ratios.
+- cashflow narrative text now has a narrow numeric-consistency guard for key deterministic metrics, but this is still a 5B closure step rather than full finance-engine hardening.
 
 ### Negative / Deferred
 
 - only one workflow is upgraded in this phase
 - only two agents use real provider-backed reasoning
 - durable memory, embeddings, retrieval hardening, finance hardening, and deeper validator expansion remain out of scope
+- `DebtAgent` remains deterministic; the real provider-backed path is still intentionally limited to Monthly Review `PlannerAgent` + `CashflowAgent`
 - intelligence trace is visible in workflow dumps, but not yet promoted to a separate durable operator-facing truth plane
 
 ## Why Not More

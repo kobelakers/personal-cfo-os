@@ -30,11 +30,16 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 	if repairPolicy.MaxAttempts == 0 {
 		repairPolicy = DefaultRepairPolicy()
 	}
-	genResult, err := callGenerator(ctx, p.Generator, request)
+	initialRequest := request
+	initialRequest.ModelRequest.GenerationPhase = model.GenerationPhaseInitial
+	if initialRequest.ModelRequest.AttemptIndex == 0 {
+		initialRequest.ModelRequest.AttemptIndex = 1
+	}
+	genResult, err := callGenerator(ctx, p.Generator, initialRequest)
 	if err != nil {
 		value, fallbackUsed, fallbackErr := p.executeFallback(FailureCategoryFallbackUsed, err.Error())
 		if fallbackErr != nil {
-			recordTrace(p.TraceRecorder, request, TraceRecord{
+			recordTrace(p.TraceRecorder, initialRequest, TraceRecord{
 				SchemaName:      p.Schema.Name,
 				ParseAttempts:   0,
 				RepairAttempts:  0,
@@ -44,7 +49,7 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 			})
 			return Result[T]{FailureCategory: FailureCategoryFallbackFailed, FallbackUsed: true, FallbackReason: err.Error()}, fallbackErr
 		}
-		recordTrace(p.TraceRecorder, request, TraceRecord{
+		recordTrace(p.TraceRecorder, initialRequest, TraceRecord{
 			SchemaName:      p.Schema.Name,
 			ParseAttempts:   0,
 			RepairAttempts:  0,
@@ -58,7 +63,7 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 	parseAttempts := 1
 	value, diagnostics, parseErr := p.parseAndValidate(genResult.Content)
 	if parseErr == nil && len(diagnostics) == 0 {
-		recordTrace(p.TraceRecorder, request, TraceRecord{
+		recordTrace(p.TraceRecorder, initialRequest, TraceRecord{
 			SchemaName:     p.Schema.Name,
 			ParseAttempts:  parseAttempts,
 			RepairAttempts: 0,
@@ -71,22 +76,37 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 		lastCategory = FailureCategorySchemaInvalid
 	}
 	lastReason := parseErrString(parseErr, diagnostics)
+	recordTrace(p.TraceRecorder, initialRequest, TraceRecord{
+		SchemaName:            p.Schema.Name,
+		ParseAttempts:         parseAttempts,
+		RepairAttempts:        0,
+		FailureCategory:       lastCategory,
+		ValidationDiagnostics: diagnostics,
+	})
 	repairAttempts := 0
-	repairRequest := request
-	repairRequest.ModelRequest.PromptID = request.ModelRequest.PromptID + ".repair"
+	lastRequest := initialRequest
+	lastRaw := genResult.Content
 	for repairAttempts < repairPolicy.MaxAttempts {
 		repairAttempts++
-		repairRequest = buildRepairRequest(request, p.Schema.Name, genResult.Content, diagnostics)
+		repairRequest := buildRepairRequest(initialRequest, p.Schema.Name, lastRaw, diagnostics, repairAttempts)
+		lastRequest = repairRequest
 		repaired, repairErr := callGenerator(ctx, p.Generator, repairRequest)
 		if repairErr != nil {
 			lastCategory = FailureCategoryRepairFailed
 			lastReason = repairErr.Error()
+			recordTrace(p.TraceRecorder, repairRequest, TraceRecord{
+				SchemaName:            p.Schema.Name,
+				ParseAttempts:         parseAttempts,
+				RepairAttempts:        repairAttempts,
+				FailureCategory:       FailureCategoryRepairFailed,
+				ValidationDiagnostics: diagnostics,
+			})
 			break
 		}
 		parseAttempts++
 		repairedValue, repairedDiagnostics, repairedParseErr := p.parseAndValidate(repaired.Content)
 		if repairedParseErr == nil && len(repairedDiagnostics) == 0 {
-			recordTrace(p.TraceRecorder, request, TraceRecord{
+			recordTrace(p.TraceRecorder, repairRequest, TraceRecord{
 				SchemaName:     p.Schema.Name,
 				ParseAttempts:  parseAttempts,
 				RepairAttempts: repairAttempts,
@@ -105,11 +125,19 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 		}
 		lastReason = parseErrString(repairedParseErr, repairedDiagnostics)
 		diagnostics = repairedDiagnostics
+		lastRaw = repaired.Content
+		recordTrace(p.TraceRecorder, repairRequest, TraceRecord{
+			SchemaName:            p.Schema.Name,
+			ParseAttempts:         parseAttempts,
+			RepairAttempts:        repairAttempts,
+			FailureCategory:       lastCategory,
+			ValidationDiagnostics: diagnostics,
+		})
 	}
 
 	value, fallbackUsed, fallbackErr := p.executeFallback(lastCategory, lastReason)
 	if fallbackErr != nil {
-		recordTrace(p.TraceRecorder, request, TraceRecord{
+		recordTrace(p.TraceRecorder, lastRequest, TraceRecord{
 			SchemaName:            p.Schema.Name,
 			ParseAttempts:         parseAttempts,
 			RepairAttempts:        repairAttempts,
@@ -126,11 +154,11 @@ func (p Pipeline[T]) Execute(ctx context.Context, request model.StructuredGenera
 			FallbackReason:        lastReason,
 		}, fallbackErr
 	}
-	recordTrace(p.TraceRecorder, request, TraceRecord{
+	recordTrace(p.TraceRecorder, lastRequest, TraceRecord{
 		SchemaName:            p.Schema.Name,
 		ParseAttempts:         parseAttempts,
 		RepairAttempts:        repairAttempts,
-		FailureCategory:       FailureCategoryFallbackUsed,
+		FailureCategory:       lastCategory,
 		ValidationDiagnostics: diagnostics,
 		FallbackUsed:          fallbackUsed,
 		FallbackReason:        lastReason,

@@ -50,12 +50,12 @@ func resolveModelName(request ModelRequest, reasoningModel string, fastModel str
 	switch request.Profile {
 	case ModelProfilePlannerReasoning:
 		if reasoningModel == "" {
-			return "", fmt.Errorf("reasoning model is not configured")
+			return "", fmt.Errorf("OPENAI_REASONING_MODEL is required for planner reasoning live mode")
 		}
 		return reasoningModel, nil
 	case ModelProfileCashflowFast:
 		if fastModel == "" {
-			return "", fmt.Errorf("fast model is not configured")
+			return "", fmt.Errorf("OPENAI_FAST_MODEL is required for cashflow fast live mode")
 		}
 		return fastModel, nil
 	default:

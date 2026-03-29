@@ -12,6 +12,13 @@ const (
 	ModelProfileCashflowFast     ModelProfile = "cashflow_fast"
 )
 
+type GenerationPhase string
+
+const (
+	GenerationPhaseInitial GenerationPhase = "initial"
+	GenerationPhaseRepair  GenerationPhase = "repair"
+)
+
 type MessageRole string
 
 const (
@@ -61,19 +68,21 @@ type TimeoutPolicy struct {
 }
 
 type ModelRequest struct {
-	Provider        string         `json:"provider,omitempty"`
-	Model           string         `json:"model,omitempty"`
-	Profile         ModelProfile   `json:"profile"`
-	Messages        []Message      `json:"messages"`
-	ResponseFormat  ResponseFormat `json:"response_format"`
-	MaxOutputTokens int            `json:"max_output_tokens,omitempty"`
-	Temperature     float64        `json:"temperature,omitempty"`
-	WorkflowID      string         `json:"workflow_id,omitempty"`
-	TaskID          string         `json:"task_id,omitempty"`
-	TraceID         string         `json:"trace_id,omitempty"`
-	Agent           string         `json:"agent,omitempty"`
-	PromptID        string         `json:"prompt_id,omitempty"`
-	PromptVersion   string         `json:"prompt_version,omitempty"`
+	Provider        string          `json:"provider,omitempty"`
+	Model           string          `json:"model,omitempty"`
+	Profile         ModelProfile    `json:"profile"`
+	Messages        []Message       `json:"messages"`
+	ResponseFormat  ResponseFormat  `json:"response_format"`
+	MaxOutputTokens int             `json:"max_output_tokens,omitempty"`
+	Temperature     float64         `json:"temperature,omitempty"`
+	WorkflowID      string          `json:"workflow_id,omitempty"`
+	TaskID          string          `json:"task_id,omitempty"`
+	TraceID         string          `json:"trace_id,omitempty"`
+	Agent           string          `json:"agent,omitempty"`
+	PromptID        string          `json:"prompt_id,omitempty"`
+	PromptVersion   string          `json:"prompt_version,omitempty"`
+	GenerationPhase GenerationPhase `json:"generation_phase,omitempty"`
+	AttemptIndex    int             `json:"attempt_index,omitempty"`
 }
 
 type UsageStats struct {
@@ -96,37 +105,41 @@ type ModelResponse struct {
 }
 
 type CallRecord struct {
-	Provider      string                `json:"provider"`
-	Model         string                `json:"model"`
-	Profile       ModelProfile          `json:"profile"`
-	WorkflowID    string                `json:"workflow_id,omitempty"`
-	TaskID        string                `json:"task_id,omitempty"`
-	TraceID       string                `json:"trace_id,omitempty"`
-	Agent         string                `json:"agent,omitempty"`
-	PromptID      string                `json:"prompt_id,omitempty"`
-	PromptVersion string                `json:"prompt_version,omitempty"`
-	LatencyMS     int64                 `json:"latency_ms"`
-	ErrorCategory ProviderErrorCategory `json:"error_category,omitempty"`
-	StatusCode    int                   `json:"status_code,omitempty"`
-	StartedAt     time.Time             `json:"started_at"`
-	CompletedAt   time.Time             `json:"completed_at"`
+	Provider        string                `json:"provider"`
+	Model           string                `json:"model"`
+	Profile         ModelProfile          `json:"profile"`
+	WorkflowID      string                `json:"workflow_id,omitempty"`
+	TaskID          string                `json:"task_id,omitempty"`
+	TraceID         string                `json:"trace_id,omitempty"`
+	Agent           string                `json:"agent,omitempty"`
+	PromptID        string                `json:"prompt_id,omitempty"`
+	PromptVersion   string                `json:"prompt_version,omitempty"`
+	GenerationPhase GenerationPhase       `json:"generation_phase,omitempty"`
+	AttemptIndex    int                   `json:"attempt_index,omitempty"`
+	LatencyMS       int64                 `json:"latency_ms"`
+	ErrorCategory   ProviderErrorCategory `json:"error_category,omitempty"`
+	StatusCode      int                   `json:"status_code,omitempty"`
+	StartedAt       time.Time             `json:"started_at"`
+	CompletedAt     time.Time             `json:"completed_at"`
 }
 
 type UsageRecord struct {
-	Provider         string       `json:"provider"`
-	Model            string       `json:"model"`
-	Profile          ModelProfile `json:"profile"`
-	WorkflowID       string       `json:"workflow_id,omitempty"`
-	TaskID           string       `json:"task_id,omitempty"`
-	TraceID          string       `json:"trace_id,omitempty"`
-	Agent            string       `json:"agent,omitempty"`
-	PromptID         string       `json:"prompt_id,omitempty"`
-	PromptVersion    string       `json:"prompt_version,omitempty"`
-	PromptTokens     int          `json:"prompt_tokens"`
-	CompletionTokens int          `json:"completion_tokens"`
-	TotalTokens      int          `json:"total_tokens"`
-	EstimatedCostUSD float64      `json:"estimated_cost_usd"`
-	RecordedAt       time.Time    `json:"recorded_at"`
+	Provider         string          `json:"provider"`
+	Model            string          `json:"model"`
+	Profile          ModelProfile    `json:"profile"`
+	WorkflowID       string          `json:"workflow_id,omitempty"`
+	TaskID           string          `json:"task_id,omitempty"`
+	TraceID          string          `json:"trace_id,omitempty"`
+	Agent            string          `json:"agent,omitempty"`
+	PromptID         string          `json:"prompt_id,omitempty"`
+	PromptVersion    string          `json:"prompt_version,omitempty"`
+	GenerationPhase  GenerationPhase `json:"generation_phase,omitempty"`
+	AttemptIndex     int             `json:"attempt_index,omitempty"`
+	PromptTokens     int             `json:"prompt_tokens"`
+	CompletionTokens int             `json:"completion_tokens"`
+	TotalTokens      int             `json:"total_tokens"`
+	EstimatedCostUSD float64         `json:"estimated_cost_usd"`
+	RecordedAt       time.Time       `json:"recorded_at"`
 }
 
 type CallRecorder interface {

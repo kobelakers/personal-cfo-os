@@ -14,6 +14,14 @@ if [[ "$MODE" == "live" ]]; then
     echo "OPENAI_API_KEY is required for live mode" >&2
     exit 1
   fi
+  if [[ -z "${OPENAI_REASONING_MODEL:-}" ]]; then
+    echo "OPENAI_REASONING_MODEL is required for live mode" >&2
+    exit 1
+  fi
+  if [[ -z "${OPENAI_FAST_MODEL:-}" ]]; then
+    echo "OPENAI_FAST_MODEL is required for live mode" >&2
+    exit 1
+  fi
 fi
 
 cd "$ROOT"

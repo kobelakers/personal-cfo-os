@@ -3,6 +3,7 @@ package verification
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
@@ -23,6 +24,9 @@ func RunCashflowGroundingPrecheck(candidate analysis.CashflowStructuredCandidate
 		if !slices.Contains(allowed, ref) {
 			return fmt.Errorf("cashflow evidence ref %s is outside selected evidence", ref)
 		}
+	}
+	if diagnostics := cashflowNumericGroundingDiagnostics(candidate, metrics); len(diagnostics) > 0 {
+		return fmt.Errorf("%s", strings.Join(diagnostics, "; "))
 	}
 	return nil
 }

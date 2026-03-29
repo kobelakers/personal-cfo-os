@@ -53,7 +53,7 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - operator-facing actions are now formal typed commands with idempotent request ids and optimistic-concurrency transitions instead of ad hoc workflow-local mutation
 - replay queries now read durable `ReplayStore` records rather than in-memory helper timelines
 - only `PlannerAgent` and `CashflowAgent` enter the real provider-backed intelligence path in this phase, and only inside Monthly Review
-- provider-backed intelligence is now a load-bearing substrate layer rather than workflow-local string prompts: prompts are versioned, context is token-aware, outputs are schema-validated, and traces include provider/prompt/token/cost/fallback evidence
+- provider-backed intelligence is now a load-bearing substrate layer rather than workflow-local string prompts: prompts are versioned, render policy is real code rather than dead metadata, context is token-aware at MVP scope, outputs are schema-validated/repaired/fallbacked, and traces include provider/prompt/token/cost/fallback evidence
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
 ## Phase 3A / 3B / 4A / 4B / 5A / 5B Highlights
@@ -134,6 +134,8 @@ Optional transport override env vars:
 - `OPENAI_BASE_URL`
 - `OPENAI_CHAT_ENDPOINT_PATH`
 
+`OPENAI_REASONING_MODEL` and `OPENAI_FAST_MODEL` are required in live mode. The live provider path no longer bakes in default model names; mock mode remains env-free.
+
 The live smoke test is also env-gated:
 
 ```bash
@@ -154,6 +156,7 @@ The `web/` directory is intentionally minimal in this phase. Install dependencie
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - durable runtime uses a local SQLite seam and metadata/file refs, not Postgres + object storage yet
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
+- repair traces now preserve distinct initial vs repair prompt identity, but that intelligence evidence still only exists on the Monthly Review golden path
 - `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
 - capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
 - no real Postgres / pgvector / MinIO / provider service is required yet

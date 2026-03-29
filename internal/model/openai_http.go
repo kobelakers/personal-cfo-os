@@ -56,12 +56,6 @@ func NewOpenAICompatibleChatModel(config OpenAICompatibleConfig) *OpenAICompatib
 	if config.TimeoutPolicy.RequestTimeout == 0 {
 		config.TimeoutPolicy = DefaultTimeoutPolicy()
 	}
-	if config.ReasoningModel == "" {
-		config.ReasoningModel = "gpt-4.1"
-	}
-	if config.FastModel == "" {
-		config.FastModel = "gpt-4.1-mini"
-	}
 	return &OpenAICompatibleChatModel{config: config}
 }
 
@@ -114,6 +108,14 @@ func (m *OpenAICompatibleChatModel) Generate(ctx context.Context, request ModelR
 	if strings.TrimSpace(m.config.APIKey) == "" {
 		return ModelResponse{}, &ProviderError{Category: ProviderErrorAuth, Message: "OPENAI_API_KEY is required for live provider mode"}
 	}
+	phase := request.GenerationPhase
+	if phase == "" {
+		phase = GenerationPhaseInitial
+	}
+	attemptIndex := request.AttemptIndex
+	if attemptIndex == 0 {
+		attemptIndex = 1
+	}
 	reqPayload := openAICompatibleRequest{
 		Model:       modelName,
 		Messages:    make([]openAICompatibleMessage, 0, len(request.Messages)),
@@ -153,17 +155,19 @@ func (m *OpenAICompatibleChatModel) Generate(ctx context.Context, request ModelR
 		})
 		cancel()
 		record := CallRecord{
-			Provider:      "openai-compatible",
-			Model:         modelName,
-			Profile:       request.Profile,
-			WorkflowID:    request.WorkflowID,
-			TaskID:        request.TaskID,
-			TraceID:       request.TraceID,
-			Agent:         request.Agent,
-			PromptID:      request.PromptID,
-			PromptVersion: request.PromptVersion,
-			StartedAt:     start,
-			CompletedAt:   time.Now().UTC(),
+			Provider:        "openai-compatible",
+			Model:           modelName,
+			Profile:         request.Profile,
+			WorkflowID:      request.WorkflowID,
+			TaskID:          request.TaskID,
+			TraceID:         request.TraceID,
+			Agent:           request.Agent,
+			PromptID:        request.PromptID,
+			PromptVersion:   request.PromptVersion,
+			GenerationPhase: phase,
+			AttemptIndex:    attemptIndex,
+			StartedAt:       start,
+			CompletedAt:     time.Now().UTC(),
 		}
 		if callErr != nil {
 			providerErr := classifyTransportError(callErr)
@@ -240,6 +244,8 @@ func (m *OpenAICompatibleChatModel) Generate(ctx context.Context, request ModelR
 				Agent:            request.Agent,
 				PromptID:         request.PromptID,
 				PromptVersion:    request.PromptVersion,
+				GenerationPhase:  phase,
+				AttemptIndex:     attemptIndex,
 				PromptTokens:     usage.PromptTokens,
 				CompletionTokens: usage.CompletionTokens,
 				TotalTokens:      usage.TotalTokens,

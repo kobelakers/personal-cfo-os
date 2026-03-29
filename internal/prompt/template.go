@@ -4,6 +4,11 @@ type PromptRenderPolicy struct {
 	ContextInjectionPolicy string `json:"context_injection_policy,omitempty"`
 }
 
+const (
+	ContextInjectionPolicyContextThenCandidateCatalog = "context_then_candidate_catalog"
+	ContextInjectionPolicyContextThenGroundedMetrics  = "context_then_grounded_metrics"
+)
+
 type PromptTraceInput struct {
 	SelectedStateBlocks  []string `json:"selected_state_blocks,omitempty"`
 	SelectedMemoryIDs    []string `json:"selected_memory_ids,omitempty"`

@@ -1,17 +1,7 @@
 任务目标：{{ .Goal }}
 Block：{{ .BlockID }} / {{ .BlockKind }}
 
-deterministic metrics：
-{{ .MetricsSummary }}
-
-selected evidence：
-{{ .EvidenceSummary }}
-
-selected memories：
-{{ .MemorySummary }}
-
-上下文：
-{{ .ContextSummary }}
+{{ .PolicyOrderedSections }}
 
 请输出 JSON，字段固定为：
 {
@@ -24,4 +14,3 @@ selected memories：
   "confidence": 0.0,
   "caveats": ["string"]
 }
-
