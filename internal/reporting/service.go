@@ -87,11 +87,14 @@ type DraftInput struct {
 	CurrentState state.FinancialWorldState      `json:"current_state"`
 	Evidence     []observation.EvidenceRecord   `json:"evidence"`
 	Memories     []memory.MemoryRecord          `json:"memories,omitempty"`
+	StateDiff    []string                       `json:"state_diff,omitempty"`
+	TaskGraph    *taskspec.TaskGraph            `json:"task_graph,omitempty"`
 }
 
 type Service struct {
 	MonthlyReviewAggregator MonthlyReviewAggregator
 	DebtDecisionAggregator  DebtDecisionAggregator
+	LifeEventAggregator     LifeEventAssessmentAggregator
 	Artifacts               ArtifactService
 }
 
@@ -117,6 +120,12 @@ func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, input DraftInp
 			return ReportPayload{}, err
 		}
 		return ReportPayload{DebtDecision: &report}, nil
+	case taskspec.UserIntentLifeEventTrigger:
+		report, err := s.LifeEventAggregator.Aggregate(spec, workflowID, input)
+		if err != nil {
+			return ReportPayload{}, err
+		}
+		return ReportPayload{LifeEventAssessment: &report}, nil
 	default:
 		return ReportPayload{}, fmt.Errorf("unsupported intent type %q for report draft", spec.UserIntentType)
 	}
@@ -150,6 +159,16 @@ func (s Service) Finalize(workflowID string, taskID string, draft ReportPayload,
 			return ReportPayload{}, nil, err
 		}
 		return ReportPayload{DebtDecision: &report}, []WorkflowArtifact{artifact}, nil
+	case draft.LifeEventAssessment != nil:
+		report := *draft.LifeEventAssessment
+		if disclosureDecision.Outcome == governance.PolicyDecisionRedact {
+			report.EventSummary = "[REDACTED] " + report.EventSummary
+		}
+		artifact, err := s.Artifacts.Produce(workflowID, taskID, ArtifactKindLifeEventAssessment, report, report.EventSummary, "report_agent")
+		if err != nil {
+			return ReportPayload{}, nil, err
+		}
+		return ReportPayload{LifeEventAssessment: &report}, []WorkflowArtifact{artifact}, nil
 	default:
 		return ReportPayload{}, nil, fmt.Errorf("report draft payload is empty")
 	}

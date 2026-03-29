@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution plus a first real domain-agent path:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, and a first proactive life-event loop:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -27,19 +27,23 @@ The repository now runs a real governed finance workflow backbone with system-ag
 9. `VerificationAgent` now runs block-level validation before final report validation and can short-circuit into structured replan diagnostics
 10. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
 11. observability and replay outputs now include block plan, domain block execution order, selected memory/evidence/state slices, checkpoint timeline, and policy decisions
+12. Workflow C now ingests structured life events and deadlines, updates state/memory, executes event-specific domain blocks, generates typed follow-up tasks, verifies and governs them, and registers them into runtime as follow-up task graph records
 
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
 - `CashflowAgent` and `DebtAgent` are now the first load-bearing domain agents in the main execution path.
+- `TaxAgent` and `PortfolioAgent` now enter the new Life Event Trigger path as the next narrow domain expansion, but only inside Workflow C.
 - `ReportAgent` is no longer the primary cashflow/debt analyst; it is an aggregator and finalize boundary.
+- Workflow C now produces state diff, memory updates, a generated task graph, and runtime-registered follow-up tasks as its primary outputs; `LifeEventAssessmentReport` is only a secondary artifact.
 - This is still not a fully realized strong multi-agent finance operating system.
-- Portfolio / tax / behavior domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
+- generated downstream tasks are now formal `TaskSpec`-backed queue objects, but capability-gated intents such as `tax_optimization` and `portfolio_rebalance` remain `queued_pending_capability` in Phase 4A instead of auto-executing recursively.
+- behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
-## Phase 3A / 3B Highlights
+## Phase 3A / 3B / 4A Highlights
 
 - `internal/protocol` is now execution-first: typed request/result message kinds, oneof-style request/result bodies, and response envelopes participate in real dispatch.
 - `internal/agents` now contains a concrete execution plane: registry, dispatcher, executor, system-step bus, typed execution errors, and registered system-agent handlers.
@@ -51,6 +55,11 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - `VerificationAgent` now validates domain blocks before final report validation and can short-circuit on severe block failures.
 - runtime now has an explicit bridge from typed agent failure categories to workflow recovery semantics.
 - observability and replay now expose planner block plan, domain block execution order, selected memory/evidence/state slices, and agent dispatch lifecycle records.
+- Workflow C now exists as a real `life_event_trigger` path instead of a contract-only placeholder.
+- structured `event source` and `calendar/deadline source` adapters now turn life events into typed evidence before workflow execution.
+- `TaskGenerationAgent` now generates `TaskSpec`-backed follow-up tasks from validated life-event analysis, state diff, evidence, and retrieved memories without redoing domain analysis.
+- runtime now registers generated follow-up tasks into a task graph with explicit statuses such as `dependency_blocked`, `deferred`, `waiting_approval`, and `queued_pending_capability`.
+- `LifeEventAssessmentReport` now gives Workflow C a secondary artifact contract, but the primary product of Workflow C remains state/memory/task-graph mutation rather than a narrative report.
 
 ## Repository Layout
 
@@ -79,7 +88,8 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 - semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
-- only `CashflowAgent` and `DebtAgent` are in the execution backbone; portfolio / tax / behavior domain execution is still deferred
+- `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
+- generated downstream tasks are registered and replayable, but capability-gated intents do not fully execute in Phase 4A
 - no real Postgres / pgvector / MinIO / provider service is required yet
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.

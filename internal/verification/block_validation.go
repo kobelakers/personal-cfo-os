@@ -17,6 +17,8 @@ import (
 
 type CashflowBlockValidator struct{}
 type DebtBlockValidator struct{}
+type TaxBlockValidator struct{}
+type PortfolioBlockValidator struct{}
 
 func (CashflowBlockValidator) Validate(
 	spec taskspec.TaskSpec,
@@ -111,6 +113,96 @@ func (DebtBlockValidator) Validate(
 	}
 }
 
+func (TaxBlockValidator) Validate(
+	spec taskspec.TaskSpec,
+	block planning.ExecutionBlock,
+	result analysis.TaxBlockResult,
+	verificationContext contextview.BlockVerificationContext,
+	currentState state.FinancialWorldState,
+) VerificationResult {
+	failedRules := make([]string, 0)
+	missingEvidence := missingMandatoryEvidence(block, verificationContext)
+	if len(missingEvidence) > 0 {
+		failedRules = append(failedRules, "mandatory_evidence_gap")
+	}
+	if result.BlockID == "" || result.Summary == "" || len(result.EvidenceIDs) == 0 {
+		failedRules = append(failedRules, "schema_invalid")
+	}
+	if !recommendationsGrounded(result.Recommendations, verificationContext.SelectedEvidenceIDs) {
+		failedRules = append(failedRules, "grounding_failure")
+	}
+	if !taxMetricsConsistent(result.DeterministicMetrics, currentState.TaxState) {
+		failedRules = append(failedRules, "metric_consistency")
+	}
+
+	status, message := verificationOutcome(failedRules, "tax block verification passed", "tax block validation failed")
+	return VerificationResult{
+		Status:                  status,
+		Scope:                   VerificationScopeBlock,
+		BlockID:                 string(block.ID),
+		BlockKind:               string(block.Kind),
+		Validator:               "tax_block_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		MissingEvidence:         missingEvidence,
+		RecommendedReplanAction: "collect missing tax evidence or repair tax grounding before generating follow-up tasks",
+		Severity:                severityForStatus(status),
+		Details: map[string]any{
+			"task_id":               spec.ID,
+			"selected_evidence_ids": verificationContext.SelectedEvidenceIDs,
+			"selected_memory_ids":   verificationContext.SelectedMemoryIDs,
+			"selected_state_blocks": verificationContext.SelectedStateBlocks,
+		},
+		EvidenceCoverage: fullCoverage(spec.ID),
+		CheckedAt:        time.Now().UTC(),
+	}
+}
+
+func (PortfolioBlockValidator) Validate(
+	spec taskspec.TaskSpec,
+	block planning.ExecutionBlock,
+	result analysis.PortfolioBlockResult,
+	verificationContext contextview.BlockVerificationContext,
+	currentState state.FinancialWorldState,
+) VerificationResult {
+	failedRules := make([]string, 0)
+	missingEvidence := missingMandatoryEvidence(block, verificationContext)
+	if len(missingEvidence) > 0 {
+		failedRules = append(failedRules, "mandatory_evidence_gap")
+	}
+	if result.BlockID == "" || result.Summary == "" || len(result.EvidenceIDs) == 0 {
+		failedRules = append(failedRules, "schema_invalid")
+	}
+	if !recommendationsGrounded(result.Recommendations, verificationContext.SelectedEvidenceIDs) {
+		failedRules = append(failedRules, "grounding_failure")
+	}
+	if !portfolioMetricsConsistent(result.DeterministicMetrics, currentState.PortfolioState) {
+		failedRules = append(failedRules, "metric_consistency")
+	}
+
+	status, message := verificationOutcome(failedRules, "portfolio block verification passed", "portfolio block validation failed")
+	return VerificationResult{
+		Status:                  status,
+		Scope:                   VerificationScopeBlock,
+		BlockID:                 string(block.ID),
+		BlockKind:               string(block.Kind),
+		Validator:               "portfolio_block_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		MissingEvidence:         missingEvidence,
+		RecommendedReplanAction: "collect missing portfolio evidence or repair portfolio grounding before generating follow-up tasks",
+		Severity:                severityForStatus(status),
+		Details: map[string]any{
+			"task_id":               spec.ID,
+			"selected_evidence_ids": verificationContext.SelectedEvidenceIDs,
+			"selected_memory_ids":   verificationContext.SelectedMemoryIDs,
+			"selected_state_blocks": verificationContext.SelectedStateBlocks,
+		},
+		EvidenceCoverage: fullCoverage(spec.ID),
+		CheckedAt:        time.Now().UTC(),
+	}
+}
+
 func missingMandatoryEvidence(block planning.ExecutionBlock, verificationContext contextview.BlockVerificationContext) []string {
 	typeSet := make(map[string]struct{}, len(verificationContext.Slice.EvidenceBlocks))
 	for _, item := range verificationContext.Slice.EvidenceBlocks {
@@ -163,6 +255,40 @@ func debtMetricsConsistent(metrics analysis.DebtDeterministicMetrics, current st
 		floatClose(metrics.MinimumPaymentPressure, current.MinimumPaymentPressure) &&
 		floatClose(metrics.AverageAPR, current.AverageAPR) &&
 		metrics.OverallRisk == overallRisk
+}
+
+func taxMetricsConsistent(metrics analysis.TaxDeterministicMetrics, current state.TaxState) bool {
+	return floatClose(metrics.EffectiveTaxRate, current.EffectiveTaxRate) &&
+		metrics.TaxAdvantagedContributionCents == current.TaxAdvantagedContributionCents &&
+		metrics.ChildcareTaxSignal == current.ChildcareTaxSignal &&
+		metrics.UpcomingDeadlineCount == len(current.UpcomingDeadlines)
+}
+
+func portfolioMetricsConsistent(metrics analysis.PortfolioDeterministicMetrics, current state.PortfolioState) bool {
+	return metrics.TotalInvestableAssetsCents == current.TotalInvestableAssetsCents &&
+		floatClose(metrics.EmergencyFundMonths, current.EmergencyFundMonths) &&
+		floatClose(metrics.MaxAllocationDrift, currentPortfolioMaxDrift(current)) &&
+		floatClose(metrics.CashAllocation, currentPortfolioCashAllocation(current))
+}
+
+func currentPortfolioMaxDrift(current state.PortfolioState) float64 {
+	maximum := 0.0
+	for _, drift := range current.AllocationDrift {
+		if drift < 0 {
+			drift = -drift
+		}
+		if drift > maximum {
+			maximum = drift
+		}
+	}
+	return maximum
+}
+
+func currentPortfolioCashAllocation(current state.PortfolioState) float64 {
+	if current.AssetAllocations == nil {
+		return 0
+	}
+	return current.AssetAllocations["cash"]
 }
 
 func floatClose(left float64, right float64) bool {

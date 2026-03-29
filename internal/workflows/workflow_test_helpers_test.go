@@ -15,6 +15,7 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/reducers"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
+	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
@@ -24,6 +25,8 @@ type phase2Deps struct {
 	LedgerAdapter        observation.LedgerObservationAdapter
 	StructuredDocAdapter observation.StructuredDocumentObservationAdapter
 	AgenticDocAdapter    observation.AgenticDocumentObservationAdapterStub
+	EventAdapter         observation.EventObservationAdapter
+	DeadlineAdapter      observation.CalendarDeadlineObservationAdapter
 	Store                *memory.InMemoryMemoryStore
 	Writer               memory.DefaultMemoryWriter
 	Retriever            memory.HybridMemoryRetriever
@@ -122,6 +125,8 @@ func buildPhase2Deps(t *testing.T, holdingsCSV string, includeDebt bool, include
 		LedgerAdapter:        ledgerAdapter,
 		StructuredDocAdapter: structuredAdapter,
 		AgenticDocAdapter:    agenticAdapter,
+		EventAdapter:         observation.EventObservationAdapter{AdapterName: "fixture-events", Now: func() time.Time { return now }},
+		DeadlineAdapter:      observation.CalendarDeadlineObservationAdapter{AdapterName: "fixture-deadlines", Now: func() time.Time { return now }},
 		Store:                store,
 		Writer:               writer,
 		Retriever:            retriever,
@@ -181,6 +186,46 @@ func buildDebtWorkflow(t *testing.T, deps phase2Deps) DebtVsInvestWorkflow {
 	}
 }
 
+func buildLifeEventWorkflow(t *testing.T, deps phase2Deps, events []observation.LifeEventRecord, deadlines []observation.CalendarDeadlineRecord) LifeEventTriggerWorkflow {
+	t.Helper()
+	deps.EventAdapter.Events = append([]observation.LifeEventRecord{}, events...)
+	deps.DeadlineAdapter.Deadlines = append([]observation.CalendarDeadlineRecord{}, deadlines...)
+	return LifeEventTriggerWorkflow{
+		Intake: taskspec.EventTriggeredIntakeService{
+			Now: func() time.Time { return deps.Now },
+		},
+		TriggerService: LifeEventWorkflowService{
+			QueryEvent:            tools.QueryEventTool{Adapter: deps.EventAdapter},
+			QueryCalendarDeadline: tools.QueryCalendarDeadlineTool{Adapter: deps.DeadlineAdapter},
+			QueryTransaction:      tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:        tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:        tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ParseDocument: tools.ParseDocumentTool{
+				Structured: deps.StructuredDocAdapter,
+				Agentic:    deps.AgenticDocAdapter,
+			},
+			ReducerEngine: reducers.DeterministicReducerEngine{Now: func() time.Time { return deps.Now }},
+			EventLog:      deps.EventLog,
+		},
+		SystemSteps: buildSystemStepBus(t, deps, governance.MemoryWritePolicy{
+			MinConfidence:   0.7,
+			RequireEvidence: false,
+			AllowKinds: []memory.MemoryKind{
+				memory.MemoryKindEpisodic,
+				memory.MemoryKindSemantic,
+				memory.MemoryKindProcedural,
+			},
+		}),
+		Runtime: &runtimepkg.LocalWorkflowRuntime{
+			EventLog:   deps.EventLog,
+			TaskGraphs: runtimepkg.NewInMemoryTaskGraphStore(),
+			Now:        func() time.Time { return deps.Now },
+		},
+		EventLog: deps.EventLog,
+		Now:      func() time.Time { return deps.Now },
+	}
+}
+
 func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governance.MemoryWritePolicy) agents.SystemStepBus {
 	t.Helper()
 	memoryService := memory.WorkflowMemoryService{
@@ -199,6 +244,9 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 			Now:        func() time.Time { return deps.Now },
 		},
 		DebtDecisionAggregator: reporting.DebtDecisionAggregator{
+			Now: func() time.Time { return deps.Now },
+		},
+		LifeEventAggregator: reporting.LifeEventAssessmentAggregator{
 			Now: func() time.Time { return deps.Now },
 		},
 		Artifacts: reporting.ArtifactService{
@@ -237,6 +285,9 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 		agents.MemoryStewardHandler{Service: memoryService},
 		agents.CashflowAgentHandler{MetricsTool: tools.ComputeCashflowMetricsTool{}},
 		agents.DebtAgentHandler{MetricsTool: tools.ComputeDebtDecisionMetricsTool{}},
+		agents.TaxAgentHandler{MetricsTool: tools.ComputeTaxSignalTool{}},
+		agents.PortfolioAgentHandler{MetricsTool: tools.ComputePortfolioImpactMetricsTool{}},
+		agents.TaskGenerationAgentHandler{},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},
 		agents.VerificationAgentHandler{Pipeline: verificationPipeline},

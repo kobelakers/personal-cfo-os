@@ -121,13 +121,21 @@ func (b ExecutionBlock) Validate() error {
 
 func validateBlockRecipient(kind ExecutionBlockKind, recipient string) error {
 	switch kind {
-	case ExecutionBlockKindCashflowReview, ExecutionBlockKindCashflowLiquidity:
+	case ExecutionBlockKindCashflowReview, ExecutionBlockKindCashflowLiquidity, ExecutionBlockKindCashflowEventImpact:
 		if recipient != BlockRecipientCashflowAgent {
 			return fmt.Errorf("cashflow block %q must be assigned to %q", kind, BlockRecipientCashflowAgent)
 		}
-	case ExecutionBlockKindDebtReview, ExecutionBlockKindDebtTradeoff:
+	case ExecutionBlockKindDebtReview, ExecutionBlockKindDebtTradeoff, ExecutionBlockKindDebtHousingImpact:
 		if recipient != BlockRecipientDebtAgent {
 			return fmt.Errorf("debt block %q must be assigned to %q", kind, BlockRecipientDebtAgent)
+		}
+	case ExecutionBlockKindTaxEventImpact:
+		if recipient != BlockRecipientTaxAgent {
+			return fmt.Errorf("tax block %q must be assigned to %q", kind, BlockRecipientTaxAgent)
+		}
+	case ExecutionBlockKindPortfolioEventImpact:
+		if recipient != BlockRecipientPortfolioAgent {
+			return fmt.Errorf("portfolio block %q must be assigned to %q", kind, BlockRecipientPortfolioAgent)
 		}
 	default:
 		return fmt.Errorf("unsupported execution block kind %q", kind)

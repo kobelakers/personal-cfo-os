@@ -23,6 +23,10 @@ type DebtDecisionAggregator struct {
 	Now func() time.Time
 }
 
+type LifeEventAssessmentAggregator struct {
+	Now func() time.Time
+}
+
 func (a MonthlyReviewAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (MonthlyReviewReport, error) {
 	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
 	if err != nil {
@@ -114,6 +118,51 @@ func (a DebtDecisionAggregator) Aggregate(spec taskspec.TaskSpec, workflowID str
 		ApprovalRequired:  input.CurrentState.RiskState.OverallRisk == "high",
 		Confidence:        averageConfidence(ordered),
 		GeneratedAt:       a.now(),
+	}, nil
+}
+
+func (a LifeEventAssessmentAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (LifeEventAssessmentReport, error) {
+	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
+	if err != nil {
+		return LifeEventAssessmentReport{}, err
+	}
+	if input.TaskGraph == nil {
+		return LifeEventAssessmentReport{}, fmt.Errorf("life event assessment draft requires generated task graph")
+	}
+	if err := input.TaskGraph.Validate(); err != nil {
+		return LifeEventAssessmentReport{}, err
+	}
+	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
+	generatedTaskIDs := make([]string, 0, len(input.TaskGraph.GeneratedTasks))
+	generatedTaskStatuses := make(map[string]string, len(input.TaskGraph.GeneratedTasks))
+	requiredCapabilities := make(map[string]string, len(input.TaskGraph.GeneratedTasks))
+	missingCapabilities := make(map[string]string, len(input.TaskGraph.GeneratedTasks))
+	for _, item := range input.TaskGraph.GeneratedTasks {
+		generatedTaskIDs = append(generatedTaskIDs, item.Task.ID)
+		generatedTaskStatuses[item.Task.ID] = "generated"
+		requiredCapabilities[item.Task.ID] = string(item.Task.UserIntentType) + "_workflow"
+	}
+	eventSummaryParts := make([]string, 0, len(ordered))
+	for _, item := range ordered {
+		eventSummaryParts = append(eventSummaryParts, item.Summary())
+	}
+	for _, note := range input.TaskGraph.SuppressionNotes {
+		eventSummaryParts = append(eventSummaryParts, note)
+	}
+	return LifeEventAssessmentReport{
+		TaskID:                spec.ID,
+		WorkflowID:            workflowID,
+		EventSummary:          strings.Join(eventSummaryParts, " "),
+		StateDiffSummary:      append([]string{}, input.StateDiff...),
+		MemoryUpdateSummary:   sourceMemoryIDs,
+		GeneratedTaskIDs:      generatedTaskIDs,
+		GeneratedTaskStatuses: generatedTaskStatuses,
+		RequiredCapabilities:  requiredCapabilities,
+		MissingCapabilities:   missingCapabilities,
+		SourceBlockIDs:        sourceBlockIDs,
+		SourceMemoryIDs:       sourceMemoryIDs,
+		SourceEvidenceIDs:     sourceEvidenceIDs,
+		GeneratedAt:           a.now(),
 	}, nil
 }
 
@@ -227,6 +276,10 @@ func averageConfidence(results []analysis.BlockResultEnvelope) float64 {
 			total += item.Cashflow.Confidence
 		case item.Debt != nil:
 			total += item.Debt.Confidence
+		case item.Tax != nil:
+			total += item.Tax.Confidence
+		case item.Portfolio != nil:
+			total += item.Portfolio.Confidence
 		}
 	}
 	return total / float64(len(results))
@@ -240,6 +293,13 @@ func (a MonthlyReviewAggregator) now() time.Time {
 }
 
 func (a DebtDecisionAggregator) now() time.Time {
+	if a.Now != nil {
+		return a.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (a LifeEventAssessmentAggregator) now() time.Time {
 	if a.Now != nil {
 		return a.Now().UTC()
 	}

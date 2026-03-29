@@ -92,7 +92,7 @@ func (w DebtVsInvestWorkflow) Run(
 	}
 	blockResults := collectBlockResults(blockSteps)
 
-	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan, blockResults)
+	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan, blockResults, observed.Diff, nil)
 	if err != nil {
 		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "report draft generation failed")
 	}
@@ -167,7 +167,7 @@ func (w DebtVsInvestWorkflow) Run(
 		}, nil
 	}
 
-	governanceStep, err := steps.DispatchGovernance(ctx, meta, observed.UpdatedState, reportDraftStep.Draft)
+	governanceStep, err := steps.DispatchGovernance(ctx, meta, observed.UpdatedState, reportDraftStep.Draft, nil)
 	if err != nil {
 		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "governance agent failed")
 	}

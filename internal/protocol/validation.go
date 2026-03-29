@@ -3,6 +3,8 @@ package protocol
 import (
 	"errors"
 	"fmt"
+
+	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
 
 func (m ProtocolMetadata) Validate() error {
@@ -127,6 +129,18 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindDebtAnalysisRequest
 	}
+	if b.TaxAnalysisRequest != nil {
+		count++
+		matched = matched || kind == MessageKindTaxAnalysisRequest
+	}
+	if b.PortfolioAnalysisRequest != nil {
+		count++
+		matched = matched || kind == MessageKindPortfolioAnalysisRequest
+	}
+	if b.TaskGenerationRequest != nil {
+		count++
+		matched = matched || kind == MessageKindTaskGenerationRequest
+	}
 	if count != 1 {
 		return fmt.Errorf("agent request body must set exactly one typed field, got %d", count)
 	}
@@ -152,6 +166,9 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		if len(b.ReportDraftRequest.BlockResults) == 0 {
 			return errors.New("report draft request requires domain block results")
 		}
+		if b.ReportDraftRequest.StateDiff.ToVersion == 0 {
+			return errors.New("report draft request requires state diff")
+		}
 		for _, result := range b.ReportDraftRequest.BlockResults {
 			if err := result.Validate(); err != nil {
 				return err
@@ -164,22 +181,45 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		if err := b.VerificationRequest.Plan.Validate(); err != nil {
 			return err
 		}
-		if err := b.VerificationRequest.Report.Validate(); err != nil {
-			return err
-		}
 		if len(b.VerificationRequest.BlockResults) == 0 {
 			return errors.New("verification request requires block results")
-		}
-		if len(b.VerificationRequest.BlockVerificationContexts) == 0 {
-			return errors.New("verification request requires block verification contexts")
-		}
-		if len(b.VerificationRequest.FinalVerificationContext.SelectedEvidenceIDs) == 0 {
-			return errors.New("verification request requires final verification context with selected evidence")
 		}
 		for _, result := range b.VerificationRequest.BlockResults {
 			if err := result.Validate(); err != nil {
 				return err
 			}
+		}
+		stage := b.VerificationRequest.Stage
+		switch stage {
+		case "", verification.VerificationStageFullReport:
+			if len(b.VerificationRequest.BlockVerificationContexts) == 0 {
+				return errors.New("verification request requires block verification contexts")
+			}
+			if len(b.VerificationRequest.FinalVerificationContext.SelectedEvidenceIDs) == 0 {
+				return errors.New("verification request requires final verification context with selected evidence")
+			}
+			if err := b.VerificationRequest.Report.Validate(); err != nil {
+				return err
+			}
+		case verification.VerificationStageAnalysisBlocks:
+			if len(b.VerificationRequest.BlockVerificationContexts) == 0 {
+				return errors.New("analysis-block verification requires block verification contexts")
+			}
+		case verification.VerificationStageGeneratedTasksAndFinal:
+			if b.VerificationRequest.TaskGraph == nil {
+				return errors.New("generated-task verification requires task graph")
+			}
+			if err := b.VerificationRequest.TaskGraph.Validate(); err != nil {
+				return err
+			}
+			if err := b.VerificationRequest.Report.Validate(); err != nil {
+				return err
+			}
+			if len(b.VerificationRequest.FinalVerificationContext.SelectedEvidenceIDs) == 0 {
+				return errors.New("generated-task verification requires final verification context with selected evidence")
+			}
+		default:
+			return fmt.Errorf("unsupported verification stage %q", stage)
 		}
 	case MessageKindGovernanceEvaluationRequest:
 		if b.GovernanceEvaluationRequest == nil {
@@ -187,6 +227,16 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		}
 		if err := b.GovernanceEvaluationRequest.Report.Validate(); err != nil {
 			return err
+		}
+		if b.GovernanceEvaluationRequest.TaskGraph != nil {
+			if err := b.GovernanceEvaluationRequest.TaskGraph.Validate(); err != nil {
+				return err
+			}
+		}
+		for _, task := range b.GovernanceEvaluationRequest.GeneratedTasks {
+			if err := task.Validate(); err != nil {
+				return err
+			}
 		}
 	case MessageKindReportFinalizeRequest:
 		if b.ReportFinalizeRequest == nil {
@@ -220,6 +270,53 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		}
 		if len(b.DebtAnalysisRequest.RelevantEvidence) == 0 {
 			return errors.New("debt analysis request requires relevant evidence")
+		}
+	case MessageKindTaxAnalysisRequest:
+		if b.TaxAnalysisRequest == nil {
+			return errors.New("tax analysis request payload is required")
+		}
+		if err := b.TaxAnalysisRequest.Block.Validate(); err != nil {
+			return err
+		}
+		if b.TaxAnalysisRequest.Block.AssignedRecipient != "tax_agent" {
+			return fmt.Errorf("tax analysis request must target tax_agent, got %q", b.TaxAnalysisRequest.Block.AssignedRecipient)
+		}
+		if len(b.TaxAnalysisRequest.RelevantEvidence) == 0 {
+			return errors.New("tax analysis request requires relevant evidence")
+		}
+	case MessageKindPortfolioAnalysisRequest:
+		if b.PortfolioAnalysisRequest == nil {
+			return errors.New("portfolio analysis request payload is required")
+		}
+		if err := b.PortfolioAnalysisRequest.Block.Validate(); err != nil {
+			return err
+		}
+		if b.PortfolioAnalysisRequest.Block.AssignedRecipient != "portfolio_agent" {
+			return fmt.Errorf("portfolio analysis request must target portfolio_agent, got %q", b.PortfolioAnalysisRequest.Block.AssignedRecipient)
+		}
+		if len(b.PortfolioAnalysisRequest.RelevantEvidence) == 0 {
+			return errors.New("portfolio analysis request requires relevant evidence")
+		}
+	case MessageKindTaskGenerationRequest:
+		if b.TaskGenerationRequest == nil {
+			return errors.New("task generation request payload is required")
+		}
+		if err := b.TaskGenerationRequest.Plan.Validate(); err != nil {
+			return err
+		}
+		if b.TaskGenerationRequest.StateDiff.ToVersion == 0 {
+			return errors.New("task generation request requires state diff")
+		}
+		if len(b.TaskGenerationRequest.EventEvidence) == 0 {
+			return errors.New("task generation request requires event evidence")
+		}
+		if len(b.TaskGenerationRequest.ValidatedBlockResults) == 0 {
+			return errors.New("task generation request requires validated block results")
+		}
+		for _, result := range b.TaskGenerationRequest.ValidatedBlockResults {
+			if err := result.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -260,6 +357,18 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindDebtAnalysisResult
 	}
+	if b.TaxAnalysisResult != nil {
+		count++
+		matched = matched || kind == MessageKindTaxAnalysisResult
+	}
+	if b.PortfolioAnalysisResult != nil {
+		count++
+		matched = matched || kind == MessageKindPortfolioAnalysisResult
+	}
+	if b.TaskGenerationResult != nil {
+		count++
+		matched = matched || kind == MessageKindTaskGenerationResult
+	}
 	if count != 1 {
 		return fmt.Errorf("agent result body must set exactly one typed field, got %d", count)
 	}
@@ -294,6 +403,27 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		}
 		if b.DebtAnalysisResult.Result.BlockID == "" {
 			return errors.New("debt analysis result requires block id")
+		}
+	case MessageKindTaxAnalysisResult:
+		if b.TaxAnalysisResult == nil {
+			return errors.New("tax analysis result payload is required")
+		}
+		if b.TaxAnalysisResult.Result.BlockID == "" {
+			return errors.New("tax analysis result requires block id")
+		}
+	case MessageKindPortfolioAnalysisResult:
+		if b.PortfolioAnalysisResult == nil {
+			return errors.New("portfolio analysis result payload is required")
+		}
+		if b.PortfolioAnalysisResult.Result.BlockID == "" {
+			return errors.New("portfolio analysis result requires block id")
+		}
+	case MessageKindTaskGenerationResult:
+		if b.TaskGenerationResult == nil {
+			return errors.New("task generation result payload is required")
+		}
+		if err := b.TaskGenerationResult.TaskGraph.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil

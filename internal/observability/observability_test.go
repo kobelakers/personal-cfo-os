@@ -72,3 +72,62 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 		t.Fatalf("expected replay bundle and dump payload")
 	}
 }
+
+func TestWorkflowTraceDumpPreservesFollowUpCapabilityExplanation(t *testing.T) {
+	now := time.Date(2026, 3, 29, 9, 0, 0, 0, time.UTC)
+	log := observability.EventLog{}
+	log.Append(observability.LogEntry{
+		TraceID:       "trace-life-event-1",
+		CorrelationID: "trace-life-event-1",
+		Category:      "life_event_ingestion",
+		Message:       "ingested typed life event evidence",
+		Details: map[string]string{
+			"event_id":              "event-1",
+			"event_kind":            "salary_change",
+			"event_evidence_ids":    "evidence-life-event-event-1",
+			"deadline_evidence_ids": "evidence-calendar-deadline-deadline-1",
+		},
+		OccurredAt: now,
+	})
+	log.Append(observability.LogEntry{
+		TraceID:       "trace-life-event-1",
+		CorrelationID: "trace-life-event-1",
+		Category:      "follow_up_task_registered",
+		Message:       "registered follow-up task task-tax-1",
+		Details: map[string]string{
+			"task_id":                   "task-tax-1",
+			"intent":                    "tax_optimization",
+			"status":                    "queued_pending_capability",
+			"required_capability":       "tax_optimization_workflow",
+			"missing_capability_reason": "workflow entrypoint for this intent is not registered in the local runtime",
+		},
+		OccurredAt: now.Add(time.Minute),
+	})
+
+	dump := observability.BuildWorkflowTraceDump(
+		"workflow-life-event-1",
+		"trace-life-event-1",
+		nil,
+		nil,
+		nil,
+		log.Entries(),
+		nil,
+		nil,
+	)
+	if len(dump.Events) != 2 {
+		t.Fatalf("expected two observability events, got %+v", dump.Events)
+	}
+	var capabilityEvent *observability.LogEntry
+	for i := range dump.Events {
+		if dump.Events[i].Category == "follow_up_task_registered" {
+			capabilityEvent = &dump.Events[i]
+			break
+		}
+	}
+	if capabilityEvent == nil {
+		t.Fatalf("expected follow_up_task_registered event in trace dump")
+	}
+	if capabilityEvent.Details["required_capability"] == "" || capabilityEvent.Details["missing_capability_reason"] == "" {
+		t.Fatalf("expected queued_pending_capability explanation in trace dump, got %+v", capabilityEvent)
+	}
+}

@@ -115,6 +115,27 @@ func (CashflowReducer) Reduce(current state.CashflowState, evidence []observatio
 			if record.TimeRange.Start != nil {
 				next.LastComputedMonth = record.TimeRange.Start.UTC().Format("2006-01")
 			}
+		case observation.EvidenceTypeEventSignal:
+			if value, ok, err := claimInt64(record, "monthly_income_delta_cents"); err != nil {
+				return state.CashflowState{}, err
+			} else if ok {
+				next.MonthlyInflowCents += value
+				next.MonthlyNetIncomeCents += value
+			}
+			if value, ok, err := claimInt64(record, "housing_cost_delta_cents"); err != nil {
+				return state.CashflowState{}, err
+			} else if ok {
+				next.MonthlyOutflowCents += value
+				next.MonthlyFixedExpenseCents += value
+				next.MonthlyNetIncomeCents -= value
+			}
+			if value, ok, err := claimInt64(record, "childcare_cost_delta_cents"); err != nil {
+				return state.CashflowState{}, err
+			} else if ok {
+				next.MonthlyOutflowCents += value
+				next.MonthlyVariableExpenseCents += value
+				next.MonthlyNetIncomeCents -= value
+			}
 		}
 	}
 	if next.MonthlyInflowCents > 0 {
@@ -156,6 +177,12 @@ func (LiabilityReducer) Reduce(current state.LiabilityState, evidence []observat
 				return state.LiabilityState{}, err
 			} else if ok {
 				next.Accounts = accounts
+			}
+		case observation.EvidenceTypeEventSignal:
+			if value, ok, err := claimInt64(record, "mortgage_balance_cents"); err != nil {
+				return state.LiabilityState{}, err
+			} else if ok && value > 0 {
+				next.TotalDebtCents = value
 			}
 		}
 	}
@@ -227,6 +254,23 @@ func (TaxReducer) Reduce(current state.TaxState, evidence []observation.Evidence
 				return state.TaxState{}, err
 			} else if ok && value != "" {
 				next.FamilyTaxNotes = appendUnique(next.FamilyTaxNotes, value)
+			}
+		case observation.EvidenceTypeEventSignal:
+			if value, ok, err := claimBool(record, "childcare_tax_signal"); err != nil {
+				return state.TaxState{}, err
+			} else if ok {
+				next.ChildcareTaxSignal = value
+			}
+			if value, ok, err := claimBool(record, "withholding_review_required"); err != nil {
+				return state.TaxState{}, err
+			} else if ok && value {
+				next.FamilyTaxNotes = appendUnique(next.FamilyTaxNotes, "withholding_review_required")
+			}
+		case observation.EvidenceTypeCalendarDeadline:
+			if value, ok, err := claimString(record, "description"); err != nil {
+				return state.TaxState{}, err
+			} else if ok && value != "" {
+				next.UpcomingDeadlines = appendUnique(next.UpcomingDeadlines, value)
 			}
 		}
 	}

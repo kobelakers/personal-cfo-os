@@ -2,11 +2,13 @@ package workflows
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/protocol"
@@ -101,6 +103,44 @@ func debtDecisionReportFromPayload(payload reporting.ReportPayload) (DebtDecisio
 	return *payload.DebtDecision, nil
 }
 
+func lifeEventAssessmentFromPayload(payload reporting.ReportPayload) (LifeEventAssessmentReport, error) {
+	if payload.LifeEventAssessment == nil {
+		return LifeEventAssessmentReport{}, fmt.Errorf("life event assessment payload is missing")
+	}
+	return *payload.LifeEventAssessment, nil
+}
+
+func taskHasArea(spec taskspec.TaskSpec, area string) bool {
+	for _, item := range spec.Scope.Areas {
+		if item == area {
+			return true
+		}
+	}
+	return false
+}
+
+func applyFollowUpRegistrationToAssessment(
+	report reporting.ReportPayload,
+	registration runtimepkg.FollowUpRegistrationResult,
+) reporting.ReportPayload {
+	if report.LifeEventAssessment == nil {
+		return report
+	}
+	updated := *report.LifeEventAssessment
+	updated.GeneratedTaskStatuses = make(map[string]string, len(registration.RegisteredTasks))
+	updated.RequiredCapabilities = make(map[string]string, len(registration.RegisteredTasks))
+	updated.MissingCapabilities = make(map[string]string, len(registration.RegisteredTasks))
+	for _, item := range registration.RegisteredTasks {
+		updated.GeneratedTaskStatuses[item.Task.ID] = string(item.Status)
+		updated.RequiredCapabilities[item.Task.ID] = item.RequiredCapability
+		if item.MissingCapabilityReason != "" {
+			updated.MissingCapabilities[item.Task.ID] = item.MissingCapabilityReason
+		}
+	}
+	report.LifeEventAssessment = &updated
+	return report
+}
+
 func blockContextSpec(plan planning.ExecutionPlan, block planning.ExecutionBlock) contextview.BlockContextSpec {
 	requirements := make([]string, 0, len(block.RequiredEvidenceRefs))
 	for _, item := range block.RequiredEvidenceRefs {
@@ -130,4 +170,53 @@ func collectBlockResults(items []agents.AnalysisBlockStepResult) []analysis.Bloc
 		result = append(result, item.Result)
 	}
 	return result
+}
+
+func appendWorkflowLog(
+	log *observability.EventLog,
+	traceID string,
+	category string,
+	message string,
+	details map[string]string,
+	occurredAt time.Time,
+) {
+	if log == nil {
+		return
+	}
+	log.Append(observability.LogEntry{
+		TraceID:       traceID,
+		CorrelationID: traceID,
+		Category:      category,
+		Message:       message,
+		Details:       details,
+		OccurredAt:    occurredAt.UTC(),
+	})
+}
+
+func joinEvidenceIDs(records []observation.EvidenceRecord) string {
+	ids := make([]string, 0, len(records))
+	for _, record := range records {
+		ids = append(ids, string(record.ID))
+	}
+	return strings.Join(ids, ",")
+}
+
+func joinStrings(items []string) string {
+	return strings.Join(items, ",")
+}
+
+func taskIDs(graph taskspec.TaskGraph) string {
+	ids := make([]string, 0, len(graph.GeneratedTasks))
+	for _, generated := range graph.GeneratedTasks {
+		ids = append(ids, generated.Task.ID)
+	}
+	return strings.Join(ids, ",")
+}
+
+func taskIntents(graph taskspec.TaskGraph) string {
+	intents := make([]string, 0, len(graph.GeneratedTasks))
+	for _, generated := range graph.GeneratedTasks {
+		intents = append(intents, string(generated.Task.UserIntentType))
+	}
+	return strings.Join(intents, ",")
 }

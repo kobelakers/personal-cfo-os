@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 func (r EvidenceRecord) Validate() error {
@@ -118,4 +119,146 @@ func validEvidenceType(t EvidenceType) bool {
 	default:
 		return false
 	}
+}
+
+func (r LifeEventRecord) Validate() error {
+	if strings.TrimSpace(r.ID) == "" {
+		return errors.New("life event id is required")
+	}
+	if strings.TrimSpace(r.UserID) == "" {
+		return errors.New("life event user_id is required")
+	}
+	if !validLifeEventKind(r.Kind) {
+		return fmt.Errorf("invalid life event kind %q", r.Kind)
+	}
+	if strings.TrimSpace(r.Source) == "" {
+		return errors.New("life event source is required")
+	}
+	if strings.TrimSpace(r.Provenance) == "" {
+		return errors.New("life event provenance is required")
+	}
+	if r.ObservedAt.IsZero() {
+		return errors.New("life event observed_at is required")
+	}
+	if r.Confidence < 0 || r.Confidence > 1 {
+		return errors.New("life event confidence must be within [0,1]")
+	}
+	if countNonNilLifeEventPayloads(r) != 1 {
+		return errors.New("life event record must include exactly one typed payload")
+	}
+	switch r.Kind {
+	case LifeEventSalaryChange:
+		if r.SalaryChange == nil || r.SalaryChange.EffectiveAt.IsZero() {
+			return errors.New("salary_change event requires typed payload with effective_at")
+		}
+	case LifeEventNewChild:
+		if r.NewChild == nil || r.NewChild.ExpectedCareStartAt.IsZero() {
+			return errors.New("new_child event requires typed payload with expected_care_start_at")
+		}
+	case LifeEventJobChange:
+		if r.JobChange == nil || r.JobChange.BenefitsEnrollmentDeadlineAt.IsZero() {
+			return errors.New("job_change event requires typed payload with benefits enrollment deadline")
+		}
+	case LifeEventHousingChange:
+		if r.HousingChange == nil || r.HousingChange.EffectiveAt.IsZero() {
+			return errors.New("housing_change event requires typed payload with effective_at")
+		}
+	}
+	return nil
+}
+
+func (r LifeEventRecord) KindSummary() string {
+	return string(r.Kind)
+}
+
+func (r LifeEventRecord) WindowStart() *time.Time {
+	switch r.Kind {
+	case LifeEventSalaryChange:
+		if r.SalaryChange != nil {
+			start := r.SalaryChange.EffectiveAt.UTC()
+			return &start
+		}
+	case LifeEventNewChild:
+		if r.NewChild != nil {
+			start := r.NewChild.ExpectedCareStartAt.UTC()
+			return &start
+		}
+	case LifeEventJobChange:
+		if r.JobChange != nil {
+			start := r.JobChange.BenefitsEnrollmentDeadlineAt.AddDate(0, 0, -14).UTC()
+			return &start
+		}
+	case LifeEventHousingChange:
+		if r.HousingChange != nil {
+			start := r.HousingChange.EffectiveAt.UTC()
+			return &start
+		}
+	}
+	return nil
+}
+
+func (r LifeEventRecord) WindowEnd() *time.Time {
+	start := r.WindowStart()
+	if start == nil {
+		return nil
+	}
+	end := start.AddDate(0, 3, 0)
+	return &end
+}
+
+func (r CalendarDeadlineRecord) Validate() error {
+	if strings.TrimSpace(r.ID) == "" {
+		return errors.New("calendar deadline id is required")
+	}
+	if strings.TrimSpace(r.UserID) == "" {
+		return errors.New("calendar deadline user_id is required")
+	}
+	if strings.TrimSpace(r.Kind) == "" {
+		return errors.New("calendar deadline kind is required")
+	}
+	if strings.TrimSpace(r.Source) == "" {
+		return errors.New("calendar deadline source is required")
+	}
+	if strings.TrimSpace(r.Provenance) == "" {
+		return errors.New("calendar deadline provenance is required")
+	}
+	if r.ObservedAt.IsZero() || r.DeadlineAt.IsZero() {
+		return errors.New("calendar deadline observed_at and deadline_at are required")
+	}
+	if strings.TrimSpace(r.Description) == "" {
+		return errors.New("calendar deadline description is required")
+	}
+	if r.Confidence < 0 || r.Confidence > 1 {
+		return errors.New("calendar deadline confidence must be within [0,1]")
+	}
+	if r.RelatedEventKind != "" && !validLifeEventKind(r.RelatedEventKind) {
+		return fmt.Errorf("invalid related event kind %q", r.RelatedEventKind)
+	}
+	return nil
+}
+
+func validLifeEventKind(kind LifeEventKind) bool {
+	switch kind {
+	case LifeEventSalaryChange, LifeEventNewChild, LifeEventJobChange, LifeEventHousingChange:
+		return true
+	default:
+		return false
+	}
+}
+
+func countNonNilLifeEventPayloads(r LifeEventRecord) int {
+	count := 0
+	if r.SalaryChange != nil {
+		count++
+	}
+	if r.NewChild != nil {
+		count++
+	}
+	if r.JobChange != nil {
+		count++
+	}
+	if r.HousingChange != nil {
+		count++
+	}
+	return count
 }

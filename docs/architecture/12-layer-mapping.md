@@ -1,26 +1,25 @@
 # 12-Layer Mapping
 
-| Layer | Package(s) | Current Phase 3B Status |
+| Layer | Package(s) | Current Phase 4A Status |
 | --- | --- | --- |
-| Goal Layer | `internal/taskspec` | Concrete `TaskSpec` intake path is live via deterministic intake; `TaskIntakeResult` is already the formal entry gate for Monthly Review and Debt vs Invest. |
-| Observation Layer | `internal/observation` | Concrete ledger/document adapters are live and emit typed `EvidenceRecord`; structured parsing is real, agentic parsing is still a stub behind the same adapter interface. |
-| State Layer | `internal/state`, `internal/reducers` | Concrete deterministic reducers build `EvidencePatch` and apply snapshot/diff/versioned state updates into `FinancialWorldState`. |
-| Context Engineering Layer | `internal/context` | Concrete assembler/selection/budget/compactor implementation is live; planning / execution / verification views now differ at block level, and execution/verification contexts are part of main-path dispatch and validation inputs. |
-| Memory Layer | `internal/memory` | Concrete writer, hybrid retrieval, semantic fake backend, derived memory writer, conflict/supersedes handling, and access audit are live; retrieved memories now influence block ordering and block output emphasis. |
-| Planning / Policy Layer | `internal/planning`, `internal/agents` | Deterministic planning is live through `PlannerAgent`, and its output is now a block-level `ExecutionPlan`; `plan.Blocks` is the only execution truth source for downstream dispatch, reporting, and verification. |
-| Skills + Tools Layer | `internal/skills`, `internal/tools`, `internal/analysis` | Core deterministic tools are live, and `CashflowAgent` / `DebtAgent` now use them to produce typed `CashflowBlockResult` / `DebtBlockResult` instead of pushing cashflow/debt analysis back into workflow or report generation. |
-| Runtime / Harness Layer | `internal/runtime` | Concrete local Temporal-aligned runtime is live with `LocalWorkflowRuntime`, `DefaultWorkflowController`, checkpoint store, journal, timeline, pause/resume, retry, replan transitions, and typed agent-failure bridging. |
-| Protocol Layer | `internal/protocol`, `internal/agents` | Protocol is now execution-first: typed request/result kinds, oneof bodies, response envelopes, correlation/causation propagation, block analysis request/result payloads, and real dispatch through `SystemStepBus` and the local agent dispatcher. |
-| Verification Layer | `internal/verification`, `internal/agents` | Concrete verification pipeline is live and now executes through `VerificationAgent`; it validates domain blocks before final report validation and short-circuits on severe block failures with structured replan diagnostics. |
-| Safety / Governance / HITL Layer | `internal/governance`, `internal/agents` | Concrete approval service, risk classifier, disclosure evaluation, memory write gate, policy engine, and audit event generation are live; `GovernanceAgent` now executes approval/disclosure decisions in the main path. |
-| Observability / Evaluation / Feedback Layer | `internal/observability`, `internal/runtime`, `internal/agents`, `cmd/eval`, `cmd/replay` | Structured event log, checkpoint log, timeline dump, replay bundle, trace dump, and agent dispatch lifecycle records are live; agent traces now expose `plan_id`, block order, selected memory/evidence/state slices, and block result summaries. |
+| Goal Layer | `internal/taskspec` | `TaskSpec` remains the only executable goal contract. Life events now enter through `life_event_trigger`, and generated downstream tasks are represented as `TaskSpec + generation metadata` rather than a second incompatible goal type. |
+| Observation Layer | `internal/observation`, `internal/tools` | Ledger/document adapters remain live, and Phase 4A adds concrete `event source` and `calendar/deadline source` adapters. Workflow C no longer consumes raw event text; it consumes typed event/deadline evidence with provenance, confidence, source, and time range. |
+| State Layer | `internal/state`, `internal/reducers` | Reducers still build deterministic `EvidencePatch` and apply snapshot/diff/versioned updates. Workflow C now uses the same reducer path to turn event evidence into a state diff instead of inventing a side channel for life events. |
+| Context Engineering Layer | `internal/context` | Planning / execution / verification context is already live for block execution, and Workflow C extends the same pattern to event-driven block dispatch, task-generation inputs, and verification pass 2. |
+| Memory Layer | `internal/memory` | Memory remains structured and governed. Workflow C reuses the current schema with minimal event-oriented patterns, and retrieved memories now influence life-event planning, task generation rationale, and verification diagnostics. |
+| Planning / Policy Layer | `internal/planning`, `internal/agents`, `internal/taskspec` | `PlannerAgent` now plans both passive analysis workflows and proactive life-event workflows. `plan.Blocks` remains the only execution truth source, and `TaskGenerationAgent` adds a second planning surface for downstream follow-up tasks without becoming a coordinator. |
+| Skills + Tools Layer | `internal/tools`, `internal/analysis`, `internal/agents` | Deterministic tools remain the execution substrate. Phase 4A adds `TaxAgent` and `PortfolioAgent` for Workflow C, plus event/deadline query tools and typed block result schemas for tax/portfolio event impact. |
+| Runtime / Harness Layer | `internal/runtime` | Local Temporal-aligned runtime now manages generated follow-up task graphs, spawned/deferred task records, approval-gated follow-up tasks, and capability-gated queued tasks. Generated tasks are registered and replayable, but not recursively executed in Phase 4A. |
+| Protocol Layer | `internal/protocol`, `internal/agents` | Protocol remains execution-first and is only extended, not replaced. New typed request/result kinds cover `tax_analysis`, `portfolio_analysis`, `task_generation`, and the Workflow C assessment artifact path while reusing the existing bus/backbone. |
+| Verification Layer | `internal/verification`, `internal/agents` | Verification still covers block + final validation, and Workflow C adds a second verification pass for generated tasks and final life-event assessment. Task generation is now grounded, deduplicated, and verified instead of treated as an unvalidated side effect. |
+| Safety / Governance / HITL Layer | `internal/governance`, `internal/agents` | Governance continues to control approval/disclosure, and now also evaluates spawned-task policy, approval propagation, and unsafe generated tasks. Runtime registration only happens after this governed pass. |
+| Observability / Evaluation / Feedback Layer | `internal/observability`, `internal/runtime`, `internal/workflows` | Replay/trace already exposed block plan and agent lifecycle; Phase 4A extends the same plane to event ingestion, state diff logging, generated task graph registration, follow-up task capability gaps, and secondary life-event assessment artifacts. |
 
 ## Trade-Offs
 
-- Current code is still intentionally stronger on system layers than on full domain coverage.
-- The repository should now be described as **system-agent backbone + first real domain-agent execution path**, not as a fully realized strong multi-agent execution system.
-- `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` are real execution boundaries, and `CashflowAgent / DebtAgent` are now the first load-bearing domain-agent boundaries.
-- `ReportAgent` is now an aggregator/finalizer rather than the primary cashflow/debt analyst.
-- Only cashflow and debt domains are agentized so far; portfolio / tax / behavior remain residual deterministic sections.
-- Temporal, Postgres, pgvector, MinIO, provider adapters, and full tracing infrastructure are still deferred behind already-fixed interfaces.
-- The UI remains intentionally minimal so engineering effort stays concentrated on evidence, state, memory, verification, governance, and runtime.
+- The repository should now be described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop**.
+- `CashflowAgent` and `DebtAgent` remain the load-bearing domain agents for Monthly Review and Debt vs Invest.
+- `TaxAgent` and `PortfolioAgent` are now real execution boundaries, but only inside Workflow C for controlled scope.
+- `TaskGenerationAgent` generates typed downstream tasks, but those tasks are intentionally registered first and not fully executed in Phase 4A.
+- `LifeEventAssessmentReport` exists as a secondary artifact contract so Workflow C stays protocol-complete without turning the workflow back into a report-first system.
+- Behavior-domain execution, real provider integration, real Temporal/Postgres/pgvector/MinIO, and full tracing infrastructure remain deferred behind stable interfaces.

@@ -219,6 +219,76 @@ func TestDocumentObservationAdaptersProduceTypedEvidence(t *testing.T) {
 	}
 }
 
+func TestEventAndDeadlineAdaptersProduceTypedEvidence(t *testing.T) {
+	now := time.Date(2026, 3, 29, 12, 0, 0, 0, time.UTC)
+	eventAdapter := EventObservationAdapter{
+		Events: []LifeEventRecord{
+			{
+				ID:         "evt-salary-1",
+				UserID:     "user-1",
+				Kind:       LifeEventSalaryChange,
+				Source:     "hris",
+				Provenance: "fixture:salary_change",
+				ObservedAt: now,
+				Confidence: 0.95,
+				SalaryChange: &SalaryChangeEventPayload{
+					PreviousMonthlyIncomeCents: 900000,
+					NewMonthlyIncomeCents:      1100000,
+					EffectiveAt:                now.AddDate(0, 0, 7),
+				},
+			},
+		},
+		Now: func() time.Time { return now },
+	}
+	deadlineAdapter := CalendarDeadlineObservationAdapter{
+		Deadlines: []CalendarDeadlineRecord{
+			{
+				ID:               "ddl-tax-1",
+				UserID:           "user-1",
+				Kind:             "withholding_review",
+				RelatedEventID:   "evt-salary-1",
+				RelatedEventKind: LifeEventSalaryChange,
+				Source:           "calendar",
+				Provenance:       "fixture:deadline",
+				ObservedAt:       now,
+				DeadlineAt:       now.AddDate(0, 0, 21),
+				Description:      "review withholding after salary change",
+				Confidence:       0.9,
+			},
+		},
+		Now: func() time.Time { return now },
+	}
+	eventRecords, err := eventAdapter.Observe(t.Context(), ObservationRequest{
+		TaskID:     "task-life-event",
+		SourceKind: "event",
+		Params:     map[string]string{"user_id": "user-1", "event_kind": string(LifeEventSalaryChange)},
+	})
+	if err != nil {
+		t.Fatalf("observe event records: %v", err)
+	}
+	if len(eventRecords) != 1 || eventRecords[0].Type != EvidenceTypeEventSignal {
+		t.Fatalf("expected one event_signal evidence record, got %+v", eventRecords)
+	}
+	if err := eventRecords[0].Validate(); err != nil {
+		t.Fatalf("event evidence should validate: %v", err)
+	}
+
+	deadlineRecords, err := deadlineAdapter.Observe(t.Context(), ObservationRequest{
+		TaskID:     "task-life-event",
+		SourceKind: "calendar_deadline",
+		Params:     map[string]string{"user_id": "user-1", "event_id": "evt-salary-1"},
+	})
+	if err != nil {
+		t.Fatalf("observe deadline records: %v", err)
+	}
+	if len(deadlineRecords) != 1 || deadlineRecords[0].Type != EvidenceTypeCalendarDeadline {
+		t.Fatalf("expected one calendar deadline evidence record, got %+v", deadlineRecords)
+	}
+	if err := deadlineRecords[0].Validate(); err != nil {
+		t.Fatalf("deadline evidence should validate: %v", err)
+	}
+}
+
 func mustReadFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "fixtures", name))

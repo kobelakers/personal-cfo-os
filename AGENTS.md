@@ -21,3 +21,6 @@
 - Planning boundary update: `PlannerAgent` now returns a block-level `ExecutionPlan`, and `plan.Blocks` is the only execution truth source for downstream dispatch, reporting, and verification.
 - Context/memory load-bearing update: retrieved memories, execution context, and verification context now materially affect block ordering, block emphasis, verification diagnostics, and replay explainability.
 - Report boundary update: `ReportAgent` is now an aggregator/finalizer and must not regenerate missing cashflow/debt core analysis from raw state/evidence.
+- Phase 4A narrative update: the repo has now entered `system-agent backbone + first real domain-agent execution path + first proactive life-event loop`.
+- Workflow C boundary update: `life_event_trigger` is now a real workflow whose primary outputs are state diff, memory updates, generated task graph, and runtime-registered follow-up tasks; `LifeEventAssessmentReport` is only a secondary artifact.
+- Goal/runtime contract update: `TaskSpec` remains the only executable goal contract; generated follow-up tasks are `TaskSpec` plus metadata, and capability-gated intents are explicitly registered as `queued_pending_capability` with `required_capability` and `missing_capability_reason`.

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
+	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
 type WorkflowRuntime interface {
@@ -14,6 +15,7 @@ type WorkflowRuntime interface {
 	Resume(ctx ExecutionContext, checkpointID string, token ResumeToken) (WorkflowExecutionState, error)
 	HandleFailure(ctx ExecutionContext, current WorkflowExecutionState, category FailureCategory, summary string) (WorkflowExecutionState, RecoveryStrategy, error)
 	PauseForApproval(ctx ExecutionContext, current WorkflowExecutionState, pending HumanApprovalPending) (WorkflowExecutionState, error)
+	RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph) (FollowUpRegistrationResult, error)
 }
 
 type LocalRuntimeOptions struct {
@@ -22,6 +24,8 @@ type LocalRuntimeOptions struct {
 	Journal         *CheckpointJournal
 	Timeline        *WorkflowTimeline
 	EventLog        *observability.EventLog
+	TaskGraphs      *InMemoryTaskGraphStore
+	Capabilities    TaskCapabilityResolver
 	Now             func() time.Time
 }
 
@@ -31,6 +35,8 @@ type LocalWorkflowRuntime struct {
 	Journal         *CheckpointJournal
 	Timeline        *WorkflowTimeline
 	EventLog        *observability.EventLog
+	TaskGraphs      *InMemoryTaskGraphStore
+	Capabilities    TaskCapabilityResolver
 	Now             func() time.Time
 }
 
@@ -51,12 +57,18 @@ func NewLocalWorkflowRuntime(workflowID string, options LocalRuntimeOptions) *Lo
 	if journal == nil {
 		journal = &CheckpointJournal{}
 	}
+	taskGraphs := options.TaskGraphs
+	if taskGraphs == nil {
+		taskGraphs = NewInMemoryTaskGraphStore()
+	}
 	return &LocalWorkflowRuntime{
 		Controller:      controller,
 		CheckpointStore: store,
 		Journal:         journal,
 		Timeline:        timeline,
 		EventLog:        options.EventLog,
+		TaskGraphs:      taskGraphs,
+		Capabilities:    options.Capabilities,
 		Now:             options.Now,
 	}
 }
@@ -178,6 +190,45 @@ func (r LocalWorkflowRuntime) PauseForApproval(ctx ExecutionContext, current Wor
 		"next_state":  string(next),
 	})
 	return next, nil
+}
+
+func (r LocalWorkflowRuntime) RegisterFollowUpTasks(ctx ExecutionContext, graph taskspec.TaskGraph) (FollowUpRegistrationResult, error) {
+	result, err := RegisterFollowUpTaskGraph(graph, r.Capabilities, r.now())
+	if err != nil {
+		return FollowUpRegistrationResult{}, err
+	}
+	if r.TaskGraphs == nil {
+		r.TaskGraphs = NewInMemoryTaskGraphStore()
+	}
+	snapshot := TaskGraphSnapshot{
+		Graph:           result.Graph,
+		RegisteredTasks: result.RegisteredTasks,
+		Spawned:         result.Spawned,
+		Deferred:        result.Deferred,
+		RegisteredAt:    r.now(),
+	}
+	if err := r.TaskGraphs.Save(snapshot); err != nil {
+		return FollowUpRegistrationResult{}, err
+	}
+	if r.Timeline != nil {
+		r.Timeline.Append(WorkflowStateActing, "follow_up_tasks_registered", fmt.Sprintf("registered %d follow-up tasks", len(result.RegisteredTasks)), r.now())
+	}
+	r.log(ctx, "follow_up_tasks", fmt.Sprintf("registered %d generated tasks", len(result.RegisteredTasks)), map[string]string{
+		"graph_id":    graph.GraphID,
+		"task_count":  fmt.Sprintf("%d", len(result.RegisteredTasks)),
+		"workflow_id": graph.ParentWorkflowID,
+	})
+	for _, item := range result.RegisteredTasks {
+		r.log(ctx, "follow_up_task_registered", fmt.Sprintf("registered follow-up task %s", item.Task.ID), map[string]string{
+			"graph_id":                  graph.GraphID,
+			"task_id":                   item.Task.ID,
+			"intent":                    string(item.Task.UserIntentType),
+			"status":                    string(item.Status),
+			"required_capability":       item.RequiredCapability,
+			"missing_capability_reason": item.MissingCapabilityReason,
+		})
+	}
+	return result, nil
 }
 
 func (r LocalWorkflowRuntime) now() time.Time {

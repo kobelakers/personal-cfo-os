@@ -110,13 +110,26 @@ func matchesMemorySummary(summary string, blockKind string) bool {
 		return strings.Contains(summary, "subscription") ||
 			strings.Contains(summary, "late-night") ||
 			strings.Contains(summary, "monthly review") ||
-			strings.Contains(summary, "decision")
+			strings.Contains(summary, "decision") ||
+			strings.Contains(summary, "life event")
 	case strings.HasPrefix(blockKind, "debt_") || strings.Contains(blockKind, "debt"):
 		return strings.Contains(summary, "debt pressure") ||
 			strings.Contains(summary, "debt-versus-invest") ||
 			strings.Contains(summary, "debt burden") ||
 			strings.Contains(summary, "decision") ||
-			strings.Contains(summary, "monthly review")
+			strings.Contains(summary, "monthly review") ||
+			strings.Contains(summary, "housing")
+	case strings.HasPrefix(blockKind, "tax_") || strings.Contains(blockKind, "tax"):
+		return strings.Contains(summary, "tax signal") ||
+			strings.Contains(summary, "withholding") ||
+			strings.Contains(summary, "family-related tax") ||
+			strings.Contains(summary, "deadline") ||
+			strings.Contains(summary, "life event")
+	case strings.HasPrefix(blockKind, "portfolio_") || strings.Contains(blockKind, "portfolio"):
+		return strings.Contains(summary, "decision") ||
+			strings.Contains(summary, "liquidity") ||
+			strings.Contains(summary, "life event") ||
+			strings.Contains(summary, "debt pressure")
 	default:
 		return true
 	}

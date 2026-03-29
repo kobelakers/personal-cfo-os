@@ -101,6 +101,37 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 				},
 			},
 		}
+	case taskspec.UserIntentLifeEventTrigger:
+		blocks := lifeEventBlocks(spec, slice)
+		return ExecutionPlan{
+			WorkflowID: workflowID,
+			TaskID:     spec.ID,
+			PlanID:     planID,
+			CreatedAt:  now,
+			Blocks:     blocks,
+			Steps: []PlanStep{
+				{
+					ID:                    "observe-life-event",
+					Name:                  "归一化 life event 证据",
+					Description:           "事件与 deadline 先归一化为 typed evidence，再驱动状态更新和 block plan。",
+					RequiredEvidenceTypes: requiredEvidenceTypes(spec.RequiredEvidence),
+				},
+				{
+					ID:             "analyze-event-impact",
+					Name:           "执行事件影响分析块",
+					Description:    "按照 plan.Blocks 顺序执行现金流、债务、税务和配置影响分析。",
+					RequiredTools:  []string{"query_event_tool", "query_calendar_deadline_tool", "compute_tax_signal_tool"},
+					RequiredSkills: []string{"life_event_trigger"},
+				},
+				{
+					ID:             "spawn-follow-up",
+					Name:           "生成后续财务任务图",
+					Description:    "基于已验证的事件分析结果生成 typed follow-up tasks 并注册到 runtime。",
+					RequiredTools:  []string{"generate_task_artifact_tool"},
+					RequiredSkills: []string{"life_event_trigger"},
+				},
+			},
+		}
 	default:
 		return ExecutionPlan{
 			WorkflowID: workflowID,

@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, and replayable observability.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop.
 
 ## Core Loop
 
@@ -16,6 +16,27 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 10. `GovernanceAgent` evaluates approval and disclosure policy before finalize.
 11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, and recovery.
 12. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, and agent dispatch lifecycle.
+
+## Proactive Life Event Loop
+
+Phase 4A adds the first proactive workflow rather than another passive analysis path.
+
+1. Structured life-event input enters through `life_event_trigger` intake and becomes a standard `TaskSpec`.
+2. `EventObservationAdapter` and `CalendarDeadlineObservationAdapter` normalize event/deadline inputs into typed evidence with provenance, confidence, source, and time range.
+3. Supporting ledger/document evidence is collected, reducers update `FinancialWorldState`, and a state diff is produced.
+4. `MemorySteward` writes event-driven memory and retrieves relevant prior decisions, tax signals, debt pressure, and procedural memories.
+5. `PlannerAgent` returns a block-level life-event plan; `plan.Blocks` remains the only execution truth source.
+6. Workflow dispatches event-specific domain blocks through:
+   - `CashflowAgent`
+   - `DebtAgent`
+   - `TaxAgent`
+   - `PortfolioAgent`
+7. `VerificationAgent` pass 1 validates analysis blocks before task generation.
+8. `TaskGenerationAgent` generates downstream `TaskSpec`-backed follow-up tasks from validated block results, event evidence, state diff, and retrieved memories.
+9. `VerificationAgent` pass 2 validates generated tasks and the final life-event assessment.
+10. `GovernanceAgent` evaluates disclosure and spawned-task policy / approval requirements.
+11. Runtime registers follow-up tasks into a task graph with explicit statuses such as `waiting_approval`, `deferred`, or `queued_pending_capability`.
+12. `ReportAgent` finalizes `LifeEventAssessmentReport` only as a secondary artifact after runtime registration and governance.
 
 ## Real Data Path With System Agents
 
@@ -35,11 +56,11 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
-- This is intentional: system-agent boundaries are real, and only the first two load-bearing domain agents are in the main path.
+- This is intentional: system-agent boundaries are real, the first two load-bearing domain agents are live in A/B workflows, and Tax/Portfolio expansion is currently limited to Workflow C so scope remains controlled.
 
 ## Current Stubs
 
@@ -48,6 +69,7 @@ The repository is now best described as **system-agent backbone + first real dom
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
 - observability is structured dump / replay ready, but not yet backed by full tracing infrastructure
 - system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
-- only `CashflowAgent` and `DebtAgent` are live; portfolio / tax / behavior domain execution is deferred
+- `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
+- generated downstream tasks are formally registered and replayable, but capability-gated intents such as `tax_optimization` and `portfolio_rebalance` remain queued rather than fully executed
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

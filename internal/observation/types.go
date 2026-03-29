@@ -34,6 +34,15 @@ const (
 	DocumentKindBrokerStatement     DocumentKind = "broker_statement"
 )
 
+type LifeEventKind string
+
+const (
+	LifeEventSalaryChange  LifeEventKind = "salary_change"
+	LifeEventNewChild      LifeEventKind = "new_child"
+	LifeEventJobChange     LifeEventKind = "job_change"
+	LifeEventHousingChange LifeEventKind = "housing_change"
+)
+
 type EvidenceSource struct {
 	Kind       string `json:"kind"`
 	Adapter    string `json:"adapter"`
@@ -144,4 +153,59 @@ type DocumentArtifact struct {
 	MediaType  string       `json:"media_type"`
 	Content    []byte       `json:"content"`
 	ObservedAt time.Time    `json:"observed_at"`
+}
+
+type SalaryChangeEventPayload struct {
+	PreviousMonthlyIncomeCents int64     `json:"previous_monthly_income_cents"`
+	NewMonthlyIncomeCents      int64     `json:"new_monthly_income_cents"`
+	EffectiveAt                time.Time `json:"effective_at"`
+}
+
+type NewChildEventPayload struct {
+	EstimatedMonthlyCostCents int64     `json:"estimated_monthly_cost_cents"`
+	ChildcareTaxEligible      bool      `json:"childcare_tax_eligible"`
+	ExpectedCareStartAt       time.Time `json:"expected_care_start_at"`
+}
+
+type JobChangeEventPayload struct {
+	PreviousEmployer             string    `json:"previous_employer"`
+	NewEmployer                  string    `json:"new_employer"`
+	PreviousMonthlyIncomeCents   int64     `json:"previous_monthly_income_cents"`
+	NewMonthlyIncomeCents        int64     `json:"new_monthly_income_cents"`
+	BenefitsEnrollmentDeadlineAt time.Time `json:"benefits_enrollment_deadline_at"`
+}
+
+type HousingChangeEventPayload struct {
+	PreviousMonthlyHousingCostCents int64     `json:"previous_monthly_housing_cost_cents"`
+	NewMonthlyHousingCostCents      int64     `json:"new_monthly_housing_cost_cents"`
+	MortgageBalanceCents            int64     `json:"mortgage_balance_cents,omitempty"`
+	EffectiveAt                     time.Time `json:"effective_at"`
+}
+
+type LifeEventRecord struct {
+	ID            string                     `json:"id"`
+	UserID        string                     `json:"user_id"`
+	Kind          LifeEventKind              `json:"kind"`
+	Source        string                     `json:"source"`
+	Provenance    string                     `json:"provenance"`
+	ObservedAt    time.Time                  `json:"observed_at"`
+	Confidence    float64                    `json:"confidence"`
+	SalaryChange  *SalaryChangeEventPayload  `json:"salary_change,omitempty"`
+	NewChild      *NewChildEventPayload      `json:"new_child,omitempty"`
+	JobChange     *JobChangeEventPayload     `json:"job_change,omitempty"`
+	HousingChange *HousingChangeEventPayload `json:"housing_change,omitempty"`
+}
+
+type CalendarDeadlineRecord struct {
+	ID               string        `json:"id"`
+	UserID           string        `json:"user_id"`
+	Kind             string        `json:"kind"`
+	RelatedEventID   string        `json:"related_event_id,omitempty"`
+	RelatedEventKind LifeEventKind `json:"related_event_kind,omitempty"`
+	Source           string        `json:"source"`
+	Provenance       string        `json:"provenance"`
+	ObservedAt       time.Time     `json:"observed_at"`
+	DeadlineAt       time.Time     `json:"deadline_at"`
+	Description      string        `json:"description"`
+	Confidence       float64       `json:"confidence"`
 }

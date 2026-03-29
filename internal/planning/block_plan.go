@@ -10,18 +10,24 @@ import (
 )
 
 const (
-	BlockRecipientCashflowAgent = "cashflow_agent"
-	BlockRecipientDebtAgent     = "debt_agent"
+	BlockRecipientCashflowAgent  = "cashflow_agent"
+	BlockRecipientDebtAgent      = "debt_agent"
+	BlockRecipientTaxAgent       = "tax_agent"
+	BlockRecipientPortfolioAgent = "portfolio_agent"
 )
 
 type ExecutionBlockID string
 type ExecutionBlockKind string
 
 const (
-	ExecutionBlockKindCashflowReview    ExecutionBlockKind = "cashflow_review_block"
-	ExecutionBlockKindDebtReview        ExecutionBlockKind = "debt_review_block"
-	ExecutionBlockKindCashflowLiquidity ExecutionBlockKind = "cashflow_liquidity_block"
-	ExecutionBlockKindDebtTradeoff      ExecutionBlockKind = "debt_tradeoff_block"
+	ExecutionBlockKindCashflowReview       ExecutionBlockKind = "cashflow_review_block"
+	ExecutionBlockKindDebtReview           ExecutionBlockKind = "debt_review_block"
+	ExecutionBlockKindCashflowLiquidity    ExecutionBlockKind = "cashflow_liquidity_block"
+	ExecutionBlockKindDebtTradeoff         ExecutionBlockKind = "debt_tradeoff_block"
+	ExecutionBlockKindCashflowEventImpact  ExecutionBlockKind = "cashflow_event_impact_block"
+	ExecutionBlockKindDebtHousingImpact    ExecutionBlockKind = "debt_housing_impact_block"
+	ExecutionBlockKindTaxEventImpact       ExecutionBlockKind = "tax_event_impact_block"
+	ExecutionBlockKindPortfolioEventImpact ExecutionBlockKind = "portfolio_event_impact_block"
 )
 
 type ExecutionBlockDependency struct {
@@ -202,6 +208,156 @@ func debtDecisionBlocks(spec taskspec.TaskSpec, slice contextview.ContextSlice) 
 	return []ExecutionBlock{cashflowBlock, debtBlock}
 }
 
+func lifeEventBlocks(spec taskspec.TaskSpec, slice contextview.ContextSlice) []ExecutionBlock {
+	switch {
+	case taskHasScopeNote(spec, "new_child"):
+		return []ExecutionBlock{
+			taxEventBlock(spec),
+			cashflowEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
+		}
+	case taskHasScopeNote(spec, "housing_change"):
+		return []ExecutionBlock{
+			debtHousingImpactBlock(spec),
+			cashflowEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("debt-housing-impact")}}),
+			portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("cashflow-event-impact")}}),
+		}
+	case taskHasScopeNote(spec, "job_change"):
+		if hasTaxPriorityMemory(slice) {
+			return []ExecutionBlock{
+				taxEventBlock(spec),
+				cashflowEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
+				portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("cashflow-event-impact")}}),
+			}
+		}
+		return []ExecutionBlock{
+			cashflowEventBlock(spec, nil),
+			taxEventBlock(spec),
+			portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
+		}
+	default:
+		if hasTaxPriorityMemory(slice) {
+			return []ExecutionBlock{
+				taxEventBlock(spec),
+				cashflowEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
+				portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("cashflow-event-impact")}}),
+			}
+		}
+		return []ExecutionBlock{
+			cashflowEventBlock(spec, nil),
+			taxEventBlock(spec),
+			portfolioEventBlock(spec, []ExecutionBlockDependency{{BlockID: ExecutionBlockID("tax-event-impact")}}),
+		}
+	}
+}
+
+func cashflowEventBlock(spec taskspec.TaskSpec, dependsOn []ExecutionBlockDependency) ExecutionBlock {
+	return ExecutionBlock{
+		ID:                ExecutionBlockID("cashflow-event-impact"),
+		Kind:              ExecutionBlockKindCashflowEventImpact,
+		AssignedRecipient: BlockRecipientCashflowAgent,
+		Goal:              "评估 life event 对现金流、月度结余与流动性缓冲的影响。",
+		RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+			"event_signal",
+			"calendar_deadline",
+			"transaction_batch",
+			"payslip_statement",
+		),
+		RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindEpisodic, memory.MemoryKindProcedural},
+		RequiredStateBlocks:  []string{"cashflow_state", "risk_state", "workflow_state"},
+		ExecutionContextView: contextview.ContextViewExecution,
+		SuccessCriteria: []ExecutionBlockSuccessCriteria{
+			{ID: "cashflow-event-impact", Description: "event-driven cashflow delta and liquidity implications are explicit and grounded"},
+		},
+		VerificationHints: []ExecutionBlockVerificationHint{
+			{Rule: "cashflow_event_grounding", Description: "cashflow event recommendations must cite event and supporting transaction evidence"},
+		},
+		RiskHints: []ExecutionBlockRiskHint{
+			{Level: "medium", Rationale: "event-driven cashflow changes can shift downstream tax and portfolio urgency"},
+		},
+		DependsOn: dependsOn,
+	}
+}
+
+func debtHousingImpactBlock(spec taskspec.TaskSpec) ExecutionBlock {
+	return ExecutionBlock{
+		ID:                ExecutionBlockID("debt-housing-impact"),
+		Kind:              ExecutionBlockKindDebtHousingImpact,
+		AssignedRecipient: BlockRecipientDebtAgent,
+		Goal:              "评估 housing change 对债务压力、按揭余额和最低还款覆盖的影响。",
+		RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+			"event_signal",
+			"debt_obligation_snapshot",
+			"transaction_batch",
+		),
+		RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindProcedural},
+		RequiredStateBlocks:  []string{"liability_state", "cashflow_state", "risk_state"},
+		ExecutionContextView: contextview.ContextViewExecution,
+		SuccessCriteria: []ExecutionBlockSuccessCriteria{
+			{ID: "housing-debt-impact", Description: "housing-event debt pressure and liability impact are explicit and grounded"},
+		},
+		VerificationHints: []ExecutionBlockVerificationHint{
+			{Rule: "housing_debt_grounding", Description: "debt housing recommendations must cite mortgage or debt evidence"},
+		},
+		RiskHints: []ExecutionBlockRiskHint{
+			{Level: "high", Rationale: "housing changes often create immediate debt and liquidity pressure"},
+		},
+	}
+}
+
+func taxEventBlock(spec taskspec.TaskSpec) ExecutionBlock {
+	return ExecutionBlock{
+		ID:                ExecutionBlockID("tax-event-impact"),
+		Kind:              ExecutionBlockKindTaxEventImpact,
+		AssignedRecipient: BlockRecipientTaxAgent,
+		Goal:              "评估 life event 对税务、预扣和福利截止日期的影响。",
+		RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+			"event_signal",
+			"calendar_deadline",
+			"tax_document",
+			"payslip_statement",
+		),
+		RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindProcedural},
+		RequiredStateBlocks:  []string{"tax_state", "cashflow_state", "risk_state"},
+		ExecutionContextView: contextview.ContextViewExecution,
+		SuccessCriteria: []ExecutionBlockSuccessCriteria{
+			{ID: "tax-event-impact", Description: "tax changes, withholding implications, and deadlines are explicit and grounded"},
+		},
+		VerificationHints: []ExecutionBlockVerificationHint{
+			{Rule: "tax_event_grounding", Description: "tax recommendations must cite tax, payroll, or event evidence"},
+		},
+		RiskHints: []ExecutionBlockRiskHint{
+			{Level: "medium", Rationale: "life events frequently create tax follow-up obligations and deadline-sensitive work"},
+		},
+	}
+}
+
+func portfolioEventBlock(spec taskspec.TaskSpec, dependsOn []ExecutionBlockDependency) ExecutionBlock {
+	return ExecutionBlock{
+		ID:                ExecutionBlockID("portfolio-event-impact"),
+		Kind:              ExecutionBlockKindPortfolioEventImpact,
+		AssignedRecipient: BlockRecipientPortfolioAgent,
+		Goal:              "评估 life event 对配置漂移、流动性缓冲和再平衡动作的影响。",
+		RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+			"event_signal",
+			"portfolio_allocation_snapshot",
+			"transaction_batch",
+		),
+		RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindEpisodic},
+		RequiredStateBlocks:  []string{"portfolio_state", "cashflow_state", "risk_state"},
+		ExecutionContextView: contextview.ContextViewExecution,
+		SuccessCriteria: []ExecutionBlockSuccessCriteria{
+			{ID: "portfolio-event-impact", Description: "portfolio drift, liquidity tradeoff, and rebalance implications are explicit and grounded"},
+		},
+		VerificationHints: []ExecutionBlockVerificationHint{
+			{Rule: "portfolio_event_grounding", Description: "portfolio recommendations must cite portfolio and event evidence"},
+		},
+		RiskHints: []ExecutionBlockRiskHint{
+			{Level: "medium", Rationale: "event-driven cashflow changes may alter allocation drift tolerance and liquidity needs"},
+		},
+		DependsOn: dependsOn,
+	}
+}
+
 func requiredByType(items []taskspec.RequiredEvidenceRef, allowedTypes ...string) []ExecutionBlockRequirement {
 	allowed := make(map[string]struct{}, len(allowedTypes))
 	for _, item := range allowedTypes {
@@ -227,6 +383,27 @@ func hasDebtPriorityMemory(slice contextview.ContextSlice) bool {
 		if strings.Contains(summary, "debt pressure") ||
 			strings.Contains(summary, "debt-versus-invest") ||
 			strings.Contains(summary, "debt burden") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasTaxPriorityMemory(slice contextview.ContextSlice) bool {
+	for _, item := range slice.MemoryBlocks {
+		summary := strings.ToLower(item.Summary)
+		if strings.Contains(summary, "tax signal") ||
+			strings.Contains(summary, "family-related tax") ||
+			strings.Contains(summary, "withholding") {
+			return true
+		}
+	}
+	return false
+}
+
+func taskHasScopeNote(spec taskspec.TaskSpec, note string) bool {
+	for _, item := range spec.Scope.Notes {
+		if strings.EqualFold(item, note) {
 			return true
 		}
 	}

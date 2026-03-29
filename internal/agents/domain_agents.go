@@ -176,6 +176,146 @@ func (a DebtAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.AgentE
 	}, nil
 }
 
+type TaxAgentHandler struct {
+	MetricsTool tools.ComputeTaxSignalTool
+}
+
+func (TaxAgentHandler) Name() string      { return RecipientTaxAgent }
+func (TaxAgentHandler) Recipient() string { return RecipientTaxAgent }
+func (TaxAgentHandler) RequestKind() protocol.MessageKind {
+	return protocol.MessageKindTaxAnalysisRequest
+}
+
+func (a TaxAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
+	payload := envelope.Payload.TaxAnalysisRequest
+	if payload == nil {
+		return AgentHandlerResult{}, &AgentExecutionError{
+			Recipient: RecipientTaxAgent,
+			Kind:      envelope.Kind,
+			Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "tax analysis request payload is required"},
+		}
+	}
+	values := a.MetricsTool.Compute(payload.CurrentState)
+	metrics := analysis.TaxDeterministicMetrics{
+		EffectiveTaxRate:               asFloat64(values["effective_tax_rate"]),
+		TaxAdvantagedContributionCents: asInt64(values["tax_advantaged_contribution"]),
+		ChildcareTaxSignal:             asBool(values["childcare_tax_signal"]),
+		UpcomingDeadlineCount:          len(payload.CurrentState.TaxState.UpcomingDeadlines),
+	}
+	evidenceIDs := collectEvidenceIDs(payload.RelevantEvidence)
+	memoryIDs := collectMemoryIDsFromRecords(payload.RelevantMemories)
+	keyFindings := []string{
+		fmt.Sprintf("当前有效税率 %.2f，税优贡献 %d 分。", metrics.EffectiveTaxRate, metrics.TaxAdvantagedContributionCents),
+		fmt.Sprintf("deadline 数量 %d，childcare tax signal=%t。", metrics.UpcomingDeadlineCount, metrics.ChildcareTaxSignal),
+	}
+	riskFlags := make([]analysis.RiskFlag, 0, 2)
+	recommendations := make([]skills.SkillItem, 0, 2)
+	if metrics.ChildcareTaxSignal || hasMemoryKeyword(payload.RelevantMemories, "tax signal") {
+		recommendations = append(recommendations, skills.SkillItem{
+			Title:       "跟进税务优惠与预扣",
+			Detail:      "事件已触发税务后续动作，优先复核预扣和可用税收优惠。",
+			Severity:    "medium",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	if metrics.UpcomingDeadlineCount > 0 {
+		riskFlags = append(riskFlags, analysis.RiskFlag{
+			Code:        "tax_deadline",
+			Severity:    "medium",
+			Detail:      "事件关联 deadline 已进入跟进窗口。",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	summary := fmt.Sprintf("税务块结论：当前有效税率 %.2f，后续税务/预扣事项需要跟进。", metrics.EffectiveTaxRate)
+	result := analysis.TaxBlockResult{
+		BlockID:              string(payload.Block.ID),
+		Summary:              summary,
+		KeyFindings:          keyFindings,
+		DeterministicMetrics: metrics,
+		EvidenceIDs:          evidenceIDs,
+		MemoryIDsUsed:        memoryIDs,
+		RiskFlags:            riskFlags,
+		Recommendations:      recommendations,
+		Confidence:           confidenceFromEvidence(payload.RelevantEvidence),
+	}
+	return AgentHandlerResult{
+		Kind: protocol.MessageKindTaxAnalysisResult,
+		Body: protocol.AgentResultBody{
+			TaxAnalysisResult: &protocol.TaxAnalysisResultPayload{Result: result},
+		},
+	}, nil
+}
+
+type PortfolioAgentHandler struct {
+	MetricsTool tools.ComputePortfolioImpactMetricsTool
+}
+
+func (PortfolioAgentHandler) Name() string      { return RecipientPortfolioAgent }
+func (PortfolioAgentHandler) Recipient() string { return RecipientPortfolioAgent }
+func (PortfolioAgentHandler) RequestKind() protocol.MessageKind {
+	return protocol.MessageKindPortfolioAnalysisRequest
+}
+
+func (a PortfolioAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.AgentEnvelope) (AgentHandlerResult, error) {
+	payload := envelope.Payload.PortfolioAnalysisRequest
+	if payload == nil {
+		return AgentHandlerResult{}, &AgentExecutionError{
+			Recipient: RecipientPortfolioAgent,
+			Kind:      envelope.Kind,
+			Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "portfolio analysis request payload is required"},
+		}
+	}
+	values := a.MetricsTool.Compute(payload.CurrentState)
+	metrics := analysis.PortfolioDeterministicMetrics{
+		TotalInvestableAssetsCents: asInt64(values["total_investable_assets_cents"]),
+		EmergencyFundMonths:        asFloat64(values["emergency_fund_months"]),
+		MaxAllocationDrift:         asFloat64(values["max_allocation_drift"]),
+		CashAllocation:             asFloat64(values["cash_allocation"]),
+	}
+	evidenceIDs := collectEvidenceIDs(payload.RelevantEvidence)
+	memoryIDs := collectMemoryIDsFromRecords(payload.RelevantMemories)
+	keyFindings := []string{
+		fmt.Sprintf("可投资资产 %d 分，应急金月数 %.2f。", metrics.TotalInvestableAssetsCents, metrics.EmergencyFundMonths),
+		fmt.Sprintf("最大配置漂移 %.2f，现金配置 %.2f。", metrics.MaxAllocationDrift, metrics.CashAllocation),
+	}
+	riskFlags := make([]analysis.RiskFlag, 0, 2)
+	recommendations := make([]skills.SkillItem, 0, 2)
+	if metrics.EmergencyFundMonths < 3 {
+		riskFlags = append(riskFlags, analysis.RiskFlag{
+			Code:        "liquidity_buffer",
+			Severity:    "high",
+			Detail:      "应急金月数偏低，不宜直接扩大风险敞口。",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	if metrics.MaxAllocationDrift >= 0.08 {
+		recommendations = append(recommendations, skills.SkillItem{
+			Title:       "复核再平衡窗口",
+			Detail:      "事件后配置漂移已上升，建议进入组合再平衡 follow-up。",
+			Severity:    "medium",
+			EvidenceIDs: evidenceIDs,
+		})
+	}
+	summary := fmt.Sprintf("配置块结论：应急金月数 %.2f，最大配置漂移 %.2f。", metrics.EmergencyFundMonths, metrics.MaxAllocationDrift)
+	result := analysis.PortfolioBlockResult{
+		BlockID:              string(payload.Block.ID),
+		Summary:              summary,
+		KeyFindings:          keyFindings,
+		DeterministicMetrics: metrics,
+		EvidenceIDs:          evidenceIDs,
+		MemoryIDsUsed:        memoryIDs,
+		RiskFlags:            riskFlags,
+		Recommendations:      recommendations,
+		Confidence:           confidenceFromEvidence(payload.RelevantEvidence),
+	}
+	return AgentHandlerResult{
+		Kind: protocol.MessageKindPortfolioAnalysisResult,
+		Body: protocol.AgentResultBody{
+			PortfolioAnalysisResult: &protocol.PortfolioAnalysisResultPayload{Result: result},
+		},
+	}, nil
+}
+
 func toCashflowMetrics(values map[string]any) analysis.CashflowDeterministicMetrics {
 	return analysis.CashflowDeterministicMetrics{
 		MonthlyInflowCents:         asInt64(values["monthly_inflow_cents"]),
@@ -310,5 +450,14 @@ func asString(value any) string {
 		return typed
 	default:
 		return ""
+	}
+}
+
+func asBool(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	default:
+		return false
 	}
 }

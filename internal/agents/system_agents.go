@@ -95,6 +95,8 @@ func (a MemoryStewardHandler) Handle(handlerCtx AgentHandlerContext, envelope pr
 		result, err = service.SyncMonthlyReview(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	case taskspec.UserIntentDebtVsInvest:
 		result, err = service.SyncDebtDecision(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence, payload.ConclusionHint)
+	case taskspec.UserIntentLifeEventTrigger:
+		result, err = service.SyncLifeEvent(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	default:
 		err = fmt.Errorf("unsupported intent %q for memory sync", envelope.Task.UserIntentType)
 	}
@@ -151,6 +153,8 @@ func (a ReportDraftAgentHandler) Handle(_ AgentHandlerContext, envelope protocol
 		CurrentState: payload.CurrentState,
 		Evidence:     payload.Evidence,
 		Memories:     payload.Memories,
+		StateDiff:    payload.StateDiff.ChangedFields,
+		TaskGraph:    payload.TaskGraph,
 	})
 	if err != nil {
 		return AgentHandlerResult{}, &AgentExecutionError{
@@ -234,6 +238,10 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 		result verification.PipelineResult
 		err    error
 	)
+	stage := payload.Stage
+	if stage == "" {
+		stage = verification.VerificationStageFullReport
+	}
 	switch envelope.Task.UserIntentType {
 	case taskspec.UserIntentMonthlyReview:
 		if payload.Report.MonthlyReview == nil {
@@ -275,6 +283,53 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 			payload.FinalVerificationContext,
 			*payload.Report.DebtDecision,
 		)
+	case taskspec.UserIntentLifeEventTrigger:
+		switch stage {
+		case verification.VerificationStageAnalysisBlocks:
+			result, err = a.Pipeline.VerifyLifeEventBlockPass(
+				handlerCtx.Context,
+				envelope.Task,
+				payload.CurrentState,
+				payload.Evidence,
+				payload.Memories,
+				payload.Plan,
+				payload.BlockResults,
+				payload.BlockVerificationContexts,
+			)
+		case verification.VerificationStageGeneratedTasksAndFinal:
+			if payload.TaskGraph == nil {
+				return AgentHandlerResult{}, &AgentExecutionError{
+					Recipient: RecipientVerificationAgent,
+					Kind:      envelope.Kind,
+					Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "life event final verification requires task graph"},
+				}
+			}
+			if payload.Report.LifeEventAssessment == nil {
+				return AgentHandlerResult{}, &AgentExecutionError{
+					Recipient: RecipientVerificationAgent,
+					Kind:      envelope.Kind,
+					Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "life event final verification requires life event assessment report payload"},
+				}
+			}
+			result, err = a.Pipeline.VerifyLifeEventGeneratedTasksAndFinal(
+				handlerCtx.Context,
+				envelope.Task,
+				payload.CurrentState,
+				payload.Evidence,
+				payload.Memories,
+				payload.Plan,
+				payload.BlockResults,
+				*payload.TaskGraph,
+				payload.FinalVerificationContext,
+				*payload.Report.LifeEventAssessment,
+			)
+		default:
+			return AgentHandlerResult{}, &AgentExecutionError{
+				Recipient: RecipientVerificationAgent,
+				Kind:      envelope.Kind,
+				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: fmt.Sprintf("unsupported verification stage %q for life event workflow", stage)},
+			}
+		}
 	default:
 		err = fmt.Errorf("unsupported verification intent %q", envelope.Task.UserIntentType)
 	}

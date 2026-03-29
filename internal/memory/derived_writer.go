@@ -83,6 +83,35 @@ func (s WorkflowMemoryService) SyncDebtDecision(
 	}, nil
 }
 
+func (s WorkflowMemoryService) SyncLifeEvent(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	workflowID string,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+) (WorkflowMemoryResult, error) {
+	now := s.now()
+	records := deriveLifeEventMemories(spec, workflowID, current, evidence, now)
+	generatedIDs, err := s.writeRecords(ctx, records)
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	retrieved, err := s.retrieve(ctx, RetrievalQuery{
+		Text:         spec.Goal,
+		LexicalTerms: spec.Scope.Areas,
+		SemanticHint: "life event impact, follow-up task generation, deadline awareness, tax signal, debt pressure",
+		TopK:         5,
+	})
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	return WorkflowMemoryResult{
+		GeneratedIDs:     generatedIDs,
+		GeneratedRecords: records,
+		Retrieved:        retrieved,
+	}, nil
+}
+
 func (s WorkflowMemoryService) retrieve(ctx context.Context, query RetrievalQuery) ([]MemoryRecord, error) {
 	if s.Retriever == nil {
 		return nil, nil
@@ -281,6 +310,118 @@ func deriveDebtDecisionMemories(
 		})
 	}
 	return records
+}
+
+func deriveLifeEventMemories(
+	spec taskspec.TaskSpec,
+	workflowID string,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	now time.Time,
+) []MemoryRecord {
+	records := make([]MemoryRecord, 0, 4)
+	eventKind := detectLifeEventKind(evidence)
+	if eventKind != "" {
+		records = append(records, MemoryRecord{
+			ID:      workflowID + "-memory-life-event",
+			Kind:    MemoryKindEpisodic,
+			Summary: fmt.Sprintf("Life event %s was ingested and reduced into state for proactive follow-up generation.", eventKind),
+			Facts: []MemoryFact{
+				{Key: "life_event_kind", Value: eventKind},
+			},
+			Source: MemorySource{
+				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal),
+				TaskID:      spec.ID,
+				WorkflowID:  workflowID,
+				Actor:       "memory_steward",
+			},
+			Confidence: MemoryConfidence{Score: 0.86, Rationale: "derived from normalized life event evidence"},
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+	if current.TaxState.ChildcareTaxSignal || len(current.TaxState.UpcomingDeadlines) > 0 || hasEvidencePredicate(evidence, "withholding_review_required") {
+		records = append(records, MemoryRecord{
+			ID:      workflowID + "-memory-life-event-tax-signal",
+			Kind:    MemoryKindSemantic,
+			Summary: "Life event introduced tax signal, withholding review, or deadline-sensitive tax follow-up.",
+			Facts: []MemoryFact{
+				{Key: "childcare_tax_signal", Value: fmt.Sprintf("%t", current.TaxState.ChildcareTaxSignal)},
+				{Key: "deadline_count", Value: fmt.Sprintf("%d", len(current.TaxState.UpcomingDeadlines))},
+			},
+			Source: MemorySource{
+				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal, observation.EvidenceTypeCalendarDeadline, observation.EvidenceTypeTaxDocument, observation.EvidenceTypePayslipStatement),
+				TaskID:      spec.ID,
+				WorkflowID:  workflowID,
+				Actor:       "memory_steward",
+			},
+			Confidence: MemoryConfidence{Score: 0.88, Rationale: "event evidence and tax/deadline state indicate tax-priority follow-up"},
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+	if eventKind == string(observation.LifeEventHousingChange) || current.LiabilityState.DebtBurdenRatio > 0.18 || hasEvidencePredicate(evidence, "mortgage_balance_cents") {
+		records = append(records, MemoryRecord{
+			ID:      workflowID + "-memory-life-event-debt-pressure",
+			Kind:    MemoryKindSemantic,
+			Summary: "Life event may elevate debt pressure and housing-related liability review priority.",
+			Facts: []MemoryFact{
+				{Key: "debt_burden_ratio", Value: fmt.Sprintf("%.4f", current.LiabilityState.DebtBurdenRatio)},
+				{Key: "minimum_payment_pressure", Value: fmt.Sprintf("%.4f", current.LiabilityState.MinimumPaymentPressure)},
+			},
+			Source: MemorySource{
+				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeEventSignal, observation.EvidenceTypeDebtObligationSnapshot),
+				TaskID:      spec.ID,
+				WorkflowID:  workflowID,
+				Actor:       "memory_steward",
+			},
+			Confidence: MemoryConfidence{Score: 0.84, Rationale: "housing/debt evidence suggests elevated debt review priority"},
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+	records = append(records, MemoryRecord{
+		ID:      workflowID + "-memory-life-event-procedure",
+		Kind:    MemoryKindProcedural,
+		Summary: "Life event workflows should update state, verify generated tasks, and register follow-up TaskSpec objects in runtime.",
+		Facts: []MemoryFact{
+			{Key: "workflow_c_checklist", Value: "observe,reduce,memory,plan,domain,verify,task_generate,govern,register"},
+		},
+		Source: MemorySource{
+			TaskID:     spec.ID,
+			WorkflowID: workflowID,
+			Actor:      "memory_steward",
+		},
+		Confidence: MemoryConfidence{Score: 0.95, Rationale: "workflow-generated procedural memory"},
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	})
+	return records
+}
+
+func detectLifeEventKind(records []observation.EvidenceRecord) string {
+	for _, record := range records {
+		if record.Type != observation.EvidenceTypeEventSignal {
+			continue
+		}
+		for _, claim := range record.Claims {
+			if claim.Predicate == "life_event_kind" {
+				return strings.Trim(claim.ValueJSON, "\"")
+			}
+		}
+	}
+	return ""
+}
+
+func hasEvidencePredicate(records []observation.EvidenceRecord, predicate string) bool {
+	for _, record := range records {
+		for _, claim := range record.Claims {
+			if claim.Predicate == predicate {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func evidenceIDsByPredicate(records []observation.EvidenceRecord, predicate string) []observation.EvidenceID {

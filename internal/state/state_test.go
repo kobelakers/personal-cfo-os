@@ -211,6 +211,104 @@ func TestEvidenceDrivenReducersUpdateFinancialWorldState(t *testing.T) {
 	}
 }
 
+func TestLifeEventEvidenceUpdatesStateAndDeadlines(t *testing.T) {
+	now := time.Date(2026, 3, 29, 11, 0, 0, 0, time.UTC)
+	eventAdapter := observation.EventObservationAdapter{
+		Events: []observation.LifeEventRecord{
+			{
+				ID:         "evt-job-1",
+				UserID:     "user-1",
+				Kind:       observation.LifeEventJobChange,
+				Source:     "hris",
+				Provenance: "fixture:job_change",
+				ObservedAt: now,
+				Confidence: 0.93,
+				JobChange: &observation.JobChangeEventPayload{
+					PreviousEmployer:             "Old Co",
+					NewEmployer:                  "New Co",
+					PreviousMonthlyIncomeCents:   900000,
+					NewMonthlyIncomeCents:        1200000,
+					BenefitsEnrollmentDeadlineAt: now.AddDate(0, 0, 14),
+				},
+			},
+		},
+		Now: func() time.Time { return now },
+	}
+	deadlineAdapter := observation.CalendarDeadlineObservationAdapter{
+		Deadlines: []observation.CalendarDeadlineRecord{
+			{
+				ID:               "ddl-1",
+				UserID:           "user-1",
+				Kind:             "benefits_enrollment",
+				RelatedEventID:   "evt-job-1",
+				RelatedEventKind: observation.LifeEventJobChange,
+				Source:           "calendar",
+				Provenance:       "fixture:deadline",
+				ObservedAt:       now,
+				DeadlineAt:       now.AddDate(0, 0, 14),
+				Description:      "benefits enrollment due",
+				Confidence:       0.9,
+			},
+		},
+		Now: func() time.Time { return now },
+	}
+	eventEvidence, err := eventAdapter.Observe(t.Context(), observation.ObservationRequest{
+		TaskID:     "task-life-event-trigger",
+		SourceKind: "event",
+		Params:     map[string]string{"user_id": "user-1"},
+	})
+	if err != nil {
+		t.Fatalf("observe event evidence: %v", err)
+	}
+	deadlineEvidence, err := deadlineAdapter.Observe(t.Context(), observation.ObservationRequest{
+		TaskID:     "task-life-event-trigger",
+		SourceKind: "calendar_deadline",
+		Params:     map[string]string{"user_id": "user-1", "event_id": "evt-job-1"},
+	})
+	if err != nil {
+		t.Fatalf("observe deadline evidence: %v", err)
+	}
+	allEvidence := append(eventEvidence, deadlineEvidence...)
+	engine := reducers.DeterministicReducerEngine{Now: func() time.Time { return now }}
+	current := state.FinancialWorldState{
+		UserID: "user-1",
+		CashflowState: state.CashflowState{
+			MonthlyInflowCents:    900000,
+			MonthlyOutflowCents:   500000,
+			MonthlyNetIncomeCents: 400000,
+			SavingsRate:           0.44,
+		},
+		Version: state.StateVersion{
+			Sequence:   3,
+			SnapshotID: "state-v3",
+			UpdatedAt:  now.Add(-time.Hour),
+		},
+	}
+	patch, err := engine.BuildPatch(current, allEvidence, "task-life-event-trigger", "workflow-life-event-1", "observed")
+	if err != nil {
+		t.Fatalf("build patch: %v", err)
+	}
+	next, diff, err := state.DefaultStateReducer{}.ApplyEvidencePatch(current, patch)
+	if err != nil {
+		t.Fatalf("apply patch: %v", err)
+	}
+	if next.CashflowState.MonthlyInflowCents != 1200000 {
+		t.Fatalf("expected salary change to update inflow, got %d", next.CashflowState.MonthlyInflowCents)
+	}
+	if next.CashflowState.MonthlyNetIncomeCents != 700000 {
+		t.Fatalf("expected salary change to update net income, got %d", next.CashflowState.MonthlyNetIncomeCents)
+	}
+	if len(next.TaxState.UpcomingDeadlines) != 1 || next.TaxState.UpcomingDeadlines[0] != "benefits enrollment due" {
+		t.Fatalf("expected upcoming deadline to be recorded, got %+v", next.TaxState.UpcomingDeadlines)
+	}
+	if len(next.TaxState.FamilyTaxNotes) == 0 || next.TaxState.FamilyTaxNotes[0] != "withholding_review_required" {
+		t.Fatalf("expected withholding review note, got %+v", next.TaxState.FamilyTaxNotes)
+	}
+	if diff.ToVersion != 4 {
+		t.Fatalf("expected state version to advance, got %+v", diff)
+	}
+}
+
 func mustReadStateFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "fixtures", name))

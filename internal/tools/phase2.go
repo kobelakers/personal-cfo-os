@@ -109,6 +109,64 @@ func (t QueryPortfolioTool) QueryEvidence(ctx context.Context, input map[string]
 	return records, nil
 }
 
+type QueryEventTool struct {
+	Adapter observation.ObservationAdapter
+}
+
+func (t QueryEventTool) Name() string { return "query_event_tool" }
+
+func (t QueryEventTool) Query(ctx context.Context, input map[string]string) (string, error) {
+	records, err := t.QueryEvidence(ctx, input)
+	if err != nil {
+		return "", err
+	}
+	return marshalString(records)
+}
+
+func (t QueryEventTool) QueryEvidence(ctx context.Context, input map[string]string) ([]observation.EvidenceRecord, error) {
+	if t.Adapter == nil {
+		return nil, fmt.Errorf("query event tool requires adapter")
+	}
+	records, err := t.Adapter.Observe(ctx, observation.ObservationRequest{
+		TaskID:     input["task_id"],
+		SourceKind: "event",
+		Params:     input,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return filterEvidence(records, observation.EvidenceTypeEventSignal), nil
+}
+
+type QueryCalendarDeadlineTool struct {
+	Adapter observation.ObservationAdapter
+}
+
+func (t QueryCalendarDeadlineTool) Name() string { return "query_calendar_deadline_tool" }
+
+func (t QueryCalendarDeadlineTool) Query(ctx context.Context, input map[string]string) (string, error) {
+	records, err := t.QueryEvidence(ctx, input)
+	if err != nil {
+		return "", err
+	}
+	return marshalString(records)
+}
+
+func (t QueryCalendarDeadlineTool) QueryEvidence(ctx context.Context, input map[string]string) ([]observation.EvidenceRecord, error) {
+	if t.Adapter == nil {
+		return nil, fmt.Errorf("query calendar deadline tool requires adapter")
+	}
+	records, err := t.Adapter.Observe(ctx, observation.ObservationRequest{
+		TaskID:     input["task_id"],
+		SourceKind: "calendar_deadline",
+		Params:     input,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return filterEvidence(records, observation.EvidenceTypeCalendarDeadline), nil
+}
+
 type ParseDocumentTool struct {
 	Structured observation.ObservationAdapter
 	Agentic    observation.ObservationAdapter
@@ -203,6 +261,38 @@ func (t ComputeTaxSignalTool) Compute(current state.FinancialWorldState) map[str
 		"childcare_tax_signal":        current.TaxState.ChildcareTaxSignal,
 		"tax_advantaged_contribution": current.TaxState.TaxAdvantagedContributionCents,
 		"family_tax_notes":            current.TaxState.FamilyTaxNotes,
+	}
+}
+
+type ComputePortfolioImpactMetricsTool struct{}
+
+func (t ComputePortfolioImpactMetricsTool) Name() string {
+	return "compute_portfolio_impact_metrics_tool"
+}
+
+func (t ComputePortfolioImpactMetricsTool) Simulate(_ context.Context, input map[string]string) (string, error) {
+	return marshalString(input)
+}
+
+func (t ComputePortfolioImpactMetricsTool) Compute(current state.FinancialWorldState) map[string]any {
+	cashAllocation := 0.0
+	if current.PortfolioState.AssetAllocations != nil {
+		cashAllocation = current.PortfolioState.AssetAllocations["cash"]
+	}
+	maxDrift := 0.0
+	for _, drift := range current.PortfolioState.AllocationDrift {
+		if drift < 0 {
+			drift = -drift
+		}
+		if drift > maxDrift {
+			maxDrift = drift
+		}
+	}
+	return map[string]any{
+		"total_investable_assets_cents": current.PortfolioState.TotalInvestableAssetsCents,
+		"emergency_fund_months":         current.PortfolioState.EmergencyFundMonths,
+		"max_allocation_drift":          maxDrift,
+		"cash_allocation":               cashAllocation,
 	}
 }
 

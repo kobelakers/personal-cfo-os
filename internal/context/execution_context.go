@@ -112,10 +112,12 @@ func stateBlockNames(blocks []InjectedStateBlock) []string {
 
 func blockSelectionReason(blockKind string) ContextSelectionReason {
 	switch {
-	case blockKind == "cashflow_review_block" || blockKind == "cashflow_liquidity_block":
+	case blockKind == "cashflow_review_block" || blockKind == "cashflow_liquidity_block" || blockKind == "cashflow_event_impact_block":
 		return ContextSelectionRequiredEvidence
-	case blockKind == "debt_review_block" || blockKind == "debt_tradeoff_block":
+	case blockKind == "debt_review_block" || blockKind == "debt_tradeoff_block" || blockKind == "debt_housing_impact_block":
 		return ContextSelectionRiskSignal
+	case blockKind == "tax_event_impact_block" || blockKind == "portfolio_event_impact_block":
+		return ContextSelectionMemoryRelevance
 	default:
 		return ContextSelectionRecentState
 	}

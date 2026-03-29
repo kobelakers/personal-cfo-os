@@ -419,6 +419,70 @@ func (b *LocalSystemStepBus) DispatchAnalysisBlock(
 			Debt:              &result.Result,
 		}
 		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
+	case RecipientTaxAgent:
+		envelope := b.newEnvelope(meta, RecipientTaxAgent, protocol.MessageKindTaxAnalysisRequest, protocol.AgentRequestBody{
+			TaxAnalysisRequest: &protocol.TaxAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+		dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+		if err != nil {
+			return AnalysisBlockStepResult{}, err
+		}
+		result := dispatched.Response.Body.TaxAnalysisResult
+		if result == nil {
+			return AnalysisBlockStepResult{}, &AgentExecutionError{
+				Recipient: RecipientTaxAgent,
+				Kind:      protocol.MessageKindTaxAnalysisRequest,
+				Failure: protocol.AgentFailure{
+					Category: protocol.AgentFailureBadPayload,
+					Message:  "tax analysis result body is missing",
+				},
+			}
+		}
+		envelopeResult := analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Tax:               &result.Result,
+		}
+		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
+	case RecipientPortfolioAgent:
+		envelope := b.newEnvelope(meta, RecipientPortfolioAgent, protocol.MessageKindPortfolioAnalysisRequest, protocol.AgentRequestBody{
+			PortfolioAnalysisRequest: &protocol.PortfolioAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+		dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+		if err != nil {
+			return AnalysisBlockStepResult{}, err
+		}
+		result := dispatched.Response.Body.PortfolioAnalysisResult
+		if result == nil {
+			return AnalysisBlockStepResult{}, &AgentExecutionError{
+				Recipient: RecipientPortfolioAgent,
+				Kind:      protocol.MessageKindPortfolioAnalysisRequest,
+				Failure: protocol.AgentFailure{
+					Category: protocol.AgentFailureBadPayload,
+					Message:  "portfolio analysis result body is missing",
+				},
+			}
+		}
+		envelopeResult := analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Portfolio:         &result.Result,
+		}
+		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
 	default:
 		return AnalysisBlockStepResult{}, &AgentExecutionError{
 			Recipient: block.AssignedRecipient,
@@ -431,7 +495,7 @@ func (b *LocalSystemStepBus) DispatchAnalysisBlock(
 	}
 }
 
-func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope) (ReportDraftStepResult, error) {
+func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope, diff state.StateDiff, taskGraph *taskspec.TaskGraph) (ReportDraftStepResult, error) {
 	envelope := b.newEnvelope(meta, RecipientReportAgent, protocol.MessageKindReportDraftRequest, protocol.AgentRequestBody{
 		ReportDraftRequest: &protocol.ReportDraftRequestPayload{
 			CurrentState: current,
@@ -439,6 +503,8 @@ func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta Syste
 			Evidence:     evidence,
 			Plan:         plan,
 			BlockResults: blockResults,
+			StateDiff:    diff,
+			TaskGraph:    taskGraph,
 		},
 	})
 	dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
@@ -462,9 +528,42 @@ func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta Syste
 	}, nil
 }
 
+func (b *LocalSystemStepBus) DispatchTaskGeneration(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, eventEvidence []observation.EvidenceRecord, memories []memory.MemoryRecord, diff state.StateDiff, plan planning.ExecutionPlan, validatedBlockResults []analysis.BlockResultEnvelope) (TaskGenerationStepResult, error) {
+	envelope := b.newEnvelope(meta, RecipientTaskGenerationAgent, protocol.MessageKindTaskGenerationRequest, protocol.AgentRequestBody{
+		TaskGenerationRequest: &protocol.TaskGenerationRequestPayload{
+			CurrentState:          current,
+			EventEvidence:         eventEvidence,
+			Memories:              memories,
+			StateDiff:             diff,
+			Plan:                  plan,
+			ValidatedBlockResults: validatedBlockResults,
+		},
+	})
+	dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+	if err != nil {
+		return TaskGenerationStepResult{}, err
+	}
+	result := dispatched.Response.Body.TaskGenerationResult
+	if result == nil {
+		return TaskGenerationStepResult{}, &AgentExecutionError{
+			Recipient: RecipientTaskGenerationAgent,
+			Kind:      protocol.MessageKindTaskGenerationRequest,
+			Failure: protocol.AgentFailure{
+				Category: protocol.AgentFailureBadPayload,
+				Message:  "task generation result body is missing",
+			},
+		}
+	}
+	return TaskGenerationStepResult{
+		Metadata:  stepMetadata(dispatched),
+		TaskGraph: result.TaskGraph,
+	}, nil
+}
+
 func (b *LocalSystemStepBus) DispatchVerification(ctx context.Context, meta SystemStepMetadata, input VerificationStepInput) (VerificationStepResult, error) {
 	envelope := b.newEnvelope(meta, RecipientVerificationAgent, protocol.MessageKindVerificationRequest, protocol.AgentRequestBody{
 		VerificationRequest: &protocol.VerificationRequestPayload{
+			Stage:                     input.Stage,
 			CurrentState:              input.CurrentState,
 			Evidence:                  input.Evidence,
 			Memories:                  input.Memories,
@@ -472,6 +571,7 @@ func (b *LocalSystemStepBus) DispatchVerification(ctx context.Context, meta Syst
 			BlockResults:              input.BlockResults,
 			BlockVerificationContexts: input.BlockVerificationContexts,
 			FinalVerificationContext:  input.FinalVerificationContext,
+			TaskGraph:                 input.TaskGraph,
 			Report:                    input.Report,
 		},
 	})
@@ -496,7 +596,18 @@ func (b *LocalSystemStepBus) DispatchVerification(ctx context.Context, meta Syst
 	}, nil
 }
 
-func (b *LocalSystemStepBus) DispatchGovernance(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, report reporting.ReportPayload) (GovernanceStepResult, error) {
+func (b *LocalSystemStepBus) DispatchGovernance(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, report reporting.ReportPayload, taskGraph *taskspec.TaskGraph) (GovernanceStepResult, error) {
+	var generatedTasks []taskspec.GeneratedTaskSpec
+	forceApproval := reportRequiresApproval(report)
+	if taskGraph != nil {
+		generatedTasks = append(generatedTasks, taskGraph.GeneratedTasks...)
+		for _, item := range generatedTasks {
+			if item.Metadata.RequiresApproval {
+				forceApproval = true
+				break
+			}
+		}
+	}
 	envelope := b.newEnvelope(meta, RecipientGovernanceAgent, protocol.MessageKindGovernanceEvaluationRequest, protocol.AgentRequestBody{
 		GovernanceEvaluationRequest: &protocol.GovernanceEvaluationRequestPayload{
 			CurrentState:    current,
@@ -506,7 +617,9 @@ func (b *LocalSystemStepBus) DispatchGovernance(ctx context.Context, meta System
 			ActorRoles:      []string{"analyst"},
 			ContainsPII:     false,
 			Audience:        "user",
-			ForceApproval:   reportRequiresApproval(report),
+			ForceApproval:   forceApproval,
+			TaskGraph:       taskGraph,
+			GeneratedTasks:  generatedTasks,
 		},
 	})
 	dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
@@ -644,6 +757,8 @@ func requestedAction(spec taskspec.TaskSpec) string {
 		return "monthly_review_report"
 	case taskspec.UserIntentDebtVsInvest:
 		return "debt_vs_invest_recommendation"
+	case taskspec.UserIntentLifeEventTrigger:
+		return "life_event_follow_up_registration"
 	default:
 		return "workflow_output"
 	}
@@ -655,6 +770,8 @@ func reportRequiresApproval(report reporting.ReportPayload) bool {
 		return report.MonthlyReview.ApprovalRequired
 	case report.DebtDecision != nil:
 		return report.DebtDecision.ApprovalRequired
+	case report.LifeEventAssessment != nil:
+		return false
 	default:
 		return false
 	}

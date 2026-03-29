@@ -18,13 +18,16 @@ import (
 )
 
 const (
-	RecipientPlannerAgent      = "planner_agent"
-	RecipientMemorySteward     = "memory_steward"
-	RecipientReportAgent       = "report_agent"
-	RecipientVerificationAgent = "verification_agent"
-	RecipientGovernanceAgent   = "governance_agent"
-	RecipientCashflowAgent     = "cashflow_agent"
-	RecipientDebtAgent         = "debt_agent"
+	RecipientPlannerAgent        = "planner_agent"
+	RecipientMemorySteward       = "memory_steward"
+	RecipientReportAgent         = "report_agent"
+	RecipientVerificationAgent   = "verification_agent"
+	RecipientGovernanceAgent     = "governance_agent"
+	RecipientCashflowAgent       = "cashflow_agent"
+	RecipientDebtAgent           = "debt_agent"
+	RecipientTaxAgent            = "tax_agent"
+	RecipientPortfolioAgent      = "portfolio_agent"
+	RecipientTaskGenerationAgent = "task_generation_agent"
 )
 
 type DomainAgent interface {
@@ -117,6 +120,7 @@ type ReportDraftStepResult struct {
 }
 
 type VerificationStepInput struct {
+	Stage                     verification.VerificationStage         `json:"stage,omitempty"`
 	CurrentState              state.FinancialWorldState              `json:"current_state"`
 	Evidence                  []observation.EvidenceRecord           `json:"evidence"`
 	Memories                  []memory.MemoryRecord                  `json:"memories,omitempty"`
@@ -124,12 +128,18 @@ type VerificationStepInput struct {
 	BlockResults              []analysis.BlockResultEnvelope         `json:"block_results,omitempty"`
 	BlockVerificationContexts []contextview.BlockVerificationContext `json:"block_verification_contexts,omitempty"`
 	FinalVerificationContext  contextview.BlockVerificationContext   `json:"final_verification_context"`
+	TaskGraph                 *taskspec.TaskGraph                    `json:"task_graph,omitempty"`
 	Report                    reporting.ReportPayload                `json:"report"`
 }
 
 type VerificationStepResult struct {
 	Metadata StepDispatchMetadata        `json:"metadata"`
 	Result   verification.PipelineResult `json:"result"`
+}
+
+type TaskGenerationStepResult struct {
+	Metadata  StepDispatchMetadata `json:"metadata"`
+	TaskGraph taskspec.TaskGraph   `json:"task_graph"`
 }
 
 type GovernanceStepResult struct {
@@ -155,9 +165,10 @@ type SystemStepBus interface {
 	DispatchPlan(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord) (PlanStepResult, error)
 	DispatchMemorySync(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, evidence []observation.EvidenceRecord, conclusionHint string) (MemorySyncStepResult, error)
 	DispatchAnalysisBlock(ctx context.Context, meta SystemStepMetadata, block planning.ExecutionBlock, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, executionContext contextview.BlockExecutionContext) (AnalysisBlockStepResult, error)
-	DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope) (ReportDraftStepResult, error)
+	DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope, diff state.StateDiff, taskGraph *taskspec.TaskGraph) (ReportDraftStepResult, error)
 	DispatchVerification(ctx context.Context, meta SystemStepMetadata, input VerificationStepInput) (VerificationStepResult, error)
-	DispatchGovernance(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, report reporting.ReportPayload) (GovernanceStepResult, error)
+	DispatchTaskGeneration(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, eventEvidence []observation.EvidenceRecord, memories []memory.MemoryRecord, diff state.StateDiff, plan planning.ExecutionPlan, validatedBlockResults []analysis.BlockResultEnvelope) (TaskGenerationStepResult, error)
+	DispatchGovernance(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, report reporting.ReportPayload, taskGraph *taskspec.TaskGraph) (GovernanceStepResult, error)
 	DispatchReportFinalize(ctx context.Context, meta SystemStepMetadata, draft reporting.ReportPayload, disclosureDecision governance.PolicyDecision) (ReportFinalizeStepResult, error)
 }
 

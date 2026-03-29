@@ -110,6 +110,12 @@ func TestReportVerificationGovernanceAndFinalizeAgents(t *testing.T) {
 			Evidence:     evidence,
 			Plan:         plan,
 			BlockResults: blockResults,
+			StateDiff: state.StateDiff{
+				FromVersion:   1,
+				ToVersion:     current.Version.Sequence,
+				ChangedFields: []string{"cashflow_state", "liability_state"},
+				EvidenceIDs:   []observation.EvidenceID{"ev-tx", "ev-debt"},
+			},
 		},
 	})
 	draftResult, err := dispatcher.Dispatch(t.Context(), draftEnvelope)
@@ -234,6 +240,9 @@ func testDispatcher(t *testing.T, now time.Time) (*LocalAgentDispatcher, *observ
 		DebtDecisionAggregator: reporting.DebtDecisionAggregator{
 			Now: func() time.Time { return now },
 		},
+		LifeEventAggregator: reporting.LifeEventAssessmentAggregator{
+			Now: func() time.Time { return now },
+		},
 		Artifacts: reporting.ArtifactService{
 			Tool:     tools.GenerateTaskArtifactTool{},
 			Producer: reporting.StaticArtifactProducer{Now: func() time.Time { return now }},
@@ -266,6 +275,9 @@ func testDispatcher(t *testing.T, now time.Time) (*LocalAgentDispatcher, *observ
 		MemoryStewardHandler{Service: memoryService},
 		CashflowAgentHandler{MetricsTool: tools.ComputeCashflowMetricsTool{}},
 		DebtAgentHandler{MetricsTool: tools.ComputeDebtDecisionMetricsTool{}},
+		TaxAgentHandler{MetricsTool: tools.ComputeTaxSignalTool{}},
+		PortfolioAgentHandler{MetricsTool: tools.ComputePortfolioImpactMetricsTool{}},
+		TaskGenerationAgentHandler{},
 		ReportDraftAgentHandler{Service: reportService},
 		ReportFinalizeAgentHandler{Service: reportService},
 		VerificationAgentHandler{Pipeline: pipeline},

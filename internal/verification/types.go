@@ -8,6 +8,7 @@ import (
 
 type VerificationStatus string
 type VerificationScope string
+type VerificationStage string
 
 const (
 	VerificationStatusPass        VerificationStatus = "pass"
@@ -17,6 +18,10 @@ const (
 
 	VerificationScopeBlock VerificationScope = "block"
 	VerificationScopeFinal VerificationScope = "final"
+
+	VerificationStageFullReport             VerificationStage = "full_report"
+	VerificationStageAnalysisBlocks         VerificationStage = "analysis_blocks"
+	VerificationStageGeneratedTasksAndFinal VerificationStage = "generated_tasks_and_final"
 )
 
 type EvidenceCoverageItem struct {
