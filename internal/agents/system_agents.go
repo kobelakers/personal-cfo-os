@@ -145,7 +145,13 @@ func (a ReportDraftAgentHandler) Handle(_ AgentHandlerContext, envelope protocol
 			Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "report draft request payload is required"},
 		}
 	}
-	draft, err := a.Service.Draft(envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
+	draft, err := a.Service.Draft(envelope.Task, envelope.Metadata.CorrelationID, reporting.DraftInput{
+		Plan:         payload.Plan,
+		BlockResults: payload.BlockResults,
+		CurrentState: payload.CurrentState,
+		Evidence:     payload.Evidence,
+		Memories:     payload.Memories,
+	})
 	if err != nil {
 		return AgentHandlerResult{}, &AgentExecutionError{
 			Recipient: RecipientReportAgent,
@@ -237,7 +243,18 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "monthly review verification requires monthly review report payload"},
 			}
 		}
-		result, err = a.Pipeline.VerifyMonthlyReview(handlerCtx.Context, envelope.Task, payload.CurrentState, payload.Evidence, *payload.Report.MonthlyReview)
+		result, err = a.Pipeline.VerifyMonthlyReview(
+			handlerCtx.Context,
+			envelope.Task,
+			payload.CurrentState,
+			payload.Evidence,
+			payload.Memories,
+			payload.Plan,
+			payload.BlockResults,
+			payload.BlockVerificationContexts,
+			payload.FinalVerificationContext,
+			*payload.Report.MonthlyReview,
+		)
 	case taskspec.UserIntentDebtVsInvest:
 		if payload.Report.DebtDecision == nil {
 			return AgentHandlerResult{}, &AgentExecutionError{
@@ -246,7 +263,18 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "debt decision verification requires debt decision report payload"},
 			}
 		}
-		result, err = a.Pipeline.VerifyDebtDecision(handlerCtx.Context, envelope.Task, payload.CurrentState, payload.Evidence, *payload.Report.DebtDecision)
+		result, err = a.Pipeline.VerifyDebtDecision(
+			handlerCtx.Context,
+			envelope.Task,
+			payload.CurrentState,
+			payload.Evidence,
+			payload.Memories,
+			payload.Plan,
+			payload.BlockResults,
+			payload.BlockVerificationContexts,
+			payload.FinalVerificationContext,
+			*payload.Report.DebtDecision,
+		)
 	default:
 		err = fmt.Errorf("unsupported verification intent %q", envelope.Task.UserIntentType)
 	}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
@@ -89,47 +90,69 @@ func (d *LocalAgentDispatcher) Dispatch(ctx context.Context, envelope protocol.A
 		return AgentDispatchResult{}, execErr
 	}
 	dispatchID := makeID(envelope.Metadata.MessageID, envelope.Recipient, d.now())
+	traceContext := traceRequestDetails(envelope)
 	d.appendAgentTrace(observability.AgentExecutionRecord{
-		DispatchID:       dispatchID,
-		TraceID:          envelope.Metadata.CorrelationID,
-		Recipient:        envelope.Recipient,
-		RequestKind:      string(envelope.Kind),
-		Lifecycle:        observability.AgentLifecycleDispatched,
-		CorrelationID:    envelope.Metadata.CorrelationID,
-		CausationID:      envelope.Metadata.CausationID,
-		OccurredAt:       d.now(),
-		RequestMessageID: envelope.Metadata.MessageID,
+		DispatchID:          dispatchID,
+		TraceID:             envelope.Metadata.CorrelationID,
+		Recipient:           envelope.Recipient,
+		RequestKind:         string(envelope.Kind),
+		PlanID:              traceContext.PlanID,
+		PlanBlockIDs:        traceContext.PlanBlockIDs,
+		BlockID:             traceContext.BlockID,
+		BlockKind:           traceContext.BlockKind,
+		SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+		SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+		SelectedStateBlocks: traceContext.SelectedStateBlocks,
+		Lifecycle:           observability.AgentLifecycleDispatched,
+		CorrelationID:       envelope.Metadata.CorrelationID,
+		CausationID:         envelope.Metadata.CausationID,
+		OccurredAt:          d.now(),
+		RequestMessageID:    envelope.Metadata.MessageID,
 	})
 
 	agent, err := d.Registry.Resolve(envelope.Recipient, envelope.Kind)
 	if err != nil {
 		execErr := coerceExecutionError(err, envelope.Recipient, envelope.Kind, protocol.AgentFailureUnsupportedMessage, "agent resolution failed")
 		d.appendAgentTrace(observability.AgentExecutionRecord{
-			DispatchID:       dispatchID,
-			TraceID:          envelope.Metadata.CorrelationID,
-			Recipient:        envelope.Recipient,
-			RequestKind:      string(envelope.Kind),
-			Lifecycle:        observability.AgentLifecycleFailed,
-			CorrelationID:    envelope.Metadata.CorrelationID,
-			CausationID:      envelope.Metadata.CausationID,
-			OccurredAt:       d.now(),
-			RequestMessageID: envelope.Metadata.MessageID,
-			ErrorCategory:    string(execErr.Failure.Category),
-			Summary:          execErr.Failure.Message,
+			DispatchID:          dispatchID,
+			TraceID:             envelope.Metadata.CorrelationID,
+			Recipient:           envelope.Recipient,
+			RequestKind:         string(envelope.Kind),
+			PlanID:              traceContext.PlanID,
+			PlanBlockIDs:        traceContext.PlanBlockIDs,
+			BlockID:             traceContext.BlockID,
+			BlockKind:           traceContext.BlockKind,
+			SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+			SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+			SelectedStateBlocks: traceContext.SelectedStateBlocks,
+			Lifecycle:           observability.AgentLifecycleFailed,
+			CorrelationID:       envelope.Metadata.CorrelationID,
+			CausationID:         envelope.Metadata.CausationID,
+			OccurredAt:          d.now(),
+			RequestMessageID:    envelope.Metadata.MessageID,
+			ErrorCategory:       string(execErr.Failure.Category),
+			Summary:             execErr.Failure.Message,
 		})
 		return AgentDispatchResult{}, execErr
 	}
 
 	d.appendAgentTrace(observability.AgentExecutionRecord{
-		DispatchID:       dispatchID,
-		TraceID:          envelope.Metadata.CorrelationID,
-		Recipient:        envelope.Recipient,
-		RequestKind:      string(envelope.Kind),
-		Lifecycle:        observability.AgentLifecycleStarted,
-		CorrelationID:    envelope.Metadata.CorrelationID,
-		CausationID:      envelope.Metadata.CausationID,
-		OccurredAt:       d.now(),
-		RequestMessageID: envelope.Metadata.MessageID,
+		DispatchID:          dispatchID,
+		TraceID:             envelope.Metadata.CorrelationID,
+		Recipient:           envelope.Recipient,
+		RequestKind:         string(envelope.Kind),
+		PlanID:              traceContext.PlanID,
+		PlanBlockIDs:        traceContext.PlanBlockIDs,
+		BlockID:             traceContext.BlockID,
+		BlockKind:           traceContext.BlockKind,
+		SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+		SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+		SelectedStateBlocks: traceContext.SelectedStateBlocks,
+		Lifecycle:           observability.AgentLifecycleStarted,
+		CorrelationID:       envelope.Metadata.CorrelationID,
+		CausationID:         envelope.Metadata.CausationID,
+		OccurredAt:          d.now(),
+		RequestMessageID:    envelope.Metadata.MessageID,
 	})
 
 	result, err := d.Executor.Execute(AgentHandlerContext{
@@ -142,19 +165,26 @@ func (d *LocalAgentDispatcher) Dispatch(ctx context.Context, envelope protocol.A
 		execErr := coerceExecutionError(err, envelope.Recipient, envelope.Kind, protocol.AgentFailureUnrecoverable, "agent handler failed")
 		response := d.failedResponse(envelope, execErr)
 		d.appendAgentTrace(observability.AgentExecutionRecord{
-			DispatchID:       dispatchID,
-			TraceID:          envelope.Metadata.CorrelationID,
-			Recipient:        envelope.Recipient,
-			RequestKind:      string(envelope.Kind),
-			Lifecycle:        observability.AgentLifecycleFailed,
-			CorrelationID:    envelope.Metadata.CorrelationID,
-			CausationID:      envelope.Metadata.CausationID,
-			OccurredAt:       d.now(),
-			RequestMessageID: envelope.Metadata.MessageID,
-			ResultMessageID:  response.Metadata.MessageID,
-			ResultKind:       string(response.Kind),
-			ErrorCategory:    string(execErr.Failure.Category),
-			Summary:          execErr.Failure.Message,
+			DispatchID:          dispatchID,
+			TraceID:             envelope.Metadata.CorrelationID,
+			Recipient:           envelope.Recipient,
+			RequestKind:         string(envelope.Kind),
+			PlanID:              traceContext.PlanID,
+			PlanBlockIDs:        traceContext.PlanBlockIDs,
+			BlockID:             traceContext.BlockID,
+			BlockKind:           traceContext.BlockKind,
+			SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+			SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+			SelectedStateBlocks: traceContext.SelectedStateBlocks,
+			Lifecycle:           observability.AgentLifecycleFailed,
+			CorrelationID:       envelope.Metadata.CorrelationID,
+			CausationID:         envelope.Metadata.CausationID,
+			OccurredAt:          d.now(),
+			RequestMessageID:    envelope.Metadata.MessageID,
+			ResultMessageID:     response.Metadata.MessageID,
+			ResultKind:          string(response.Kind),
+			ErrorCategory:       string(execErr.Failure.Category),
+			Summary:             execErr.Failure.Message,
 		})
 		return AgentDispatchResult{DispatchID: dispatchID, Request: envelope, Response: response}, execErr
 	}
@@ -169,19 +199,26 @@ func (d *LocalAgentDispatcher) Dispatch(ctx context.Context, envelope protocol.A
 		}
 		response := d.failedResponse(envelope, execErr)
 		d.appendAgentTrace(observability.AgentExecutionRecord{
-			DispatchID:       dispatchID,
-			TraceID:          envelope.Metadata.CorrelationID,
-			Recipient:        envelope.Recipient,
-			RequestKind:      string(envelope.Kind),
-			Lifecycle:        observability.AgentLifecycleFailed,
-			CorrelationID:    envelope.Metadata.CorrelationID,
-			CausationID:      envelope.Metadata.CausationID,
-			OccurredAt:       d.now(),
-			RequestMessageID: envelope.Metadata.MessageID,
-			ResultMessageID:  response.Metadata.MessageID,
-			ResultKind:       string(response.Kind),
-			ErrorCategory:    string(execErr.Failure.Category),
-			Summary:          execErr.Failure.Message,
+			DispatchID:          dispatchID,
+			TraceID:             envelope.Metadata.CorrelationID,
+			Recipient:           envelope.Recipient,
+			RequestKind:         string(envelope.Kind),
+			PlanID:              traceContext.PlanID,
+			PlanBlockIDs:        traceContext.PlanBlockIDs,
+			BlockID:             traceContext.BlockID,
+			BlockKind:           traceContext.BlockKind,
+			SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+			SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+			SelectedStateBlocks: traceContext.SelectedStateBlocks,
+			Lifecycle:           observability.AgentLifecycleFailed,
+			CorrelationID:       envelope.Metadata.CorrelationID,
+			CausationID:         envelope.Metadata.CausationID,
+			OccurredAt:          d.now(),
+			RequestMessageID:    envelope.Metadata.MessageID,
+			ResultMessageID:     response.Metadata.MessageID,
+			ResultKind:          string(response.Kind),
+			ErrorCategory:       string(execErr.Failure.Category),
+			Summary:             execErr.Failure.Message,
 		})
 		return AgentDispatchResult{DispatchID: dispatchID, Request: envelope, Response: response}, execErr
 	}
@@ -198,34 +235,50 @@ func (d *LocalAgentDispatcher) Dispatch(ctx context.Context, envelope protocol.A
 			Cause: err,
 		}
 		d.appendAgentTrace(observability.AgentExecutionRecord{
-			DispatchID:       dispatchID,
-			TraceID:          envelope.Metadata.CorrelationID,
-			Recipient:        envelope.Recipient,
-			RequestKind:      string(envelope.Kind),
-			Lifecycle:        observability.AgentLifecycleFailed,
-			CorrelationID:    envelope.Metadata.CorrelationID,
-			CausationID:      envelope.Metadata.CausationID,
-			OccurredAt:       d.now(),
-			RequestMessageID: envelope.Metadata.MessageID,
-			ErrorCategory:    string(execErr.Failure.Category),
-			Summary:          execErr.Failure.Message,
+			DispatchID:          dispatchID,
+			TraceID:             envelope.Metadata.CorrelationID,
+			Recipient:           envelope.Recipient,
+			RequestKind:         string(envelope.Kind),
+			PlanID:              traceContext.PlanID,
+			PlanBlockIDs:        traceContext.PlanBlockIDs,
+			BlockID:             traceContext.BlockID,
+			BlockKind:           traceContext.BlockKind,
+			SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+			SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+			SelectedStateBlocks: traceContext.SelectedStateBlocks,
+			Lifecycle:           observability.AgentLifecycleFailed,
+			CorrelationID:       envelope.Metadata.CorrelationID,
+			CausationID:         envelope.Metadata.CausationID,
+			OccurredAt:          d.now(),
+			RequestMessageID:    envelope.Metadata.MessageID,
+			ErrorCategory:       string(execErr.Failure.Category),
+			Summary:             execErr.Failure.Message,
 		})
 		return AgentDispatchResult{DispatchID: dispatchID, Request: envelope, Response: response}, execErr
 	}
 
+	responseTrace := traceResponseDetails(response)
 	d.appendAgentTrace(observability.AgentExecutionRecord{
-		DispatchID:         dispatchID,
-		TraceID:            envelope.Metadata.CorrelationID,
-		Recipient:          envelope.Recipient,
-		RequestKind:        string(envelope.Kind),
-		ResultKind:         string(response.Kind),
-		Lifecycle:          observability.AgentLifecycleCompleted,
-		CorrelationID:      envelope.Metadata.CorrelationID,
-		CausationID:        envelope.Metadata.CausationID,
-		OccurredAt:         d.now(),
-		RequestMessageID:   envelope.Metadata.MessageID,
-		ResultMessageID:    response.Metadata.MessageID,
-		WorkflowEventTypes: eventTypes(response.EmittedWorkflowEvents),
+		DispatchID:          dispatchID,
+		TraceID:             envelope.Metadata.CorrelationID,
+		Recipient:           envelope.Recipient,
+		RequestKind:         string(envelope.Kind),
+		ResultKind:          string(response.Kind),
+		PlanID:              coalesceString(responseTrace.PlanID, traceContext.PlanID),
+		PlanBlockIDs:        coalesceStrings(responseTrace.PlanBlockIDs, traceContext.PlanBlockIDs),
+		BlockID:             coalesceString(responseTrace.BlockID, traceContext.BlockID),
+		BlockKind:           coalesceString(responseTrace.BlockKind, traceContext.BlockKind),
+		SelectedMemoryIDs:   traceContext.SelectedMemoryIDs,
+		SelectedEvidenceIDs: traceContext.SelectedEvidenceIDs,
+		SelectedStateBlocks: traceContext.SelectedStateBlocks,
+		Lifecycle:           observability.AgentLifecycleCompleted,
+		CorrelationID:       envelope.Metadata.CorrelationID,
+		CausationID:         envelope.Metadata.CausationID,
+		OccurredAt:          d.now(),
+		RequestMessageID:    envelope.Metadata.MessageID,
+		ResultMessageID:     response.Metadata.MessageID,
+		WorkflowEventTypes:  eventTypes(response.EmittedWorkflowEvents),
+		ResultSummary:       responseTrace.ResultSummary,
 	})
 	return AgentDispatchResult{DispatchID: dispatchID, Request: envelope, Response: response}, nil
 }
@@ -290,13 +343,102 @@ func (b *LocalSystemStepBus) DispatchMemorySync(ctx context.Context, meta System
 	}, nil
 }
 
-func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan) (ReportDraftStepResult, error) {
+func (b *LocalSystemStepBus) DispatchAnalysisBlock(
+	ctx context.Context,
+	meta SystemStepMetadata,
+	block planning.ExecutionBlock,
+	current state.FinancialWorldState,
+	memories []memory.MemoryRecord,
+	evidence []observation.EvidenceRecord,
+	executionContext contextview.BlockExecutionContext,
+) (AnalysisBlockStepResult, error) {
+	filteredMemories := filterMemoriesByIDs(memories, executionContext.SelectedMemoryIDs)
+	filteredEvidence := filterEvidenceByIDs(evidence, executionContext.SelectedEvidenceIDs)
+	switch block.AssignedRecipient {
+	case RecipientCashflowAgent:
+		envelope := b.newEnvelope(meta, RecipientCashflowAgent, protocol.MessageKindCashflowAnalysisRequest, protocol.AgentRequestBody{
+			CashflowAnalysisRequest: &protocol.CashflowAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+		dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+		if err != nil {
+			return AnalysisBlockStepResult{}, err
+		}
+		result := dispatched.Response.Body.CashflowAnalysisResult
+		if result == nil {
+			return AnalysisBlockStepResult{}, &AgentExecutionError{
+				Recipient: RecipientCashflowAgent,
+				Kind:      protocol.MessageKindCashflowAnalysisRequest,
+				Failure: protocol.AgentFailure{
+					Category: protocol.AgentFailureBadPayload,
+					Message:  "cashflow analysis result body is missing",
+				},
+			}
+		}
+		envelopeResult := analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Cashflow:          &result.Result,
+		}
+		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
+	case RecipientDebtAgent:
+		envelope := b.newEnvelope(meta, RecipientDebtAgent, protocol.MessageKindDebtAnalysisRequest, protocol.AgentRequestBody{
+			DebtAnalysisRequest: &protocol.DebtAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+		dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+		if err != nil {
+			return AnalysisBlockStepResult{}, err
+		}
+		result := dispatched.Response.Body.DebtAnalysisResult
+		if result == nil {
+			return AnalysisBlockStepResult{}, &AgentExecutionError{
+				Recipient: RecipientDebtAgent,
+				Kind:      protocol.MessageKindDebtAnalysisRequest,
+				Failure: protocol.AgentFailure{
+					Category: protocol.AgentFailureBadPayload,
+					Message:  "debt analysis result body is missing",
+				},
+			}
+		}
+		envelopeResult := analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Debt:              &result.Result,
+		}
+		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
+	default:
+		return AnalysisBlockStepResult{}, &AgentExecutionError{
+			Recipient: block.AssignedRecipient,
+			Kind:      protocol.MessageKind("analysis_request"),
+			Failure: protocol.AgentFailure{
+				Category: protocol.AgentFailureUnsupportedMessage,
+				Message:  fmt.Sprintf("unsupported block recipient %q", block.AssignedRecipient),
+			},
+		}
+	}
+}
+
+func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope) (ReportDraftStepResult, error) {
 	envelope := b.newEnvelope(meta, RecipientReportAgent, protocol.MessageKindReportDraftRequest, protocol.AgentRequestBody{
 		ReportDraftRequest: &protocol.ReportDraftRequestPayload{
 			CurrentState: current,
 			Memories:     memories,
 			Evidence:     evidence,
 			Plan:         plan,
+			BlockResults: blockResults,
 		},
 	})
 	dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
@@ -320,12 +462,17 @@ func (b *LocalSystemStepBus) DispatchReportDraft(ctx context.Context, meta Syste
 	}, nil
 }
 
-func (b *LocalSystemStepBus) DispatchVerification(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, evidence []observation.EvidenceRecord, report reporting.ReportPayload) (VerificationStepResult, error) {
+func (b *LocalSystemStepBus) DispatchVerification(ctx context.Context, meta SystemStepMetadata, input VerificationStepInput) (VerificationStepResult, error) {
 	envelope := b.newEnvelope(meta, RecipientVerificationAgent, protocol.MessageKindVerificationRequest, protocol.AgentRequestBody{
 		VerificationRequest: &protocol.VerificationRequestPayload{
-			CurrentState: current,
-			Evidence:     evidence,
-			Report:       report,
+			CurrentState:              input.CurrentState,
+			Evidence:                  input.Evidence,
+			Memories:                  input.Memories,
+			Plan:                      input.Plan,
+			BlockResults:              input.BlockResults,
+			BlockVerificationContexts: input.BlockVerificationContexts,
+			FinalVerificationContext:  input.FinalVerificationContext,
+			Report:                    input.Report,
 		},
 	})
 	dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
@@ -549,6 +696,40 @@ func (d *LocalAgentDispatcher) now() time.Time {
 	return time.Now().UTC()
 }
 
+func filterMemoriesByIDs(memories []memory.MemoryRecord, ids []string) []memory.MemoryRecord {
+	if len(ids) == 0 {
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		allowed[id] = struct{}{}
+	}
+	filtered := make([]memory.MemoryRecord, 0, len(memories))
+	for _, item := range memories {
+		if _, ok := allowed[item.ID]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func filterEvidenceByIDs(evidence []observation.EvidenceRecord, ids []observation.EvidenceID) []observation.EvidenceRecord {
+	if len(ids) == 0 {
+		return nil
+	}
+	allowed := make(map[observation.EvidenceID]struct{}, len(ids))
+	for _, id := range ids {
+		allowed[id] = struct{}{}
+	}
+	filtered := make([]observation.EvidenceRecord, 0, len(evidence))
+	for _, item := range evidence {
+		if _, ok := allowed[item.ID]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
 func (b *LocalSystemStepBus) now() time.Time {
 	if b.Now != nil {
 		return b.Now().UTC()
@@ -587,4 +768,137 @@ func coerceExecutionError(err error, recipient string, kind protocol.MessageKind
 		},
 		Cause: err,
 	}
+}
+
+type traceContext struct {
+	PlanID              string
+	PlanBlockIDs        []string
+	BlockID             string
+	BlockKind           string
+	SelectedMemoryIDs   []string
+	SelectedEvidenceIDs []string
+	SelectedStateBlocks []string
+	ResultSummary       string
+}
+
+func traceRequestDetails(envelope protocol.AgentEnvelope) traceContext {
+	switch envelope.Kind {
+	case protocol.MessageKindReportDraftRequest:
+		if payload := envelope.Payload.ReportDraftRequest; payload != nil {
+			return traceContext{
+				PlanID:       payload.Plan.PlanID,
+				PlanBlockIDs: planBlockIDs(payload.Plan),
+			}
+		}
+	case protocol.MessageKindVerificationRequest:
+		if payload := envelope.Payload.VerificationRequest; payload != nil {
+			return traceContext{
+				PlanID:       payload.Plan.PlanID,
+				PlanBlockIDs: planBlockIDs(payload.Plan),
+			}
+		}
+	case protocol.MessageKindCashflowAnalysisRequest:
+		if payload := envelope.Payload.CashflowAnalysisRequest; payload != nil {
+			return traceContext{
+				PlanID:              payload.ExecutionContext.PlanID,
+				BlockID:             payload.ExecutionContext.BlockID,
+				BlockKind:           payload.ExecutionContext.BlockKind,
+				SelectedMemoryIDs:   payload.ExecutionContext.SelectedMemoryIDs,
+				SelectedEvidenceIDs: evidenceIDsToStrings(payload.ExecutionContext.SelectedEvidenceIDs),
+				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
+			}
+		}
+	case protocol.MessageKindDebtAnalysisRequest:
+		if payload := envelope.Payload.DebtAnalysisRequest; payload != nil {
+			return traceContext{
+				PlanID:              payload.ExecutionContext.PlanID,
+				BlockID:             payload.ExecutionContext.BlockID,
+				BlockKind:           payload.ExecutionContext.BlockKind,
+				SelectedMemoryIDs:   payload.ExecutionContext.SelectedMemoryIDs,
+				SelectedEvidenceIDs: evidenceIDsToStrings(payload.ExecutionContext.SelectedEvidenceIDs),
+				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
+			}
+		}
+	}
+	return traceContext{}
+}
+
+func traceResponseDetails(response protocol.AgentResponse) traceContext {
+	switch response.Kind {
+	case protocol.MessageKindPlanResult:
+		if payload := response.Body.PlanResult; payload != nil {
+			return traceContext{
+				PlanID:        payload.Plan.PlanID,
+				PlanBlockIDs:  planBlockIDs(payload.Plan),
+				ResultSummary: fmt.Sprintf("generated %d execution blocks", len(payload.Plan.Blocks)),
+			}
+		}
+	case protocol.MessageKindCashflowAnalysisResult:
+		if payload := response.Body.CashflowAnalysisResult; payload != nil {
+			return traceContext{
+				BlockID:       payload.Result.BlockID,
+				ResultSummary: payload.Result.Summary,
+			}
+		}
+	case protocol.MessageKindDebtAnalysisResult:
+		if payload := response.Body.DebtAnalysisResult; payload != nil {
+			return traceContext{
+				BlockID:       payload.Result.BlockID,
+				ResultSummary: payload.Result.Summary,
+			}
+		}
+	case protocol.MessageKindReportDraftResult:
+		if payload := response.Body.ReportDraftResult; payload != nil {
+			return traceContext{ResultSummary: payload.Draft.Summary()}
+		}
+	case protocol.MessageKindVerificationResult:
+		if payload := response.Body.VerificationResult; payload != nil {
+			return traceContext{ResultSummary: fmt.Sprintf("verification produced %d results", len(payload.Result.Results))}
+		}
+	case protocol.MessageKindGovernanceEvaluationResult:
+		if payload := response.Body.GovernanceEvaluationResult; payload != nil {
+			approvalOutcome := ""
+			if payload.Approval.Decision != nil {
+				approvalOutcome = string(payload.Approval.Decision.Outcome)
+			}
+			return traceContext{
+				ResultSummary: fmt.Sprintf("approval=%s disclosure=%s", approvalOutcome, payload.Disclosure.Decision.Outcome),
+			}
+		}
+	case protocol.MessageKindReportFinalizeResult:
+		if payload := response.Body.ReportFinalizeResult; payload != nil {
+			return traceContext{ResultSummary: payload.Report.Summary()}
+		}
+	}
+	return traceContext{}
+}
+
+func planBlockIDs(plan planning.ExecutionPlan) []string {
+	result := make([]string, 0, len(plan.Blocks))
+	for _, block := range plan.Blocks {
+		result = append(result, string(block.ID))
+	}
+	return result
+}
+
+func evidenceIDsToStrings(ids []observation.EvidenceID) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, string(id))
+	}
+	return result
+}
+
+func coalesceString(preferred string, fallback string) string {
+	if preferred != "" {
+		return preferred
+	}
+	return fallback
+}
+
+func coalesceStrings(preferred []string, fallback []string) []string {
+	if len(preferred) > 0 {
+		return preferred
+	}
+	return fallback
 }

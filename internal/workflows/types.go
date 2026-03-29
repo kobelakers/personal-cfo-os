@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
@@ -37,6 +38,7 @@ type MonthlyReviewRunResult struct {
 	TaskSpec          taskspec.TaskSpec                   `json:"task_spec"`
 	Plan              planning.ExecutionPlan              `json:"plan"`
 	Evidence          []observation.EvidenceRecord        `json:"evidence"`
+	BlockResults      []analysis.BlockResultEnvelope      `json:"block_results,omitempty"`
 	UpdatedState      state.FinancialWorldState           `json:"updated_state"`
 	Report            MonthlyReviewReport                 `json:"report"`
 	Artifacts         []WorkflowArtifact                  `json:"artifacts"`
@@ -56,6 +58,7 @@ type DebtDecisionRunResult struct {
 	TaskSpec         taskspec.TaskSpec                   `json:"task_spec"`
 	Plan             planning.ExecutionPlan              `json:"plan"`
 	Evidence         []observation.EvidenceRecord        `json:"evidence"`
+	BlockResults     []analysis.BlockResultEnvelope      `json:"block_results,omitempty"`
 	UpdatedState     state.FinancialWorldState           `json:"updated_state"`
 	Report           DebtDecisionReport                  `json:"report"`
 	Artifacts        []WorkflowArtifact                  `json:"artifacts"`

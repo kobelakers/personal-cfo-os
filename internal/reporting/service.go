@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
+	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
+	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
@@ -79,96 +81,38 @@ func (p StaticArtifactProducer) ProduceArtifact(workflowID string, taskID string
 	}
 }
 
+type DraftInput struct {
+	Plan         planning.ExecutionPlan         `json:"plan"`
+	BlockResults []analysis.BlockResultEnvelope `json:"block_results"`
+	CurrentState state.FinancialWorldState      `json:"current_state"`
+	Evidence     []observation.EvidenceRecord   `json:"evidence"`
+	Memories     []memory.MemoryRecord          `json:"memories,omitempty"`
+}
+
 type Service struct {
-	MonthlyReviewBuilder MonthlyReviewBuilder
-	DebtDecisionBuilder  DebtDecisionBuilder
-	Artifacts            ArtifactService
+	MonthlyReviewAggregator MonthlyReviewAggregator
+	DebtDecisionAggregator  DebtDecisionAggregator
+	Artifacts               ArtifactService
 }
 
-type MonthlyReviewBuilder interface {
-	Name() string
-	Draft(workflowID string, taskID string, current state.FinancialWorldState, evidence []observation.EvidenceRecord) (MonthlyReviewReport, error)
-}
-
-type DebtDecisionBuilder interface {
-	Name() string
-	Draft(workflowID string, taskID string, current state.FinancialWorldState, evidence []observation.EvidenceRecord) (DebtDecisionReport, error)
-}
-
-type MonthlyReviewDraftBuilder struct {
-	Skill           skills.MonthlyReviewSkill
-	CashflowMetrics tools.ComputeCashflowMetricsTool
-	TaxSignals      tools.ComputeTaxSignalTool
-	Now             func() time.Time
-}
-
-func (b MonthlyReviewDraftBuilder) Name() string { return "monthly_review_draft_builder" }
-
-func (b MonthlyReviewDraftBuilder) Draft(workflowID string, taskID string, current state.FinancialWorldState, evidence []observation.EvidenceRecord) (MonthlyReviewReport, error) {
-	generatedAt := time.Now().UTC()
-	if b.Now != nil {
-		generatedAt = b.Now().UTC()
+func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, input DraftInput) (ReportPayload, error) {
+	if err := input.Plan.Validate(); err != nil {
+		return ReportPayload{}, err
 	}
-	output := b.Skill.Generate(current, evidence)
-	return MonthlyReviewReport{
-		TaskID:                  taskID,
-		WorkflowID:              workflowID,
-		Summary:                 output.Summary,
-		CashflowMetrics:         b.CashflowMetrics.Compute(current),
-		TaxSignals:              b.TaxSignals.Compute(current),
-		RiskItems:               output.RiskItems,
-		OptimizationSuggestions: output.Suggestions,
-		TodoItems:               output.TodoItems,
-		ApprovalRequired:        current.RiskState.OverallRisk == "high",
-		Confidence:              output.Confidence,
-		GeneratedAt:             generatedAt,
-	}, nil
-}
-
-type DebtDecisionDraftBuilder struct {
-	Skill          skills.DebtOptimizationSkill
-	ComputeMetrics tools.ComputeDebtDecisionMetricsTool
-	Now            func() time.Time
-}
-
-func (b DebtDecisionDraftBuilder) Name() string { return "debt_decision_draft_builder" }
-
-func (b DebtDecisionDraftBuilder) Draft(workflowID string, taskID string, current state.FinancialWorldState, evidence []observation.EvidenceRecord) (DebtDecisionReport, error) {
-	generatedAt := time.Now().UTC()
-	if b.Now != nil {
-		generatedAt = b.Now().UTC()
+	for _, result := range input.BlockResults {
+		if err := result.Validate(); err != nil {
+			return ReportPayload{}, err
+		}
 	}
-	output := b.Skill.Analyze(current)
-	return DebtDecisionReport{
-		TaskID:           taskID,
-		WorkflowID:       workflowID,
-		Conclusion:       output.Conclusion,
-		Reasons:          output.Reasons,
-		Actions:          output.Actions,
-		Metrics:          b.ComputeMetrics.Compute(current),
-		EvidenceIDs:      collectEvidenceIDs(evidence),
-		ApprovalRequired: current.RiskState.OverallRisk == "high",
-		Confidence:       output.Confidence,
-		GeneratedAt:      generatedAt,
-	}, nil
-}
-
-func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, current state.FinancialWorldState, evidence []observation.EvidenceRecord) (ReportPayload, error) {
 	switch spec.UserIntentType {
 	case taskspec.UserIntentMonthlyReview:
-		if s.MonthlyReviewBuilder == nil {
-			return ReportPayload{}, fmt.Errorf("monthly review report builder is required")
-		}
-		report, err := s.MonthlyReviewBuilder.Draft(workflowID, spec.ID, current, evidence)
+		report, err := s.MonthlyReviewAggregator.Aggregate(spec, workflowID, input)
 		if err != nil {
 			return ReportPayload{}, err
 		}
 		return ReportPayload{MonthlyReview: &report}, nil
 	case taskspec.UserIntentDebtVsInvest:
-		if s.DebtDecisionBuilder == nil {
-			return ReportPayload{}, fmt.Errorf("debt decision report builder is required")
-		}
-		report, err := s.DebtDecisionBuilder.Draft(workflowID, spec.ID, current, evidence)
+		report, err := s.DebtDecisionAggregator.Aggregate(spec, workflowID, input)
 		if err != nil {
 			return ReportPayload{}, err
 		}
@@ -209,12 +153,4 @@ func (s Service) Finalize(workflowID string, taskID string, draft ReportPayload,
 	default:
 		return ReportPayload{}, nil, fmt.Errorf("report draft payload is empty")
 	}
-}
-
-func collectEvidenceIDs(records []observation.EvidenceRecord) []observation.EvidenceID {
-	result := make([]observation.EvidenceID, 0, len(records))
-	for _, record := range records {
-		result = append(result, record.ID)
-	}
-	return result
 }

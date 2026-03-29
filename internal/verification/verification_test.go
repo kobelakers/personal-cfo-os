@@ -5,7 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
+	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
@@ -143,6 +146,111 @@ func TestMonthlyReviewBusinessValidatorFailsWhenTaxSignalMissing(t *testing.T) {
 	}
 	if len(result.FailedRules) == 0 {
 		t.Fatalf("expected failed rules to be populated")
+	}
+}
+
+func TestVerificationPipelineShortCircuitsFinalValidationOnSevereBlockFailure(t *testing.T) {
+	now := time.Date(2026, 3, 29, 10, 0, 0, 0, time.UTC)
+	spec := taskspec.TaskSpec{
+		ID:             "task-block-short-circuit",
+		UserIntentType: taskspec.UserIntentMonthlyReview,
+		RequiredEvidence: []taskspec.RequiredEvidenceRef{
+			{Type: "transaction_batch", Mandatory: true},
+		},
+		SuccessCriteria: []taskspec.SuccessCriteria{
+			{ID: "report", Description: "report should be grounded"},
+		},
+	}
+	plan := planning.ExecutionPlan{
+		WorkflowID: "workflow-1",
+		TaskID:     spec.ID,
+		PlanID:     "plan-1",
+		CreatedAt:  now,
+		Blocks: []planning.ExecutionBlock{
+			{
+				ID:                "cashflow-review",
+				Kind:              planning.ExecutionBlockKindCashflowReview,
+				AssignedRecipient: planning.BlockRecipientCashflowAgent,
+				Goal:              "cashflow",
+				RequiredEvidenceRefs: []planning.ExecutionBlockRequirement{
+					{RequirementID: "tx", Type: "transaction_batch", Mandatory: true},
+				},
+				ExecutionContextView: contextview.ContextViewExecution,
+				SuccessCriteria:      []planning.ExecutionBlockSuccessCriteria{{ID: "ok", Description: "ok"}},
+				VerificationHints:    []planning.ExecutionBlockVerificationHint{{Rule: "grounding", Description: "grounding"}},
+			},
+		},
+	}
+	pipeline := Pipeline{Now: func() time.Time { return now }}
+	result, err := pipeline.VerifyMonthlyReview(
+		t.Context(),
+		spec,
+		state.FinancialWorldState{
+			UserID: "user-1",
+			CashflowState: state.CashflowState{
+				MonthlyInflowCents:    100000,
+				MonthlyOutflowCents:   50000,
+				MonthlyNetIncomeCents: 50000,
+				SavingsRate:           0.5,
+			},
+			Version: state.StateVersion{Sequence: 1, SnapshotID: "snap-1", UpdatedAt: now},
+		},
+		[]observation.EvidenceRecord{
+			{
+				ID:            "ev-1",
+				Type:          observation.EvidenceTypeTransactionBatch,
+				Source:        observation.EvidenceSource{Kind: "ledger", Adapter: "test", Reference: "ev-1", Provenance: "fixture"},
+				TimeRange:     observation.EvidenceTimeRange{ObservedAt: now},
+				Confidence:    observation.EvidenceConfidence{Score: 0.9, Reason: "fixture"},
+				Normalization: observation.EvidenceNormalizationResult{Status: observation.EvidenceNormalizationNormalized},
+			},
+		},
+		nil,
+		plan,
+		[]analysis.BlockResultEnvelope{
+			{
+				BlockID:           "cashflow-review",
+				BlockKind:         "cashflow_review_block",
+				AssignedRecipient: "cashflow_agent",
+				Cashflow: &analysis.CashflowBlockResult{
+					BlockID:              "cashflow-review",
+					Summary:              "",
+					DeterministicMetrics: analysis.CashflowDeterministicMetrics{},
+					EvidenceIDs:          nil,
+					Confidence:           0.1,
+				},
+			},
+		},
+		[]contextview.BlockVerificationContext{
+			{
+				View:              contextview.ContextViewVerification,
+				PlanID:            "plan-1",
+				BlockID:           "cashflow-review",
+				BlockKind:         "cashflow_review_block",
+				VerificationRules: []string{"grounding"},
+				Slice:             contextview.ContextSlice{},
+			},
+		},
+		contextview.BlockVerificationContext{
+			View:                contextview.ContextViewVerification,
+			PlanID:              "plan-1",
+			BlockID:             "final-report",
+			BlockKind:           "final_report",
+			SelectedEvidenceIDs: []observation.EvidenceID{"ev-1"},
+			ResultSummary:       "draft",
+		},
+		map[string]any{"summary": "draft"},
+	)
+	if err != nil {
+		t.Fatalf("verify monthly review: %v", err)
+	}
+	if len(result.FinalResults) == 0 || result.FinalResults[0].Validator != "final_validation_short_circuit" {
+		t.Fatalf("expected short-circuit final result, got %+v", result.FinalResults)
+	}
+	for _, item := range result.FinalResults {
+		if item.Validator == "monthly_review_deterministic_validator" {
+			t.Fatalf("did not expect final deterministic validation after severe block failure")
+		}
 	}
 }
 

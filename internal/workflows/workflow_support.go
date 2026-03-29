@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
+	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/protocol"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
@@ -96,4 +99,35 @@ func debtDecisionReportFromPayload(payload reporting.ReportPayload) (DebtDecisio
 		return DebtDecisionReport{}, fmt.Errorf("debt decision report payload is missing")
 	}
 	return *payload.DebtDecision, nil
+}
+
+func blockContextSpec(plan planning.ExecutionPlan, block planning.ExecutionBlock) contextview.BlockContextSpec {
+	requirements := make([]string, 0, len(block.RequiredEvidenceRefs))
+	for _, item := range block.RequiredEvidenceRefs {
+		requirements = append(requirements, item.Type)
+	}
+	verificationRules := make([]string, 0, len(block.VerificationHints))
+	for _, item := range block.VerificationHints {
+		verificationRules = append(verificationRules, item.Rule)
+	}
+	return contextview.BlockContextSpec{
+		PlanID:               plan.PlanID,
+		BlockID:              string(block.ID),
+		BlockKind:            string(block.Kind),
+		AssignedRecipient:    block.AssignedRecipient,
+		Goal:                 block.Goal,
+		RequiredEvidenceRefs: requirements,
+		RequiredMemoryKinds:  block.RequiredMemoryKinds,
+		RequiredStateBlocks:  block.RequiredStateBlocks,
+		ExecutionView:        block.ExecutionContextView,
+		VerificationRules:    verificationRules,
+	}
+}
+
+func collectBlockResults(items []agents.AnalysisBlockStepResult) []analysis.BlockResultEnvelope {
+	result := make([]analysis.BlockResultEnvelope, 0, len(items))
+	for _, item := range items {
+		result = append(result, item.Result)
+	}
+	return result
 }

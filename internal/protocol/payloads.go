@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
@@ -25,16 +26,22 @@ type MemorySyncRequestPayload struct {
 }
 
 type ReportDraftRequestPayload struct {
-	CurrentState state.FinancialWorldState    `json:"current_state"`
-	Memories     []memory.MemoryRecord        `json:"memories,omitempty"`
-	Evidence     []observation.EvidenceRecord `json:"evidence"`
-	Plan         planning.ExecutionPlan       `json:"plan"`
+	CurrentState state.FinancialWorldState      `json:"current_state"`
+	Memories     []memory.MemoryRecord          `json:"memories,omitempty"`
+	Evidence     []observation.EvidenceRecord   `json:"evidence"`
+	Plan         planning.ExecutionPlan         `json:"plan"`
+	BlockResults []analysis.BlockResultEnvelope `json:"block_results,omitempty"`
 }
 
 type VerificationRequestPayload struct {
-	CurrentState state.FinancialWorldState    `json:"current_state"`
-	Evidence     []observation.EvidenceRecord `json:"evidence"`
-	Report       reporting.ReportPayload      `json:"report"`
+	CurrentState              state.FinancialWorldState              `json:"current_state"`
+	Evidence                  []observation.EvidenceRecord           `json:"evidence"`
+	Memories                  []memory.MemoryRecord                  `json:"memories,omitempty"`
+	Plan                      planning.ExecutionPlan                 `json:"plan"`
+	BlockResults              []analysis.BlockResultEnvelope         `json:"block_results,omitempty"`
+	BlockVerificationContexts []contextview.BlockVerificationContext `json:"block_verification_contexts,omitempty"`
+	FinalVerificationContext  contextview.BlockVerificationContext   `json:"final_verification_context"`
+	Report                    reporting.ReportPayload                `json:"report"`
 }
 
 type GovernanceEvaluationRequestPayload struct {
@@ -51,6 +58,22 @@ type GovernanceEvaluationRequestPayload struct {
 type ReportFinalizeRequestPayload struct {
 	Draft              reporting.ReportPayload   `json:"draft"`
 	DisclosureDecision governance.PolicyDecision `json:"disclosure_decision"`
+}
+
+type CashflowAnalysisRequestPayload struct {
+	CurrentState     state.FinancialWorldState         `json:"current_state"`
+	RelevantMemories []memory.MemoryRecord             `json:"relevant_memories,omitempty"`
+	RelevantEvidence []observation.EvidenceRecord      `json:"relevant_evidence,omitempty"`
+	Block            planning.ExecutionBlock           `json:"block"`
+	ExecutionContext contextview.BlockExecutionContext `json:"execution_context"`
+}
+
+type DebtAnalysisRequestPayload struct {
+	CurrentState     state.FinancialWorldState         `json:"current_state"`
+	RelevantMemories []memory.MemoryRecord             `json:"relevant_memories,omitempty"`
+	RelevantEvidence []observation.EvidenceRecord      `json:"relevant_evidence,omitempty"`
+	Block            planning.ExecutionBlock           `json:"block"`
+	ExecutionContext contextview.BlockExecutionContext `json:"execution_context"`
 }
 
 type PlanResultPayload struct {
@@ -81,6 +104,14 @@ type ReportFinalizeResultPayload struct {
 	Artifacts []reporting.WorkflowArtifact `json:"artifacts,omitempty"`
 }
 
+type CashflowAnalysisResultPayload struct {
+	Result analysis.CashflowBlockResult `json:"result"`
+}
+
+type DebtAnalysisResultPayload struct {
+	Result analysis.DebtBlockResult `json:"result"`
+}
+
 type AgentRequestBody struct {
 	PlanRequest                 *PlanRequestPayload                 `json:"plan_request,omitempty"`
 	MemorySyncRequest           *MemorySyncRequestPayload           `json:"memory_sync_request,omitempty"`
@@ -88,6 +119,8 @@ type AgentRequestBody struct {
 	VerificationRequest         *VerificationRequestPayload         `json:"verification_request,omitempty"`
 	GovernanceEvaluationRequest *GovernanceEvaluationRequestPayload `json:"governance_evaluation_request,omitempty"`
 	ReportFinalizeRequest       *ReportFinalizeRequestPayload       `json:"report_finalize_request,omitempty"`
+	CashflowAnalysisRequest     *CashflowAnalysisRequestPayload     `json:"cashflow_analysis_request,omitempty"`
+	DebtAnalysisRequest         *DebtAnalysisRequestPayload         `json:"debt_analysis_request,omitempty"`
 }
 
 type AgentResultBody struct {
@@ -97,4 +130,6 @@ type AgentResultBody struct {
 	VerificationResult         *VerificationResultPayload         `json:"verification_result,omitempty"`
 	GovernanceEvaluationResult *GovernanceEvaluationResultPayload `json:"governance_evaluation_result,omitempty"`
 	ReportFinalizeResult       *ReportFinalizeResultPayload       `json:"report_finalize_result,omitempty"`
+	CashflowAnalysisResult     *CashflowAnalysisResultPayload     `json:"cashflow_analysis_result,omitempty"`
+	DebtAnalysisResult         *DebtAnalysisResultPayload         `json:"debt_analysis_result,omitempty"`
 }

@@ -29,6 +29,9 @@ func TestMonthlyReviewWorkflowHappyPath(t *testing.T) {
 	if result.Report.Summary == "" {
 		t.Fatalf("expected non-empty report summary")
 	}
+	if len(result.BlockResults) != 2 {
+		t.Fatalf("expected two domain block results, got %+v", result.BlockResults)
+	}
 	if result.RuntimeState != runtimepkg.WorkflowStateCompleted {
 		t.Fatalf("expected completed runtime state, got %q", result.RuntimeState)
 	}
@@ -37,6 +40,8 @@ func TestMonthlyReviewWorkflowHappyPath(t *testing.T) {
 	}
 	if !agentRecipientSeen(deps.AgentTrace.Records(), "planner_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "memory_steward") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "cashflow_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "debt_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "report_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "verification_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "governance_agent") {

@@ -28,18 +28,26 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 	log.Append(observability.LogEntry{TraceID: "trace-1", CorrelationID: "trace-1", Category: "checkpoint", Message: "before act", OccurredAt: now})
 	agentTrace := &observability.AgentTraceLog{}
 	agentTrace.Append(observability.AgentExecutionRecord{
-		DispatchID:         "dispatch-1",
-		TraceID:            "trace-1",
-		Recipient:          "verification_agent",
-		RequestKind:        "verification_request",
-		ResultKind:         "verification_result",
-		Lifecycle:          observability.AgentLifecycleCompleted,
-		CorrelationID:      "trace-1",
-		CausationID:        "msg-1",
-		RequestMessageID:   "msg-1",
-		ResultMessageID:    "msg-2",
-		WorkflowEventTypes: []string{"verification_failed"},
-		OccurredAt:         now,
+		DispatchID:          "dispatch-1",
+		TraceID:             "trace-1",
+		Recipient:           "cashflow_agent",
+		RequestKind:         "cashflow_analysis_request",
+		ResultKind:          "cashflow_analysis_result",
+		PlanID:              "plan-1",
+		PlanBlockIDs:        []string{"cashflow-review", "debt-review"},
+		BlockID:             "cashflow-review",
+		BlockKind:           "cashflow_review_block",
+		SelectedMemoryIDs:   []string{"memory-1"},
+		SelectedEvidenceIDs: []string{"ev-1"},
+		SelectedStateBlocks: []string{"cashflow_state", "risk_state"},
+		Lifecycle:           observability.AgentLifecycleCompleted,
+		CorrelationID:       "trace-1",
+		CausationID:         "msg-1",
+		RequestMessageID:    "msg-1",
+		ResultMessageID:     "msg-2",
+		WorkflowEventTypes:  []string{"verification_failed"},
+		ResultSummary:       "现金流块结论：本月净结余稳定。",
+		OccurredAt:          now,
 	})
 	memoryRecords := memory.ToObservabilityRecords([]memory.MemoryAccessAudit{
 		{MemoryID: "memory-1", Accessor: "hybrid_retriever", Purpose: "monthly review", Action: "retrieve", AccessedAt: now},
@@ -55,6 +63,9 @@ func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
 	}
 	if dump.WorkflowID != "workflow-1" || len(dump.Timeline) != 1 || len(dump.Checkpoints) != 1 || len(dump.AgentExecutions) != 1 || len(dump.MemoryAccess) != 1 || len(dump.PolicyDecisions) != 1 {
 		t.Fatalf("unexpected dump shape: %+v", dump)
+	}
+	if dump.AgentExecutions[0].PlanID != "plan-1" || dump.AgentExecutions[0].BlockID != "cashflow-review" || len(dump.AgentExecutions[0].SelectedEvidenceIDs) != 1 {
+		t.Fatalf("expected dump to preserve block-level agent execution details, got %+v", dump.AgentExecutions[0])
 	}
 	replay := observability.NewReplayBundle("monthly-review", dump, map[string]string{"phase": "phase2"})
 	if replay.Scenario == "" || payload == "" || len(replay.Trace.AgentExecutions) != 1 {

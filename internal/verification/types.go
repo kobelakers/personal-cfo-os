@@ -7,12 +7,16 @@ import (
 )
 
 type VerificationStatus string
+type VerificationScope string
 
 const (
 	VerificationStatusPass        VerificationStatus = "pass"
 	VerificationStatusFail        VerificationStatus = "fail"
 	VerificationStatusNeedsReplan VerificationStatus = "needs_replan"
 	VerificationStatusBlocked     VerificationStatus = "blocked"
+
+	VerificationScopeBlock VerificationScope = "block"
+	VerificationScopeFinal VerificationScope = "final"
 )
 
 type EvidenceCoverageItem struct {
@@ -30,6 +34,9 @@ type EvidenceCoverageReport struct {
 
 type VerificationResult struct {
 	Status                  VerificationStatus     `json:"status"`
+	Scope                   VerificationScope      `json:"scope,omitempty"`
+	BlockID                 string                 `json:"block_id,omitempty"`
+	BlockKind               string                 `json:"block_kind,omitempty"`
 	Validator               string                 `json:"validator"`
 	Message                 string                 `json:"message"`
 	Details                 map[string]any         `json:"details,omitempty"`

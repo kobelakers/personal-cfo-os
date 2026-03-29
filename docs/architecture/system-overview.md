@@ -1,19 +1,21 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, and verification.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, and replayable observability.
 
 ## Core Loop
 
 1. Natural language first enters deterministic task intake and becomes a `TaskSpec`.
 2. Ledger and document adapters ingest raw inputs and emit typed `EvidenceRecord` values.
 3. Deterministic reducers convert evidence into state patches and update `FinancialWorldState`.
-4. Workflow services keep observation/reducer orchestration thin and hand system steps to a workflow-facing `SystemStepBus`.
-5. `SystemStepBus` constructs typed envelopes and dispatches them to `PlannerAgent`, `MemorySteward`, `ReportAgent`, `VerificationAgent`, and `GovernanceAgent`.
-6. Structured memory writes store episodic / semantic / procedural / policy memories with provenance, confidence, conflict, and audit semantics.
-7. Hybrid retrieval and context assembly feed the planning stage through the `PlannerAgent`.
-8. `ReportAgent` follows `draft -> verification -> governance -> finalize`, so final artifacts are gated behind verification and disclosure/approval decisions.
-9. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, and recovery.
-10. Observability and replay record workflow timeline plus agent dispatch lifecycle.
+4. Workflow services keep observation/reducer orchestration thin and hand execution to a workflow-facing `SystemStepBus`.
+5. `MemorySteward` derives and retrieves memories before planning; retrieved memories now influence downstream block ordering and recommendation emphasis.
+6. `PlannerAgent` assembles planning context and returns a block-level `ExecutionPlan`; `plan.Blocks` becomes the only execution truth source.
+7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent` or `DebtAgent` for deterministic domain analysis.
+8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
+9. `VerificationAgent` runs block-level validation first and may short-circuit final report validation with structured replan diagnostics.
+10. `GovernanceAgent` evaluates approval and disclosure policy before finalize.
+11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, and recovery.
+12. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, and agent dispatch lifecycle.
 
 ## Real Data Path With System Agents
 
@@ -22,8 +24,9 @@ The current chain now looks like:
 - raw ledger transactions / debt rows / holdings / payslip / tax text
 - typed evidence generation and normalization
 - evidence-driven state update
-- planner dispatch through typed `plan_request`
 - memory sync dispatch through typed `memory_sync_request`
+- planner dispatch through typed `plan_request`
+- domain block dispatch through typed `cashflow_analysis_request` / `debt_analysis_request`
 - report draft dispatch through typed `report_draft_request`
 - verification dispatch through typed `verification_request`
 - governance dispatch through typed `governance_evaluation_request`
@@ -32,11 +35,11 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as a **partial system-agent execution architecture**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
-- This is intentional: system-agent boundaries for planning, memory, reporting, verification, and governance are now real, while domain-agent execution remains deferred.
+- This is intentional: system-agent boundaries are real, and only the first two load-bearing domain agents are in the main path.
 
 ## Current Stubs
 
@@ -45,6 +48,6 @@ The repository is now best described as a **partial system-agent execution archi
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
 - observability is structured dump / replay ready, but not yet backed by full tracing infrastructure
 - system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
-- domain agents are still capability placeholders, not main-path executors
+- only `CashflowAgent` and `DebtAgent` are live; portfolio / tax / behavior domain execution is deferred
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

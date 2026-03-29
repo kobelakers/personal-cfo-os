@@ -9,6 +9,9 @@ func (r VerificationResult) Validate() error {
 	if !validVerificationStatus(r.Status) {
 		return fmt.Errorf("invalid verification status %q", r.Status)
 	}
+	if r.Scope != "" && !validVerificationScope(r.Scope) {
+		return fmt.Errorf("invalid verification scope %q", r.Scope)
+	}
 	if r.Validator == "" {
 		return errors.New("verification validator is required")
 	}
@@ -47,6 +50,15 @@ func (r EvidenceCoverageReport) Validate() error {
 func validVerificationStatus(status VerificationStatus) bool {
 	switch status {
 	case VerificationStatusPass, VerificationStatusFail, VerificationStatusNeedsReplan, VerificationStatusBlocked:
+		return true
+	default:
+		return false
+	}
+}
+
+func validVerificationScope(scope VerificationScope) bool {
+	switch scope {
+	case VerificationScopeBlock, VerificationScopeFinal:
 		return true
 	default:
 		return false

@@ -16,3 +16,8 @@
 - Report generation boundary update: report production now follows `draft -> verification -> governance -> finalize`; final artifacts and `report_ready` are only emitted after governance allows or redacts the result.
 - Current narrative guardrail: the project is still not a fully realized strong multi-agent finance OS; domain agents remain intentionally outside the main execution backbone until a later phase.
 - Structural remediation priority update: workflow files must stay orchestration-only, and growing logic should sink into context, memory, verification, governance, runtime, and observability subsystems instead of remaining in workflow code.
+- Phase 3B narrative update: the repo should now be described as `system-agent backbone + first real domain-agent execution path`, not only `partial system-agent execution architecture`.
+- First load-bearing domain agents: `CashflowAgent` and `DebtAgent` now execute real analysis blocks in the main path, and their typed block results are aggregated by `ReportAgent`.
+- Planning boundary update: `PlannerAgent` now returns a block-level `ExecutionPlan`, and `plan.Blocks` is the only execution truth source for downstream dispatch, reporting, and verification.
+- Context/memory load-bearing update: retrieved memories, execution context, and verification context now materially affect block ordering, block emphasis, verification diagnostics, and replay explainability.
+- Report boundary update: `ReportAgent` is now an aggregator/finalizer and must not regenerate missing cashflow/debt core analysis from raw state/evidence.

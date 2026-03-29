@@ -17,6 +17,9 @@ func TestDebtVsInvestWorkflowMVPPath(t *testing.T) {
 	if result.Report.Conclusion == "" {
 		t.Fatalf("expected evidence-backed conclusion")
 	}
+	if len(result.BlockResults) != 2 {
+		t.Fatalf("expected two domain block results, got %+v", result.BlockResults)
+	}
 	if len(result.Verification) == 0 {
 		t.Fatalf("expected verification results")
 	}
@@ -31,6 +34,8 @@ func TestDebtVsInvestWorkflowMVPPath(t *testing.T) {
 	}
 	if !agentRecipientSeen(deps.AgentTrace.Records(), "planner_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "memory_steward") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "cashflow_agent") ||
+		!agentRecipientSeen(deps.AgentTrace.Records(), "debt_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "report_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "verification_agent") ||
 		!agentRecipientSeen(deps.AgentTrace.Records(), "governance_agent") {

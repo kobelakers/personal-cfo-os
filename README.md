@@ -14,34 +14,43 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with partial system-agent execution:
+The repository now runs a real governed finance workflow backbone with system-agent execution plus a first real domain-agent path:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
 3. workflow services orchestrate evidence collection and deterministic reducers build `EvidencePatch`
 4. `FinancialWorldState` is updated with versioning, snapshot, and diff semantics
-5. `SystemStepBus` dispatches typed protocol envelopes to `PlannerAgent`, `MemorySteward`, `ReportAgent`, `VerificationAgent`, and `GovernanceAgent`
-6. `ReportAgent` is split into draft and finalize stages so final artifacts are produced only after verification and governance
-7. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
-8. observability and replay outputs now include agent dispatch lifecycle, checkpoint timeline, memory access, and policy decisions
+5. `SystemStepBus` dispatches typed protocol envelopes to `MemorySteward`, `PlannerAgent`, `CashflowAgent`, `DebtAgent`, `ReportAgent`, `VerificationAgent`, and `GovernanceAgent`
+6. `PlannerAgent` returns a block-level execution plan, and `plan.Blocks` becomes the only execution truth source for downstream dispatch
+7. `CashflowAgent` and `DebtAgent` execute real deterministic analysis blocks using block-specific execution context and retrieved memories
+8. `ReportAgent` aggregates domain block results into a draft and only finalizes artifacts after verification and governance
+9. `VerificationAgent` now runs block-level validation before final report validation and can short-circuit into structured replan diagnostics
+10. runtime consumes structured verification diagnostics and typed agent failure categories to decide `completed / replanning / waiting_approval / failed`
+11. observability and replay outputs now include block plan, domain block execution order, selected memory/evidence/state slices, checkpoint timeline, and policy decisions
 
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **partial system-agent execution architecture on top of a governed workflow backbone**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
+- `CashflowAgent` and `DebtAgent` are now the first load-bearing domain agents in the main execution path.
+- `ReportAgent` is no longer the primary cashflow/debt analyst; it is an aggregator and finalize boundary.
 - This is still not a fully realized strong multi-agent finance operating system.
-- Domain agents remain future-facing. Their execution boundary is intentionally deferred so the current implementation does not collapse into a fake “many agents chatting” story.
+- Portfolio / tax / behavior domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
-## Phase 3A Highlights
+## Phase 3A / 3B Highlights
 
 - `internal/protocol` is now execution-first: typed request/result message kinds, oneof-style request/result bodies, and response envelopes participate in real dispatch.
 - `internal/agents` now contains a concrete execution plane: registry, dispatcher, executor, system-step bus, typed execution errors, and registered system-agent handlers.
-- `MonthlyReviewWorkflow` and `DebtVsInvestWorkflow` no longer directly call planner, memory, verification, governance, or report generation services.
+- `MonthlyReviewWorkflow` and `DebtVsInvestWorkflow` no longer directly call planner, memory, domain analysis, verification, governance, or report generation services.
 - `ReportAgent` now follows `draft -> verification -> governance -> finalize`; final report artifacts and `report_ready` are not emitted before governance.
+- `PlannerAgent` now returns block-level execution plans, and `plan.Blocks` is the only truth source for block order, recipient, requirements, success criteria, and verification hints.
+- `MemorySteward` is now load-bearing: retrieved memories influence block ordering and recommendation emphasis instead of being a sidecar retrieval step.
+- `CashflowAgent` and `DebtAgent` now consume block-specific execution context and return typed `CashflowBlockResult` / `DebtBlockResult`.
+- `VerificationAgent` now validates domain blocks before final report validation and can short-circuit on severe block failures.
 - runtime now has an explicit bridge from typed agent failure categories to workflow recovery semantics.
-- observability and replay now expose agent dispatch / handler started / handler completed / handler failed lifecycle records.
+- observability and replay now expose planner block plan, domain block execution order, selected memory/evidence/state slices, and agent dispatch lifecycle records.
 
 ## Repository Layout
 
@@ -70,7 +79,7 @@ The `web/` directory is intentionally minimal in Phase 1. Install dependencies w
 - semantic retrieval uses a fake embedding/vector backend, but only through `EmbeddingProvider`, `VectorIndex`, `RetrievalScorer`, and `SemanticSearchBackend`
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
-- domain agents are registration-ready only; they are not yet in the execution backbone
+- only `CashflowAgent` and `DebtAgent` are in the execution backbone; portfolio / tax / behavior domain execution is still deferred
 - no real Postgres / pgvector / MinIO / provider service is required yet
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.

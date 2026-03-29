@@ -15,7 +15,6 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/reducers"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
@@ -195,16 +194,12 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 		Now: func() time.Time { return deps.Now },
 	}
 	reportService := reporting.Service{
-		MonthlyReviewBuilder: reporting.MonthlyReviewDraftBuilder{
-			Skill:           skills.MonthlyReviewSkill{},
-			CashflowMetrics: tools.ComputeCashflowMetricsTool{},
-			TaxSignals:      tools.ComputeTaxSignalTool{},
-			Now:             func() time.Time { return deps.Now },
+		MonthlyReviewAggregator: reporting.MonthlyReviewAggregator{
+			TaxSignals: tools.ComputeTaxSignalTool{},
+			Now:        func() time.Time { return deps.Now },
 		},
-		DebtDecisionBuilder: reporting.DebtDecisionDraftBuilder{
-			Skill:          skills.DebtOptimizationSkill{},
-			ComputeMetrics: tools.ComputeDebtDecisionMetricsTool{},
-			Now:            func() time.Time { return deps.Now },
+		DebtDecisionAggregator: reporting.DebtDecisionAggregator{
+			Now: func() time.Time { return deps.Now },
 		},
 		Artifacts: reporting.ArtifactService{
 			Tool:     tools.GenerateTaskArtifactTool{},
@@ -240,6 +235,8 @@ func buildSystemStepBus(t *testing.T, deps phase2Deps, memoryWritePolicy governa
 			Planner:   &planning.DeterministicPlanner{Now: func() time.Time { return deps.Now }},
 		},
 		agents.MemoryStewardHandler{Service: memoryService},
+		agents.CashflowAgentHandler{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		agents.DebtAgentHandler{MetricsTool: tools.ComputeDebtDecisionMetricsTool{}},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},
 		agents.VerificationAgentHandler{Pipeline: verificationPipeline},

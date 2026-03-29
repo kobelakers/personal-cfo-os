@@ -119,6 +119,14 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindReportFinalizeRequest
 	}
+	if b.CashflowAnalysisRequest != nil {
+		count++
+		matched = matched || kind == MessageKindCashflowAnalysisRequest
+	}
+	if b.DebtAnalysisRequest != nil {
+		count++
+		matched = matched || kind == MessageKindDebtAnalysisRequest
+	}
 	if count != 1 {
 		return fmt.Errorf("agent request body must set exactly one typed field, got %d", count)
 	}
@@ -138,12 +146,40 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		if b.ReportDraftRequest == nil {
 			return errors.New("report draft request payload is required")
 		}
+		if err := b.ReportDraftRequest.Plan.Validate(); err != nil {
+			return err
+		}
+		if len(b.ReportDraftRequest.BlockResults) == 0 {
+			return errors.New("report draft request requires domain block results")
+		}
+		for _, result := range b.ReportDraftRequest.BlockResults {
+			if err := result.Validate(); err != nil {
+				return err
+			}
+		}
 	case MessageKindVerificationRequest:
 		if b.VerificationRequest == nil {
 			return errors.New("verification request payload is required")
 		}
+		if err := b.VerificationRequest.Plan.Validate(); err != nil {
+			return err
+		}
 		if err := b.VerificationRequest.Report.Validate(); err != nil {
 			return err
+		}
+		if len(b.VerificationRequest.BlockResults) == 0 {
+			return errors.New("verification request requires block results")
+		}
+		if len(b.VerificationRequest.BlockVerificationContexts) == 0 {
+			return errors.New("verification request requires block verification contexts")
+		}
+		if len(b.VerificationRequest.FinalVerificationContext.SelectedEvidenceIDs) == 0 {
+			return errors.New("verification request requires final verification context with selected evidence")
+		}
+		for _, result := range b.VerificationRequest.BlockResults {
+			if err := result.Validate(); err != nil {
+				return err
+			}
 		}
 	case MessageKindGovernanceEvaluationRequest:
 		if b.GovernanceEvaluationRequest == nil {
@@ -158,6 +194,32 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		}
 		if err := b.ReportFinalizeRequest.Draft.Validate(); err != nil {
 			return err
+		}
+	case MessageKindCashflowAnalysisRequest:
+		if b.CashflowAnalysisRequest == nil {
+			return errors.New("cashflow analysis request payload is required")
+		}
+		if err := b.CashflowAnalysisRequest.Block.Validate(); err != nil {
+			return err
+		}
+		if b.CashflowAnalysisRequest.Block.AssignedRecipient != "cashflow_agent" {
+			return fmt.Errorf("cashflow analysis request must target cashflow_agent, got %q", b.CashflowAnalysisRequest.Block.AssignedRecipient)
+		}
+		if len(b.CashflowAnalysisRequest.RelevantEvidence) == 0 {
+			return errors.New("cashflow analysis request requires relevant evidence")
+		}
+	case MessageKindDebtAnalysisRequest:
+		if b.DebtAnalysisRequest == nil {
+			return errors.New("debt analysis request payload is required")
+		}
+		if err := b.DebtAnalysisRequest.Block.Validate(); err != nil {
+			return err
+		}
+		if b.DebtAnalysisRequest.Block.AssignedRecipient != "debt_agent" {
+			return fmt.Errorf("debt analysis request must target debt_agent, got %q", b.DebtAnalysisRequest.Block.AssignedRecipient)
+		}
+		if len(b.DebtAnalysisRequest.RelevantEvidence) == 0 {
+			return errors.New("debt analysis request requires relevant evidence")
 		}
 	}
 	return nil
@@ -190,6 +252,14 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindReportFinalizeResult
 	}
+	if b.CashflowAnalysisResult != nil {
+		count++
+		matched = matched || kind == MessageKindCashflowAnalysisResult
+	}
+	if b.DebtAnalysisResult != nil {
+		count++
+		matched = matched || kind == MessageKindDebtAnalysisResult
+	}
 	if count != 1 {
 		return fmt.Errorf("agent result body must set exactly one typed field, got %d", count)
 	}
@@ -210,6 +280,20 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		}
 		if err := b.ReportFinalizeResult.Report.Validate(); err != nil {
 			return err
+		}
+	case MessageKindCashflowAnalysisResult:
+		if b.CashflowAnalysisResult == nil {
+			return errors.New("cashflow analysis result payload is required")
+		}
+		if b.CashflowAnalysisResult.Result.BlockID == "" {
+			return errors.New("cashflow analysis result requires block id")
+		}
+	case MessageKindDebtAnalysisResult:
+		if b.DebtAnalysisResult == nil {
+			return errors.New("debt analysis result payload is required")
+		}
+		if b.DebtAnalysisResult.Result.BlockID == "" {
+			return errors.New("debt analysis result requires block id")
 		}
 	}
 	return nil

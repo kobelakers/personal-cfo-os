@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
@@ -14,7 +15,6 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/protocol"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
@@ -100,12 +100,16 @@ func TestReportVerificationGovernanceAndFinalizeAgents(t *testing.T) {
 	dispatcher, _ := testDispatcher(t, now)
 	current := sampleState(now)
 	evidence := sampleMonthlyEvidence(now)
+	plan := samplePlan(now, task, current, nil, evidence)
+	blockResults, blockVerificationContexts := dispatchDomainBlocks(t, dispatcher, now, task, current, nil, evidence, plan)
 
 	draftEnvelope := agentEnvelope(now, task, protocol.MessageKindReportDraftRequest, "workflow", RecipientReportAgent, protocol.AgentRequestBody{
 		ReportDraftRequest: &protocol.ReportDraftRequestPayload{
 			CurrentState: current,
+			Memories:     nil,
 			Evidence:     evidence,
-			Plan:         planning.ExecutionPlan{WorkflowID: "workflow-1", TaskID: task.ID, CreatedAt: now},
+			Plan:         plan,
+			BlockResults: blockResults,
 		},
 	})
 	draftResult, err := dispatcher.Dispatch(t.Context(), draftEnvelope)
@@ -116,11 +120,20 @@ func TestReportVerificationGovernanceAndFinalizeAgents(t *testing.T) {
 		t.Fatalf("expected monthly review draft payload")
 	}
 
+	finalVerificationContext, err := contextview.VerificationContextAssembler{}.AssembleFinal(plan.PlanID, draftResult.Response.Body.ReportDraftResult.Draft.Summary(), current, nil, evidence)
+	if err != nil {
+		t.Fatalf("assemble final verification context: %v", err)
+	}
 	verificationEnvelope := agentEnvelope(now, task, protocol.MessageKindVerificationRequest, "workflow", RecipientVerificationAgent, protocol.AgentRequestBody{
 		VerificationRequest: &protocol.VerificationRequestPayload{
-			CurrentState: current,
-			Evidence:     evidence,
-			Report:       draftResult.Response.Body.ReportDraftResult.Draft,
+			CurrentState:              current,
+			Evidence:                  evidence,
+			Memories:                  nil,
+			Plan:                      plan,
+			BlockResults:              blockResults,
+			BlockVerificationContexts: blockVerificationContexts,
+			FinalVerificationContext:  finalVerificationContext,
+			Report:                    draftResult.Response.Body.ReportDraftResult.Draft,
 		},
 	})
 	verificationResult, err := dispatcher.Dispatch(t.Context(), verificationEnvelope)
@@ -214,16 +227,12 @@ func testDispatcher(t *testing.T, now time.Time) (*LocalAgentDispatcher, *observ
 		Now: func() time.Time { return now },
 	}
 	reportService := reporting.Service{
-		MonthlyReviewBuilder: reporting.MonthlyReviewDraftBuilder{
-			Skill:           skills.MonthlyReviewSkill{},
-			CashflowMetrics: tools.ComputeCashflowMetricsTool{},
-			TaxSignals:      tools.ComputeTaxSignalTool{},
-			Now:             func() time.Time { return now },
+		MonthlyReviewAggregator: reporting.MonthlyReviewAggregator{
+			TaxSignals: tools.ComputeTaxSignalTool{},
+			Now:        func() time.Time { return now },
 		},
-		DebtDecisionBuilder: reporting.DebtDecisionDraftBuilder{
-			Skill:          skills.DebtOptimizationSkill{},
-			ComputeMetrics: tools.ComputeDebtDecisionMetricsTool{},
-			Now:            func() time.Time { return now },
+		DebtDecisionAggregator: reporting.DebtDecisionAggregator{
+			Now: func() time.Time { return now },
 		},
 		Artifacts: reporting.ArtifactService{
 			Tool:     tools.GenerateTaskArtifactTool{},
@@ -255,6 +264,8 @@ func testDispatcher(t *testing.T, now time.Time) (*LocalAgentDispatcher, *observ
 	agents := []RegisteredSystemAgent{
 		PlannerAgentHandler{Assembler: contextview.DefaultContextAssembler{}, Planner: &planning.DeterministicPlanner{Now: func() time.Time { return now }}},
 		MemoryStewardHandler{Service: memoryService},
+		CashflowAgentHandler{MetricsTool: tools.ComputeCashflowMetricsTool{}},
+		DebtAgentHandler{MetricsTool: tools.ComputeDebtDecisionMetricsTool{}},
 		ReportDraftAgentHandler{Service: reportService},
 		ReportFinalizeAgentHandler{Service: reportService},
 		VerificationAgentHandler{Pipeline: pipeline},
@@ -317,6 +328,134 @@ func sampleState(now time.Time) state.FinancialWorldState {
 			SnapshotID: "snap-2",
 			UpdatedAt:  now,
 		},
+	}
+}
+
+func samplePlan(now time.Time, task taskspec.TaskSpec, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord) planning.ExecutionPlan {
+	planningSlice, err := contextview.DefaultContextAssembler{}.Assemble(task, current, memories, evidence, contextview.ContextViewPlanning)
+	if err != nil {
+		panic(err)
+	}
+	return (&planning.DeterministicPlanner{Now: func() time.Time { return now }}).CreatePlan(task, planningSlice, "workflow-1")
+}
+
+func dispatchDomainBlocks(
+	t *testing.T,
+	dispatcher *LocalAgentDispatcher,
+	now time.Time,
+	task taskspec.TaskSpec,
+	current state.FinancialWorldState,
+	memories []memory.MemoryRecord,
+	evidence []observation.EvidenceRecord,
+	plan planning.ExecutionPlan,
+) ([]analysis.BlockResultEnvelope, []contextview.BlockVerificationContext) {
+	t.Helper()
+	executionAssembler := contextview.ExecutionContextAssembler{}
+	verificationAssembler := contextview.VerificationContextAssembler{}
+	results := make([]analysis.BlockResultEnvelope, 0, len(plan.Blocks))
+	verificationContexts := make([]contextview.BlockVerificationContext, 0, len(plan.Blocks))
+	for _, block := range plan.Blocks {
+		spec := blockContextSpecForTest(plan, block)
+		executionContext, err := executionAssembler.Assemble(spec, current, memories, evidence)
+		if err != nil {
+			t.Fatalf("assemble execution context: %v", err)
+		}
+		dispatched, err := dispatcher.Dispatch(t.Context(), domainEnvelope(now, task, current, block, executionContext, memories, evidence))
+		if err != nil {
+			t.Fatalf("dispatch analysis block %s: %v", block.ID, err)
+		}
+		result := extractBlockResult(t, block, dispatched.Response)
+		results = append(results, result)
+		verificationContext, err := verificationAssembler.AssembleBlock(spec, result, current, memories, evidence)
+		if err != nil {
+			t.Fatalf("assemble verification context: %v", err)
+		}
+		verificationContexts = append(verificationContexts, verificationContext)
+	}
+	return results, verificationContexts
+}
+
+func blockContextSpecForTest(plan planning.ExecutionPlan, block planning.ExecutionBlock) contextview.BlockContextSpec {
+	requirements := make([]string, 0, len(block.RequiredEvidenceRefs))
+	for _, item := range block.RequiredEvidenceRefs {
+		requirements = append(requirements, item.Type)
+	}
+	rules := make([]string, 0, len(block.VerificationHints))
+	for _, item := range block.VerificationHints {
+		rules = append(rules, item.Rule)
+	}
+	return contextview.BlockContextSpec{
+		PlanID:               plan.PlanID,
+		BlockID:              string(block.ID),
+		BlockKind:            string(block.Kind),
+		AssignedRecipient:    block.AssignedRecipient,
+		Goal:                 block.Goal,
+		RequiredEvidenceRefs: requirements,
+		RequiredMemoryKinds:  block.RequiredMemoryKinds,
+		RequiredStateBlocks:  block.RequiredStateBlocks,
+		ExecutionView:        block.ExecutionContextView,
+		VerificationRules:    rules,
+	}
+}
+
+func domainEnvelope(
+	now time.Time,
+	task taskspec.TaskSpec,
+	current state.FinancialWorldState,
+	block planning.ExecutionBlock,
+	executionContext contextview.BlockExecutionContext,
+	memories []memory.MemoryRecord,
+	evidence []observation.EvidenceRecord,
+) protocol.AgentEnvelope {
+	filteredMemories := filterMemoriesByIDs(memories, executionContext.SelectedMemoryIDs)
+	filteredEvidence := filterEvidenceByIDs(evidence, executionContext.SelectedEvidenceIDs)
+	switch block.AssignedRecipient {
+	case RecipientCashflowAgent:
+		return agentEnvelope(now, task, protocol.MessageKindCashflowAnalysisRequest, "workflow", RecipientCashflowAgent, protocol.AgentRequestBody{
+			CashflowAnalysisRequest: &protocol.CashflowAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+	default:
+		return agentEnvelope(now, task, protocol.MessageKindDebtAnalysisRequest, "workflow", RecipientDebtAgent, protocol.AgentRequestBody{
+			DebtAnalysisRequest: &protocol.DebtAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+	}
+}
+
+func extractBlockResult(t *testing.T, block planning.ExecutionBlock, response protocol.AgentResponse) analysis.BlockResultEnvelope {
+	t.Helper()
+	switch block.AssignedRecipient {
+	case RecipientCashflowAgent:
+		if response.Body.CashflowAnalysisResult == nil {
+			t.Fatalf("cashflow analysis result missing")
+		}
+		return analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Cashflow:          &response.Body.CashflowAnalysisResult.Result,
+		}
+	default:
+		if response.Body.DebtAnalysisResult == nil {
+			t.Fatalf("debt analysis result missing")
+		}
+		return analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Debt:              &response.Body.DebtAnalysisResult.Result,
+		}
 	}
 }
 

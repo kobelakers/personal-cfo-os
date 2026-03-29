@@ -15,6 +15,10 @@ const (
 	MessageKindGovernanceEvaluationResult  MessageKind = "governance_evaluation_result"
 	MessageKindReportFinalizeRequest       MessageKind = "report_finalize_request"
 	MessageKindReportFinalizeResult        MessageKind = "report_finalize_result"
+	MessageKindCashflowAnalysisRequest     MessageKind = "cashflow_analysis_request"
+	MessageKindCashflowAnalysisResult      MessageKind = "cashflow_analysis_result"
+	MessageKindDebtAnalysisRequest         MessageKind = "debt_analysis_request"
+	MessageKindDebtAnalysisResult          MessageKind = "debt_analysis_result"
 )
 
 func (k MessageKind) IsRequest() bool {
@@ -24,7 +28,9 @@ func (k MessageKind) IsRequest() bool {
 		MessageKindReportDraftRequest,
 		MessageKindVerificationRequest,
 		MessageKindGovernanceEvaluationRequest,
-		MessageKindReportFinalizeRequest:
+		MessageKindReportFinalizeRequest,
+		MessageKindCashflowAnalysisRequest,
+		MessageKindDebtAnalysisRequest:
 		return true
 	default:
 		return false
@@ -38,7 +44,9 @@ func (k MessageKind) IsResult() bool {
 		MessageKindReportDraftResult,
 		MessageKindVerificationResult,
 		MessageKindGovernanceEvaluationResult,
-		MessageKindReportFinalizeResult:
+		MessageKindReportFinalizeResult,
+		MessageKindCashflowAnalysisResult,
+		MessageKindDebtAnalysisResult:
 		return true
 	default:
 		return false
@@ -59,6 +67,10 @@ func ExpectedResultKind(requestKind MessageKind) MessageKind {
 		return MessageKindGovernanceEvaluationResult
 	case MessageKindReportFinalizeRequest:
 		return MessageKindReportFinalizeResult
+	case MessageKindCashflowAnalysisRequest:
+		return MessageKindCashflowAnalysisResult
+	case MessageKindDebtAnalysisRequest:
+		return MessageKindDebtAnalysisResult
 	default:
 		return ""
 	}

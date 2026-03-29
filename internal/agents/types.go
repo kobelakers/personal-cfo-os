@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
@@ -22,10 +23,12 @@ const (
 	RecipientReportAgent       = "report_agent"
 	RecipientVerificationAgent = "verification_agent"
 	RecipientGovernanceAgent   = "governance_agent"
+	RecipientCashflowAgent     = "cashflow_agent"
+	RecipientDebtAgent         = "debt_agent"
 )
 
 type DomainAgent interface {
-	Name() string
+	RegisteredSystemAgent
 }
 
 type CashflowAgent interface{ DomainAgent }
@@ -113,6 +116,17 @@ type ReportDraftStepResult struct {
 	Draft    reporting.ReportPayload `json:"draft"`
 }
 
+type VerificationStepInput struct {
+	CurrentState              state.FinancialWorldState              `json:"current_state"`
+	Evidence                  []observation.EvidenceRecord           `json:"evidence"`
+	Memories                  []memory.MemoryRecord                  `json:"memories,omitempty"`
+	Plan                      planning.ExecutionPlan                 `json:"plan"`
+	BlockResults              []analysis.BlockResultEnvelope         `json:"block_results,omitempty"`
+	BlockVerificationContexts []contextview.BlockVerificationContext `json:"block_verification_contexts,omitempty"`
+	FinalVerificationContext  contextview.BlockVerificationContext   `json:"final_verification_context"`
+	Report                    reporting.ReportPayload                `json:"report"`
+}
+
 type VerificationStepResult struct {
 	Metadata StepDispatchMetadata        `json:"metadata"`
 	Result   verification.PipelineResult `json:"result"`
@@ -131,11 +145,18 @@ type ReportFinalizeStepResult struct {
 	Artifacts []reporting.WorkflowArtifact `json:"artifacts,omitempty"`
 }
 
+type AnalysisBlockStepResult struct {
+	Metadata StepDispatchMetadata         `json:"metadata"`
+	Block    planning.ExecutionBlock      `json:"block"`
+	Result   analysis.BlockResultEnvelope `json:"result"`
+}
+
 type SystemStepBus interface {
 	DispatchPlan(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord) (PlanStepResult, error)
 	DispatchMemorySync(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, evidence []observation.EvidenceRecord, conclusionHint string) (MemorySyncStepResult, error)
-	DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan) (ReportDraftStepResult, error)
-	DispatchVerification(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, evidence []observation.EvidenceRecord, report reporting.ReportPayload) (VerificationStepResult, error)
+	DispatchAnalysisBlock(ctx context.Context, meta SystemStepMetadata, block planning.ExecutionBlock, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, executionContext contextview.BlockExecutionContext) (AnalysisBlockStepResult, error)
+	DispatchReportDraft(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, memories []memory.MemoryRecord, evidence []observation.EvidenceRecord, plan planning.ExecutionPlan, blockResults []analysis.BlockResultEnvelope) (ReportDraftStepResult, error)
+	DispatchVerification(ctx context.Context, meta SystemStepMetadata, input VerificationStepInput) (VerificationStepResult, error)
 	DispatchGovernance(ctx context.Context, meta SystemStepMetadata, current state.FinancialWorldState, report reporting.ReportPayload) (GovernanceStepResult, error)
 	DispatchReportFinalize(ctx context.Context, meta SystemStepMetadata, draft reporting.ReportPayload, disclosureDecision governance.PolicyDecision) (ReportFinalizeStepResult, error)
 }

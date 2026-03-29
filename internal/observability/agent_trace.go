@@ -15,20 +15,28 @@ const (
 )
 
 type AgentExecutionRecord struct {
-	DispatchID         string         `json:"dispatch_id"`
-	TraceID            string         `json:"trace_id"`
-	Recipient          string         `json:"recipient"`
-	RequestKind        string         `json:"request_kind"`
-	ResultKind         string         `json:"result_kind,omitempty"`
-	Lifecycle          AgentLifecycle `json:"lifecycle"`
-	CorrelationID      string         `json:"correlation_id"`
-	CausationID        string         `json:"causation_id"`
-	RequestMessageID   string         `json:"request_message_id"`
-	ResultMessageID    string         `json:"result_message_id,omitempty"`
-	ErrorCategory      string         `json:"error_category,omitempty"`
-	WorkflowEventTypes []string       `json:"workflow_event_types,omitempty"`
-	Summary            string         `json:"summary,omitempty"`
-	OccurredAt         time.Time      `json:"occurred_at"`
+	DispatchID          string         `json:"dispatch_id"`
+	TraceID             string         `json:"trace_id"`
+	Recipient           string         `json:"recipient"`
+	RequestKind         string         `json:"request_kind"`
+	ResultKind          string         `json:"result_kind,omitempty"`
+	PlanID              string         `json:"plan_id,omitempty"`
+	PlanBlockIDs        []string       `json:"plan_block_ids,omitempty"`
+	BlockID             string         `json:"block_id,omitempty"`
+	BlockKind           string         `json:"block_kind,omitempty"`
+	SelectedMemoryIDs   []string       `json:"selected_memory_ids,omitempty"`
+	SelectedEvidenceIDs []string       `json:"selected_evidence_ids,omitempty"`
+	SelectedStateBlocks []string       `json:"selected_state_blocks,omitempty"`
+	Lifecycle           AgentLifecycle `json:"lifecycle"`
+	CorrelationID       string         `json:"correlation_id"`
+	CausationID         string         `json:"causation_id"`
+	RequestMessageID    string         `json:"request_message_id"`
+	ResultMessageID     string         `json:"result_message_id,omitempty"`
+	ErrorCategory       string         `json:"error_category,omitempty"`
+	WorkflowEventTypes  []string       `json:"workflow_event_types,omitempty"`
+	ResultSummary       string         `json:"result_summary,omitempty"`
+	Summary             string         `json:"summary,omitempty"`
+	OccurredAt          time.Time      `json:"occurred_at"`
 }
 
 type AgentTraceLog struct {

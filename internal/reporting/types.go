@@ -47,30 +47,36 @@ type ArtifactConsumer interface {
 }
 
 type MonthlyReviewReport struct {
-	TaskID                  string             `json:"task_id"`
-	WorkflowID              string             `json:"workflow_id"`
-	Summary                 string             `json:"summary"`
-	CashflowMetrics         map[string]any     `json:"cashflow_metrics"`
-	TaxSignals              map[string]any     `json:"tax_signals"`
-	RiskItems               []skills.SkillItem `json:"risk_items"`
-	OptimizationSuggestions []skills.SkillItem `json:"optimization_suggestions"`
-	TodoItems               []skills.SkillItem `json:"todo_items"`
-	ApprovalRequired        bool               `json:"approval_required"`
-	Confidence              float64            `json:"confidence"`
-	GeneratedAt             time.Time          `json:"generated_at"`
+	TaskID                  string                   `json:"task_id"`
+	WorkflowID              string                   `json:"workflow_id"`
+	Summary                 string                   `json:"summary"`
+	CashflowMetrics         map[string]any           `json:"cashflow_metrics"`
+	TaxSignals              map[string]any           `json:"tax_signals"`
+	RiskItems               []skills.SkillItem       `json:"risk_items"`
+	OptimizationSuggestions []skills.SkillItem       `json:"optimization_suggestions"`
+	TodoItems               []skills.SkillItem       `json:"todo_items"`
+	SourceBlockIDs          []string                 `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs         []string                 `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs       []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
+	ApprovalRequired        bool                     `json:"approval_required"`
+	Confidence              float64                  `json:"confidence"`
+	GeneratedAt             time.Time                `json:"generated_at"`
 }
 
 type DebtDecisionReport struct {
-	TaskID           string                   `json:"task_id"`
-	WorkflowID       string                   `json:"workflow_id"`
-	Conclusion       string                   `json:"conclusion"`
-	Reasons          []string                 `json:"reasons"`
-	Actions          []skills.SkillItem       `json:"actions"`
-	Metrics          map[string]any           `json:"metrics"`
-	EvidenceIDs      []observation.EvidenceID `json:"evidence_ids"`
-	ApprovalRequired bool                     `json:"approval_required"`
-	Confidence       float64                  `json:"confidence"`
-	GeneratedAt      time.Time                `json:"generated_at"`
+	TaskID            string                   `json:"task_id"`
+	WorkflowID        string                   `json:"workflow_id"`
+	Conclusion        string                   `json:"conclusion"`
+	Reasons           []string                 `json:"reasons"`
+	Actions           []skills.SkillItem       `json:"actions"`
+	Metrics           map[string]any           `json:"metrics"`
+	EvidenceIDs       []observation.EvidenceID `json:"evidence_ids"`
+	SourceBlockIDs    []string                 `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs   []string                 `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
+	ApprovalRequired  bool                     `json:"approval_required"`
+	Confidence        float64                  `json:"confidence"`
+	GeneratedAt       time.Time                `json:"generated_at"`
 }
 
 type ReportPayload struct {

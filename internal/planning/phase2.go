@@ -17,10 +17,12 @@ type PlanStep struct {
 }
 
 type ExecutionPlan struct {
-	WorkflowID string     `json:"workflow_id"`
-	TaskID     string     `json:"task_id"`
-	CreatedAt  time.Time  `json:"created_at"`
-	Steps      []PlanStep `json:"steps"`
+	WorkflowID string           `json:"workflow_id"`
+	TaskID     string           `json:"task_id"`
+	PlanID     string           `json:"plan_id"`
+	CreatedAt  time.Time        `json:"created_at"`
+	Blocks     []ExecutionBlock `json:"blocks"`
+	Steps      []PlanStep       `json:"steps"`
 }
 
 type DeterministicPlanner struct {
@@ -41,12 +43,17 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 		now = p.Now().UTC()
 	}
 
+	planID := workflowID + "-plan-" + now.Format("20060102150405")
+
 	switch spec.UserIntentType {
 	case taskspec.UserIntentMonthlyReview:
+		blocks := monthlyReviewBlocks(spec, slice)
 		return ExecutionPlan{
 			WorkflowID: workflowID,
 			TaskID:     spec.ID,
+			PlanID:     planID,
 			CreatedAt:  now,
+			Blocks:     blocks,
 			Steps: []PlanStep{
 				{
 					ID:                    "collect-and-confirm",
@@ -71,10 +78,13 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 			},
 		}
 	case taskspec.UserIntentDebtVsInvest:
+		blocks := debtDecisionBlocks(spec, slice)
 		return ExecutionPlan{
 			WorkflowID: workflowID,
 			TaskID:     spec.ID,
+			PlanID:     planID,
 			CreatedAt:  now,
+			Blocks:     blocks,
 			Steps: []PlanStep{
 				{
 					ID:                    "gather-decision-evidence",
@@ -95,6 +105,7 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 		return ExecutionPlan{
 			WorkflowID: workflowID,
 			TaskID:     spec.ID,
+			PlanID:     planID,
 			CreatedAt:  now,
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
+	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
@@ -63,19 +64,35 @@ func (w DebtVsInvestWorkflow) Run(
 
 	meta := systemStepMeta(workflowID, "debt_vs_invest_workflow", spec, observed.UpdatedState, workflowID, workflowID)
 
-	planStep, err := steps.DispatchPlan(ctx, meta, observed.UpdatedState, nil, observed.Evidence)
-	if err != nil {
-		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStatePlanning, err, "planner agent failed")
-	}
-	meta = updateCausation(meta, planStep.Metadata.ResponseMetadata, observed.UpdatedState)
-
 	memoryStep, err := steps.DispatchMemorySync(ctx, meta, observed.UpdatedState, observed.Evidence, "")
 	if err != nil {
 		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "memory steward failed")
 	}
 	meta = updateCausation(meta, memoryStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
-	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan)
+	planStep, err := steps.DispatchPlan(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence)
+	if err != nil {
+		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStatePlanning, err, "planner agent failed")
+	}
+	meta = updateCausation(meta, planStep.Metadata.ResponseMetadata, observed.UpdatedState)
+
+	executionAssembler := contextview.ExecutionContextAssembler{}
+	blockSteps := make([]agents.AnalysisBlockStepResult, 0, len(planStep.Plan.Blocks))
+	for _, block := range planStep.Plan.Blocks {
+		executionContext, err := executionAssembler.Assemble(blockContextSpec(planStep.Plan, block), observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence)
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		blockStep, err := steps.DispatchAnalysisBlock(ctx, meta, block, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, executionContext)
+		if err != nil {
+			return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "domain analysis block failed")
+		}
+		blockSteps = append(blockSteps, blockStep)
+		meta = updateCausation(meta, blockStep.Metadata.ResponseMetadata, observed.UpdatedState)
+	}
+	blockResults := collectBlockResults(blockSteps)
+
+	reportDraftStep, err := steps.DispatchReportDraft(ctx, meta, observed.UpdatedState, memoryStep.Result.Retrieved, observed.Evidence, planStep.Plan, blockResults)
 	if err != nil {
 		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateActing, err, "report draft generation failed")
 	}
@@ -85,7 +102,42 @@ func (w DebtVsInvestWorkflow) Run(
 	}
 	meta = updateCausation(meta, reportDraftStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
-	verificationStep, err := steps.DispatchVerification(ctx, meta, observed.UpdatedState, observed.Evidence, reportDraftStep.Draft)
+	verificationAssembler := contextview.VerificationContextAssembler{}
+	blockVerificationContexts := make([]contextview.BlockVerificationContext, 0, len(blockSteps))
+	for _, blockStep := range blockSteps {
+		verificationContext, err := verificationAssembler.AssembleBlock(
+			blockContextSpec(planStep.Plan, blockStep.Block),
+			blockStep.Result,
+			observed.UpdatedState,
+			memoryStep.Result.Retrieved,
+			observed.Evidence,
+		)
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		blockVerificationContexts = append(blockVerificationContexts, verificationContext)
+	}
+	finalVerificationContext, err := verificationAssembler.AssembleFinal(
+		planStep.Plan.PlanID,
+		reportDraftStep.Draft.Summary(),
+		observed.UpdatedState,
+		memoryStep.Result.Retrieved,
+		observed.Evidence,
+	)
+	if err != nil {
+		return DebtDecisionRunResult{}, err
+	}
+
+	verificationStep, err := steps.DispatchVerification(ctx, meta, agents.VerificationStepInput{
+		CurrentState:              observed.UpdatedState,
+		Evidence:                  observed.Evidence,
+		Memories:                  memoryStep.Result.Retrieved,
+		Plan:                      planStep.Plan,
+		BlockResults:              blockResults,
+		BlockVerificationContexts: blockVerificationContexts,
+		FinalVerificationContext:  finalVerificationContext,
+		Report:                    reportDraftStep.Draft,
+	})
 	if err != nil {
 		return DebtDecisionRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "verification agent failed")
 	}
@@ -105,6 +157,7 @@ func (w DebtVsInvestWorkflow) Run(
 			TaskSpec:       spec,
 			Plan:           planStep.Plan,
 			Evidence:       observed.Evidence,
+			BlockResults:   blockResults,
 			UpdatedState:   observed.UpdatedState,
 			Report:         report,
 			CoverageReport: verificationStep.Result.CoverageReport,
@@ -171,6 +224,7 @@ func (w DebtVsInvestWorkflow) Run(
 		TaskSpec:         spec,
 		Plan:             planStep.Plan,
 		Evidence:         observed.Evidence,
+		BlockResults:     blockResults,
 		UpdatedState:     observed.UpdatedState,
 		Report:           report,
 		Artifacts:        artifacts,
