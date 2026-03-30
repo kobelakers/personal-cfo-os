@@ -30,45 +30,46 @@ import (
 )
 
 type Phase5DOptions struct {
-	FixtureDir               string
-	HoldingsFixture          string
-	MemoryDBPath             string
-	EmbeddingModel           string
-	Now                      func() time.Time
-	ChatModel                model.ChatModel
-	ChatModelFactory         func(callRecorder model.CallRecorder, usageRecorder model.UsageRecorder) model.ChatModel
-	EmbeddingProvider        memory.EmbeddingProvider
-	EmbeddingProviderFactory func(callRecorder memory.EmbeddingCallRecorder, usageRecorder memory.EmbeddingUsageRecorder) memory.EmbeddingProvider
-	PromptRegistry           *prompt.PromptRegistry
-	EventLog                 *observability.EventLog
-	AgentTrace               *observability.AgentTraceLog
-	PromptTrace              *observability.PromptTraceLog
-	LLMTrace                 *observability.LLMCallLog
-	UsageTrace               *observability.UsageTraceLog
-	StructuredTrace          *observability.StructuredOutputTraceLog
-	MemoryTrace              *observability.MemoryTraceLog
-	EmbeddingCallTrace       *observability.EmbeddingCallLog
-	EmbeddingUsageTrace      *observability.EmbeddingUsageLog
+	FixtureDir                   string
+	HoldingsFixture              string
+	MemoryDBPath                 string
+	EmbeddingModel               string
+	Now                          func() time.Time
+	ChatModel                    model.ChatModel
+	ChatModelFactory             func(callRecorder model.CallRecorder, usageRecorder model.UsageRecorder) model.ChatModel
+	EmbeddingProvider            memory.EmbeddingProvider
+	EmbeddingProviderFactory     func(callRecorder memory.EmbeddingCallRecorder, usageRecorder memory.EmbeddingUsageRecorder) memory.EmbeddingProvider
+	VerificationPipelineOverride func(base verification.Pipeline) verification.Pipeline
+	PromptRegistry               *prompt.PromptRegistry
+	EventLog                     *observability.EventLog
+	AgentTrace                   *observability.AgentTraceLog
+	PromptTrace                  *observability.PromptTraceLog
+	LLMTrace                     *observability.LLMCallLog
+	UsageTrace                   *observability.UsageTraceLog
+	StructuredTrace              *observability.StructuredOutputTraceLog
+	MemoryTrace                  *observability.MemoryTraceLog
+	EmbeddingCallTrace           *observability.EmbeddingCallLog
+	EmbeddingUsageTrace          *observability.EmbeddingUsageLog
 }
 
 type Phase5DEnvironment struct {
-	MonthlyReview      workflows.MonthlyReviewWorkflow
-	DebtVsInvest       workflows.DebtVsInvestWorkflow
-	EventLog           *observability.EventLog
-	AgentTrace         *observability.AgentTraceLog
-	PromptTrace        *observability.PromptTraceLog
-	LLMTrace           *observability.LLMCallLog
-	UsageTrace         *observability.UsageTraceLog
-	StructuredTrace    *observability.StructuredOutputTraceLog
-	MemoryTrace        *observability.MemoryTraceLog
-	EmbeddingCallTrace *observability.EmbeddingCallLog
+	MonthlyReview       workflows.MonthlyReviewWorkflow
+	DebtVsInvest        workflows.DebtVsInvestWorkflow
+	EventLog            *observability.EventLog
+	AgentTrace          *observability.AgentTraceLog
+	PromptTrace         *observability.PromptTraceLog
+	LLMTrace            *observability.LLMCallLog
+	UsageTrace          *observability.UsageTraceLog
+	StructuredTrace     *observability.StructuredOutputTraceLog
+	MemoryTrace         *observability.MemoryTraceLog
+	EmbeddingCallTrace  *observability.EmbeddingCallLog
 	EmbeddingUsageTrace *observability.EmbeddingUsageLog
-	Timeline           *runtimepkg.WorkflowTimeline
-	Journal            *runtimepkg.CheckpointJournal
-	FixtureDir         string
-	MemoryStores       *memory.SQLiteMemoryStores
-	MemoryIndexer      memory.MemoryIndexer
-	MemoryAuditLog     *memory.MemoryAccessAuditLog
+	Timeline            *runtimepkg.WorkflowTimeline
+	Journal             *runtimepkg.CheckpointJournal
+	FixtureDir          string
+	MemoryStores        *memory.SQLiteMemoryStores
+	MemoryIndexer       memory.MemoryIndexer
+	MemoryAuditLog      *memory.MemoryAccessAuditLog
 }
 
 type MonthlyReview5DRunOutput struct {
@@ -246,19 +247,20 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 	engine := finance.DeterministicEngine{}
 
 	systemSteps, err := buildPhase5DStepBus(phase5DWiring{
-		deps:               deps,
-		registry:           registry,
-		chatModel:          chatModel,
-		eventLog:           eventLog,
-		agentTrace:         agentTrace,
-		promptTrace:        promptTrace,
-		llmTrace:           llmTrace,
-		usageTrace:         usageTrace,
-		structuredTrace:    structuredTrace,
-		memoryWriter:       memoryWriter,
-		retriever:          retriever,
-		memoryTrace:        memoryTrace,
-		financeEngine:      engine,
+		deps:                         deps,
+		registry:                     registry,
+		chatModel:                    chatModel,
+		eventLog:                     eventLog,
+		agentTrace:                   agentTrace,
+		promptTrace:                  promptTrace,
+		llmTrace:                     llmTrace,
+		usageTrace:                   usageTrace,
+		structuredTrace:              structuredTrace,
+		memoryWriter:                 memoryWriter,
+		retriever:                    retriever,
+		memoryTrace:                  memoryTrace,
+		financeEngine:                engine,
+		verificationPipelineOverride: options.VerificationPipelineOverride,
 	})
 	if err != nil {
 		_ = stores.DB.Close()
@@ -326,19 +328,20 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 }
 
 type phase5DWiring struct {
-	deps            fixtureDeps
-	registry        *prompt.PromptRegistry
-	chatModel       model.ChatModel
-	eventLog        *observability.EventLog
-	agentTrace      *observability.AgentTraceLog
-	promptTrace     *observability.PromptTraceLog
-	llmTrace        *observability.LLMCallLog
-	usageTrace      *observability.UsageTraceLog
-	structuredTrace *observability.StructuredOutputTraceLog
-	memoryWriter    memory.DefaultMemoryWriter
-	retriever       memory.HybridMemoryRetriever
-	memoryTrace     *observability.MemoryTraceLog
-	financeEngine   finance.Engine
+	deps                         fixtureDeps
+	registry                     *prompt.PromptRegistry
+	chatModel                    model.ChatModel
+	eventLog                     *observability.EventLog
+	agentTrace                   *observability.AgentTraceLog
+	promptTrace                  *observability.PromptTraceLog
+	llmTrace                     *observability.LLMCallLog
+	usageTrace                   *observability.UsageTraceLog
+	structuredTrace              *observability.StructuredOutputTraceLog
+	memoryWriter                 memory.DefaultMemoryWriter
+	retriever                    memory.HybridMemoryRetriever
+	memoryTrace                  *observability.MemoryTraceLog
+	financeEngine                finance.Engine
+	verificationPipelineOverride func(base verification.Pipeline) verification.Pipeline
 }
 
 func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
@@ -389,6 +392,9 @@ func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
 		SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
 		Oracle:                 verification.BaselineTrajectoryOracle{},
 		Now:                    w.deps.LedgerAdapter.Now,
+	}
+	if w.verificationPipelineOverride != nil {
+		verificationPipeline = w.verificationPipelineOverride(verificationPipeline)
 	}
 	approvalService := governance.ApprovalService{
 		Classifier:   governance.DefaultRiskClassifier{},
