@@ -33,6 +33,7 @@ type Phase5DOptions struct {
 	FixtureDir                   string
 	HoldingsFixture              string
 	MemoryDBPath                 string
+	RuntimeDBPath                string
 	EmbeddingModel               string
 	Now                          func() time.Time
 	ChatModel                    model.ChatModel
@@ -70,6 +71,9 @@ type Phase5DEnvironment struct {
 	MemoryStores        *memory.SQLiteMemoryStores
 	MemoryIndexer       memory.MemoryIndexer
 	MemoryAuditLog      *memory.MemoryAccessAuditLog
+	RuntimeStores       *runtimepkg.SQLiteRuntimeStores
+	ReplayQuery         *runtimepkg.ReplayQueryService
+	ReplayRebuilder     *runtimepkg.ReplayProjectionRebuilder
 }
 
 type MonthlyReview5DRunOutput struct {
@@ -245,6 +249,32 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 	timeline := &runtimepkg.WorkflowTimeline{}
 	journal := &runtimepkg.CheckpointJournal{}
 	engine := finance.DeterministicEngine{}
+	var runtimeStores *runtimepkg.SQLiteRuntimeStores
+	var runtimeService *runtimepkg.Service
+	var replayQuery *runtimepkg.ReplayQueryService
+	var replayRebuilder *runtimepkg.ReplayProjectionRebuilder
+	if strings.TrimSpace(options.RuntimeDBPath) != "" {
+		runtimeStores, err = runtimepkg.NewSQLiteRuntimeStores(options.RuntimeDBPath)
+		if err != nil {
+			_ = stores.DB.Close()
+			return nil, err
+		}
+		runtimeService = runtimepkg.NewService(runtimepkg.ServiceOptions{
+			CheckpointStore: runtimeStores.Checkpoints,
+			TaskGraphs:      runtimeStores.TaskGraphs,
+			Executions:      runtimeStores.Executions,
+			Approvals:       runtimeStores.Approvals,
+			OperatorActions: runtimeStores.OperatorActions,
+			Replay:          runtimeStores.Replay,
+			Artifacts:       runtimeStores.Artifacts,
+			Controller:      runtimepkg.DefaultWorkflowController{},
+			EventLog:        eventLog,
+			Now:             deps.LedgerAdapter.Now,
+		})
+		replayRebuilder = runtimepkg.NewReplayProjectionRebuilder(runtimeService, runtimeStores.WorkflowRuns, runtimeStores.ReplayProjection, runtimeStores.Artifacts, runtimeStores.Replay, deps.LedgerAdapter.Now)
+		runtimeService.SetReplayProjectionWriter(replayRebuilder)
+		replayQuery = runtimepkg.NewReplayQueryService(runtimeService, runtimeStores.WorkflowRuns, runtimeStores.ReplayQuery, runtimeStores.Artifacts, runtimeStores.Replay)
+	}
 
 	systemSteps, err := buildPhase5DStepBus(phase5DWiring{
 		deps:                         deps,
@@ -281,10 +311,17 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 		},
 		SystemSteps: systemSteps,
 		Runtime: runtimepkg.NewLocalWorkflowRuntime("monthly-review-5d", runtimepkg.LocalRuntimeOptions{
-			EventLog: eventLog,
-			Timeline: timeline,
-			Journal:  journal,
-			Now:      deps.LedgerAdapter.Now,
+			EventLog:        eventLog,
+			Timeline:        timeline,
+			Journal:         journal,
+			CheckpointStore: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.CheckpointStore { return s.Checkpoints }),
+			TaskGraphs:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskGraphStore { return s.TaskGraphs }),
+			Executions:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskExecutionStore { return s.Executions }),
+			Approvals:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ApprovalStateStore { return s.Approvals }),
+			OperatorActions: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.OperatorActionStore { return s.OperatorActions }),
+			Replay:          valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ReplayStore { return s.Replay }),
+			Artifacts:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ArtifactMetadataStore { return s.Artifacts }),
+			Now:             deps.LedgerAdapter.Now,
 		}),
 		Now: deps.LedgerAdapter.Now,
 	}
@@ -298,10 +335,17 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 		},
 		SystemSteps: systemSteps,
 		Runtime: runtimepkg.NewLocalWorkflowRuntime("debt-vs-invest-5d", runtimepkg.LocalRuntimeOptions{
-			EventLog: eventLog,
-			Timeline: timeline,
-			Journal:  journal,
-			Now:      deps.LedgerAdapter.Now,
+			EventLog:        eventLog,
+			Timeline:        timeline,
+			Journal:         journal,
+			CheckpointStore: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.CheckpointStore { return s.Checkpoints }),
+			TaskGraphs:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskGraphStore { return s.TaskGraphs }),
+			Executions:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskExecutionStore { return s.Executions }),
+			Approvals:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ApprovalStateStore { return s.Approvals }),
+			OperatorActions: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.OperatorActionStore { return s.OperatorActions }),
+			Replay:          valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ReplayStore { return s.Replay }),
+			Artifacts:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ArtifactMetadataStore { return s.Artifacts }),
+			Now:             deps.LedgerAdapter.Now,
 		}),
 		Now: deps.LedgerAdapter.Now,
 	}
@@ -324,6 +368,9 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 		MemoryStores:        stores,
 		MemoryIndexer:       indexer,
 		MemoryAuditLog:      memoryAuditLog,
+		RuntimeStores:       runtimeStores,
+		ReplayQuery:         replayQuery,
+		ReplayRebuilder:     replayRebuilder,
 	}, nil
 }
 
@@ -475,6 +522,9 @@ func (e *Phase5DEnvironment) RunMonthlyReview(ctx context.Context, userID string
 		return MonthlyReview5DRunOutput{}, err
 	}
 	trace := e.buildTrace(result.WorkflowID, result.Verification, result.Report.MetricRecords, result.ApprovalAudit)
+	if err := e.persistMonthlyReviewReplay(ctx, result, trace); err != nil {
+		return MonthlyReview5DRunOutput{}, err
+	}
 	return MonthlyReview5DRunOutput{Result: result, Trace: trace}, nil
 }
 
@@ -484,6 +534,9 @@ func (e *Phase5DEnvironment) RunDebtVsInvest(ctx context.Context, userID string,
 		return DebtVsInvest5DRunOutput{}, err
 	}
 	trace := e.buildTrace(result.WorkflowID, result.Verification, result.Report.MetricRecords, result.ApprovalAudit)
+	if err := e.persistDebtDecisionReplay(ctx, result, trace); err != nil {
+		return DebtVsInvest5DRunOutput{}, err
+	}
 	return DebtVsInvest5DRunOutput{Result: result, Trace: trace}, nil
 }
 
@@ -512,6 +565,9 @@ func (e *Phase5DEnvironment) ResumeDebtVsInvestAfterApproval(
 		return DebtVsInvest5DRunOutput{}, err
 	}
 	trace := e.buildTrace(resumed.WorkflowID, resumed.Verification, resumed.Report.MetricRecords, resumed.ApprovalAudit)
+	if err := e.persistDebtDecisionReplay(ctx, resumed, trace); err != nil {
+		return DebtVsInvest5DRunOutput{}, err
+	}
 	return DebtVsInvest5DRunOutput{Result: resumed, Trace: trace}, nil
 }
 
@@ -523,10 +579,19 @@ func (e *Phase5DEnvironment) RebuildMemoryIndexes(ctx context.Context) (memory.I
 }
 
 func (e *Phase5DEnvironment) Close() error {
-	if e == nil || e.MemoryStores == nil || e.MemoryStores.DB == nil {
+	if e == nil {
 		return nil
 	}
-	return e.MemoryStores.DB.Close()
+	var closeErr error
+	if e.MemoryStores != nil && e.MemoryStores.DB != nil {
+		closeErr = e.MemoryStores.DB.Close()
+	}
+	if e.RuntimeStores != nil && e.RuntimeStores.DB != nil {
+		if err := e.RuntimeStores.DB.Close(); closeErr == nil {
+			closeErr = err
+		}
+	}
+	return closeErr
 }
 
 func (e *Phase5DEnvironment) buildTrace(
@@ -566,6 +631,190 @@ func (e *Phase5DEnvironment) buildTrace(
 			ApprovalTriggers:          observability.ApprovalTriggersFromDecisions(policyRecords),
 		},
 	)
+}
+
+func (e *Phase5DEnvironment) persistMonthlyReviewReplay(
+	ctx context.Context,
+	result workflows.MonthlyReviewRunResult,
+	trace observability.WorkflowTraceDump,
+) error {
+	approvalID := ""
+	if result.Report.ApprovalRequired {
+		approvalID = result.WorkflowID + "-approval"
+	}
+	return e.persistWorkflowReplay(ctx, persistWorkflowReplayInput{
+		WorkflowID:      result.WorkflowID,
+		TaskID:          result.TaskSpec.ID,
+		Intent:          string(result.TaskSpec.UserIntentType),
+		RuntimeState:    result.RuntimeState,
+		FailureCategory: monthlyReviewFailureCategory(result),
+		FailureSummary:  monthlyReviewFailureSummary(result),
+		ApprovalID:      approvalID,
+		Summary:         result.Report.Summary,
+		Artifacts:       result.Artifacts,
+		Trace:           trace,
+		Scenario:        "monthly_review_5d",
+	})
+}
+
+func (e *Phase5DEnvironment) persistDebtDecisionReplay(
+	ctx context.Context,
+	result workflows.DebtDecisionRunResult,
+	trace observability.WorkflowTraceDump,
+) error {
+	approvalID := ""
+	if result.PendingApproval != nil {
+		approvalID = result.PendingApproval.ApprovalID
+	} else if result.Report.ApprovalRequired {
+		approvalID = result.WorkflowID + "-approval"
+	}
+	checkpointID := ""
+	resumeToken := ""
+	if result.Checkpoint != nil {
+		checkpointID = result.Checkpoint.ID
+	}
+	if result.ResumeToken != nil {
+		resumeToken = result.ResumeToken.Token
+	}
+	return e.persistWorkflowReplay(ctx, persistWorkflowReplayInput{
+		WorkflowID:      result.WorkflowID,
+		TaskID:          result.TaskSpec.ID,
+		Intent:          string(result.TaskSpec.UserIntentType),
+		RuntimeState:    result.RuntimeState,
+		FailureCategory: debtDecisionFailureCategory(result),
+		FailureSummary:  debtDecisionFailureSummary(result),
+		ApprovalID:      approvalID,
+		CheckpointID:    checkpointID,
+		ResumeToken:     resumeToken,
+		Summary:         result.Report.Conclusion,
+		Artifacts:       result.Artifacts,
+		Trace:           trace,
+		Scenario:        "debt_vs_invest_5d",
+	})
+}
+
+type persistWorkflowReplayInput struct {
+	WorkflowID      string
+	TaskID          string
+	Intent          string
+	RuntimeState    runtimepkg.WorkflowExecutionState
+	FailureCategory runtimepkg.FailureCategory
+	FailureSummary  string
+	ApprovalID      string
+	CheckpointID    string
+	ResumeToken     string
+	TaskGraphID     string
+	Summary         string
+	Artifacts       []reporting.WorkflowArtifact
+	Trace           observability.WorkflowTraceDump
+	Scenario        string
+}
+
+func (e *Phase5DEnvironment) persistWorkflowReplay(ctx context.Context, input persistWorkflowReplayInput) error {
+	if e == nil || e.RuntimeStores == nil {
+		return nil
+	}
+	for _, artifact := range input.Artifacts {
+		if err := e.RuntimeStores.Artifacts.SaveArtifact(input.WorkflowID, artifact.TaskID, artifact); err != nil {
+			return err
+		}
+	}
+	producer := reporting.StaticArtifactProducer{Now: func() time.Time { return input.Trace.GeneratedAt }}
+	bundle := observability.NewReplayBundle(input.Scenario, input.Trace, map[string]string{
+		"workflow_id":   input.WorkflowID,
+		"runtime_state": string(input.RuntimeState),
+		"intent":        input.Intent,
+	})
+	bundleJSON, err := json.Marshal(bundle)
+	if err != nil {
+		return err
+	}
+	bundleArtifact := producer.ProduceArtifact(input.WorkflowID, input.TaskID, reporting.ArtifactKindReplayBundle, string(bundleJSON), firstNonEmpty(input.Summary, input.Scenario), "phase_6a_replay_projection")
+	if err := e.RuntimeStores.Artifacts.SaveArtifact(input.WorkflowID, input.TaskID, bundleArtifact); err != nil {
+		return err
+	}
+	debugSummary := observability.BuildDebugSummaryFromTrace(input.WorkflowID, input.Trace, string(input.RuntimeState))
+	summaryJSON, err := json.Marshal(debugSummary)
+	if err != nil {
+		return err
+	}
+	summaryArtifact := producer.ProduceArtifact(input.WorkflowID, input.TaskID, reporting.ArtifactKindReplaySummary, string(summaryJSON), firstNonEmpty(input.Summary, input.Scenario), "phase_6a_replay_projection")
+	if err := e.RuntimeStores.Artifacts.SaveArtifact(input.WorkflowID, input.TaskID, summaryArtifact); err != nil {
+		return err
+	}
+	record := runtimepkg.WorkflowRunRecord{
+		WorkflowID:        input.WorkflowID,
+		TaskID:            input.TaskID,
+		Intent:            input.Intent,
+		RuntimeState:      input.RuntimeState,
+		FailureCategory:   input.FailureCategory,
+		FailureSummary:    input.FailureSummary,
+		ApprovalID:        input.ApprovalID,
+		CheckpointID:      input.CheckpointID,
+		ResumeToken:       input.ResumeToken,
+		TaskGraphID:       input.TaskGraphID,
+		RootCorrelationID: input.WorkflowID,
+		Summary:           input.Summary,
+		StartedAt:         input.Trace.GeneratedAt,
+		UpdatedAt:         input.Trace.GeneratedAt,
+	}
+	if err := e.RuntimeStores.WorkflowRuns.Save(record); err != nil {
+		return err
+	}
+	if e.ReplayRebuilder != nil {
+		if _, err := e.ReplayRebuilder.RebuildWorkflow(ctx, input.WorkflowID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func monthlyReviewFailureCategory(result workflows.MonthlyReviewRunResult) runtimepkg.FailureCategory {
+	switch {
+	case verification.HasTrustFailure(result.Verification):
+		return runtimepkg.FailureCategoryTrustValidation
+	case result.RuntimeState == runtimepkg.WorkflowStateFailed:
+		return runtimepkg.FailureCategoryValidation
+	default:
+		return ""
+	}
+}
+
+func monthlyReviewFailureSummary(result workflows.MonthlyReviewRunResult) string {
+	switch {
+	case verification.HasTrustFailure(result.Verification):
+		return "trust validation failed for monthly review report"
+	case result.RuntimeState == runtimepkg.WorkflowStateFailed:
+		return "monthly review workflow failed before final completion"
+	default:
+		return ""
+	}
+}
+
+func debtDecisionFailureCategory(result workflows.DebtDecisionRunResult) runtimepkg.FailureCategory {
+	switch {
+	case verification.HasTrustFailure(result.Verification):
+		return runtimepkg.FailureCategoryTrustValidation
+	case result.ApprovalDecision != nil && result.ApprovalDecision.Outcome == governance.PolicyDecisionDeny:
+		return runtimepkg.FailureCategoryGovernanceDenied
+	case result.RuntimeState == runtimepkg.WorkflowStateFailed:
+		return runtimepkg.FailureCategoryValidation
+	default:
+		return ""
+	}
+}
+
+func debtDecisionFailureSummary(result workflows.DebtDecisionRunResult) string {
+	switch {
+	case verification.HasTrustFailure(result.Verification):
+		return "trust validation failed for debt decision report"
+	case result.ApprovalDecision != nil && result.ApprovalDecision.Outcome == governance.PolicyDecisionDeny:
+		return "governance denied debt decision publication"
+	case result.RuntimeState == runtimepkg.WorkflowStateFailed:
+		return "debt decision workflow failed before final completion"
+	default:
+		return ""
+	}
 }
 
 func (o MonthlyReview5DRunOutput) WriteArtifact(path string) error {
@@ -617,4 +866,21 @@ func valueOrDefault[T any](value *T, fallback *T) *T {
 		return value
 	}
 	return fallback
+}
+
+func valueOrDefaultRuntimeStore[T any](stores *runtimepkg.SQLiteRuntimeStores, selectFn func(*runtimepkg.SQLiteRuntimeStores) T) T {
+	var zero T
+	if stores == nil {
+		return zero
+	}
+	return selectFn(stores)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

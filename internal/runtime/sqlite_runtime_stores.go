@@ -655,6 +655,457 @@ func (s *sqliteReplayStore) list(query string, arg string) ([]ReplayEventRecord,
 	return result, rows.Err()
 }
 
+type sqliteWorkflowRunStore struct {
+	db *SQLiteRuntimeDB
+}
+
+func (s *sqliteWorkflowRunStore) Save(record WorkflowRunRecord) error {
+	_, err := s.db.db.Exec(`
+		INSERT INTO workflow_runs (
+			workflow_id, task_id, intent, runtime_state, failure_category, failure_summary, approval_id,
+			checkpoint_id, resume_token, task_graph_id, root_correlation_id, summary, started_at, updated_at, record_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(workflow_id) DO UPDATE SET
+			task_id = excluded.task_id,
+			intent = excluded.intent,
+			runtime_state = excluded.runtime_state,
+			failure_category = excluded.failure_category,
+			failure_summary = excluded.failure_summary,
+			approval_id = excluded.approval_id,
+			checkpoint_id = excluded.checkpoint_id,
+			resume_token = excluded.resume_token,
+			task_graph_id = excluded.task_graph_id,
+			root_correlation_id = excluded.root_correlation_id,
+			summary = excluded.summary,
+			started_at = excluded.started_at,
+			updated_at = excluded.updated_at,
+			record_json = excluded.record_json
+	`, record.WorkflowID, record.TaskID, record.Intent, string(record.RuntimeState), string(record.FailureCategory), record.FailureSummary, record.ApprovalID, record.CheckpointID, record.ResumeToken, record.TaskGraphID, record.RootCorrelationID, record.Summary, record.StartedAt.UTC().Format(time.RFC3339Nano), record.UpdatedAt.UTC().Format(time.RFC3339Nano), record.RecordJSON)
+	return err
+}
+
+func (s *sqliteWorkflowRunStore) Load(workflowID string) (WorkflowRunRecord, bool, error) {
+	row := s.db.db.QueryRow(`
+		SELECT task_id, intent, runtime_state, failure_category, failure_summary, approval_id, checkpoint_id,
+		       resume_token, task_graph_id, root_correlation_id, summary, started_at, updated_at, record_json
+		FROM workflow_runs
+		WHERE workflow_id = ?
+	`, workflowID)
+	var (
+		record    WorkflowRunRecord
+		state     string
+		failure   string
+		startedAt string
+		updatedAt string
+	)
+	record.WorkflowID = workflowID
+	if err := row.Scan(&record.TaskID, &record.Intent, &state, &failure, &record.FailureSummary, &record.ApprovalID, &record.CheckpointID, &record.ResumeToken, &record.TaskGraphID, &record.RootCorrelationID, &record.Summary, &startedAt, &updatedAt, &record.RecordJSON); err != nil {
+		if errorsIsNoRows(err) {
+			return WorkflowRunRecord{}, false, nil
+		}
+		return WorkflowRunRecord{}, false, err
+	}
+	record.RuntimeState = WorkflowExecutionState(state)
+	record.FailureCategory = FailureCategory(failure)
+	record.StartedAt = mustParseTime(startedAt)
+	record.UpdatedAt = mustParseTime(updatedAt)
+	return record, true, nil
+}
+
+func (s *sqliteWorkflowRunStore) List() ([]WorkflowRunRecord, error) {
+	rows, err := s.db.db.Query(`SELECT workflow_id FROM workflow_runs ORDER BY updated_at ASC, workflow_id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]WorkflowRunRecord, 0)
+	for rows.Next() {
+		var workflowID string
+		if err := rows.Scan(&workflowID); err != nil {
+			return nil, err
+		}
+		record, ok, err := s.Load(workflowID)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			result = append(result, record)
+		}
+	}
+	return result, rows.Err()
+}
+
+type sqliteReplayProjectionStore struct {
+	db *SQLiteRuntimeDB
+}
+
+func marshalStringSlice(values []string) (string, error) {
+	if len(values) == 0 {
+		return "[]", nil
+	}
+	return marshalJSON(values)
+}
+
+func unmarshalStringSlice(raw string) ([]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var values []string
+	if err := unmarshalJSON(raw, &values); err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+func (s *sqliteReplayProjectionStore) SaveWorkflowProjection(record WorkflowReplayProjection) error {
+	reasonsJSON, err := marshalStringSlice(record.DegradationReasons)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.db.Exec(`
+		INSERT INTO workflow_replay_projections (
+			workflow_id, task_id, intent, runtime_state, failure_category, approval_id, bundle_artifact_id, summary_artifact_id,
+			projection_status, schema_version, degradation_reasons_json, summary_json, explanation_json, compare_input_json,
+			updated_at, projection_freshness
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(workflow_id) DO UPDATE SET
+			task_id = excluded.task_id,
+			intent = excluded.intent,
+			runtime_state = excluded.runtime_state,
+			failure_category = excluded.failure_category,
+			approval_id = excluded.approval_id,
+			bundle_artifact_id = excluded.bundle_artifact_id,
+			summary_artifact_id = excluded.summary_artifact_id,
+			projection_status = excluded.projection_status,
+			schema_version = excluded.schema_version,
+			degradation_reasons_json = excluded.degradation_reasons_json,
+			summary_json = excluded.summary_json,
+			explanation_json = excluded.explanation_json,
+			compare_input_json = excluded.compare_input_json,
+			updated_at = excluded.updated_at,
+			projection_freshness = excluded.projection_freshness
+	`, record.WorkflowID, record.TaskID, record.Intent, string(record.RuntimeState), string(record.FailureCategory), record.ApprovalID, record.BundleArtifactID, record.SummaryArtifactID, string(record.ProjectionStatus), record.SchemaVersion, reasonsJSON, record.SummaryJSON, record.ExplanationJSON, record.CompareInputJSON, record.UpdatedAt.UTC().Format(time.RFC3339Nano), record.ProjectionFreshness.UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+func (s *sqliteReplayProjectionStore) SaveTaskGraphProjection(record TaskGraphReplayProjection) error {
+	reasonsJSON, err := marshalStringSlice(record.DegradationReasons)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.db.Exec(`
+		INSERT INTO task_graph_replay_projections (
+			graph_id, parent_workflow_id, parent_task_id, runtime_state, pending_approval_id, bundle_artifact_id, summary_artifact_id,
+			projection_status, schema_version, degradation_reasons_json, summary_json, explanation_json, compare_input_json,
+			updated_at, projection_freshness
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(graph_id) DO UPDATE SET
+			parent_workflow_id = excluded.parent_workflow_id,
+			parent_task_id = excluded.parent_task_id,
+			runtime_state = excluded.runtime_state,
+			pending_approval_id = excluded.pending_approval_id,
+			bundle_artifact_id = excluded.bundle_artifact_id,
+			summary_artifact_id = excluded.summary_artifact_id,
+			projection_status = excluded.projection_status,
+			schema_version = excluded.schema_version,
+			degradation_reasons_json = excluded.degradation_reasons_json,
+			summary_json = excluded.summary_json,
+			explanation_json = excluded.explanation_json,
+			compare_input_json = excluded.compare_input_json,
+			updated_at = excluded.updated_at,
+			projection_freshness = excluded.projection_freshness
+	`, record.GraphID, record.ParentWorkflowID, record.ParentTaskID, string(record.RuntimeState), record.PendingApprovalID, record.BundleArtifactID, record.SummaryArtifactID, string(record.ProjectionStatus), record.SchemaVersion, reasonsJSON, record.SummaryJSON, record.ExplanationJSON, record.CompareInputJSON, record.UpdatedAt.UTC().Format(time.RFC3339Nano), record.ProjectionFreshness.UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+func (s *sqliteReplayProjectionStore) SaveBuild(record ReplayProjectionBuildRecord) error {
+	reasonsJSON, err := marshalStringSlice(record.DegradationReasons)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.db.Exec(`
+		INSERT INTO replay_projection_builds (
+			scope_kind, scope_id, schema_version, status, degradation_reasons_json, built_at, source_event_count, source_artifact_count
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(scope_kind, scope_id) DO UPDATE SET
+			schema_version = excluded.schema_version,
+			status = excluded.status,
+			degradation_reasons_json = excluded.degradation_reasons_json,
+			built_at = excluded.built_at,
+			source_event_count = excluded.source_event_count,
+			source_artifact_count = excluded.source_artifact_count
+	`, string(record.ScopeKind), record.ScopeID, record.SchemaVersion, string(record.Status), reasonsJSON, record.BuiltAt.UTC().Format(time.RFC3339Nano), record.SourceEventCount, record.SourceArtifactCount)
+	return err
+}
+
+func (s *sqliteReplayProjectionStore) ReplaceProvenance(scope ReplayProjectionScope, nodes []ProvenanceNodeRecord, edges []ProvenanceEdgeRecord) error {
+	tx, err := s.db.begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`DELETE FROM replay_provenance_nodes WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM replay_provenance_edges WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		if _, err := tx.Exec(`
+			INSERT INTO replay_provenance_nodes(scope_kind, scope_id, node_id, node_type, ref_id, label, summary, attributes_json)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, string(scope.ScopeKind), scope.ScopeID, node.NodeID, node.NodeType, node.RefID, node.Label, node.Summary, node.AttributesJSON); err != nil {
+			return err
+		}
+	}
+	for _, edge := range edges {
+		if _, err := tx.Exec(`
+			INSERT INTO replay_provenance_edges(scope_kind, scope_id, edge_id, from_node_id, to_node_id, edge_type, reason, attributes_json)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, string(scope.ScopeKind), scope.ScopeID, edge.EdgeID, edge.FromNodeID, edge.ToNodeID, edge.EdgeType, edge.Reason, edge.AttributesJSON); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteReplayProjectionStore) ReplaceExecutionAttributions(scope ReplayProjectionScope, records []ExecutionAttributionRecord) error {
+	tx, err := s.db.begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`DELETE FROM replay_execution_attributions WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
+		return err
+	}
+	for _, item := range records {
+		if _, err := tx.Exec(`
+			INSERT INTO replay_execution_attributions(scope_kind, scope_id, execution_id, category, summary, source_refs_json, details_json)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, string(scope.ScopeKind), scope.ScopeID, item.ExecutionID, item.Category, item.Summary, item.SourceRefsJSON, item.DetailsJSON); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteReplayProjectionStore) ReplaceFailureAttributions(scope ReplayProjectionScope, records []FailureAttributionRecord) error {
+	tx, err := s.db.begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`DELETE FROM replay_failure_attributions WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
+		return err
+	}
+	for _, item := range records {
+		if _, err := tx.Exec(`
+			INSERT INTO replay_failure_attributions(scope_kind, scope_id, attribution_id, failure_category, reason_code, summary, related_kind, related_id, source_refs_json, details_json)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, string(scope.ScopeKind), scope.ScopeID, item.AttributionID, item.FailureCategory, item.ReasonCode, item.Summary, item.RelatedKind, item.RelatedID, item.SourceRefsJSON, item.DetailsJSON); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteReplayProjectionStore) LoadWorkflowProjection(workflowID string) (WorkflowReplayProjection, bool, error) {
+	row := s.db.db.QueryRow(`
+		SELECT task_id, intent, runtime_state, failure_category, approval_id, bundle_artifact_id, summary_artifact_id,
+		       projection_status, schema_version, degradation_reasons_json, summary_json, explanation_json, compare_input_json,
+		       updated_at, projection_freshness
+		FROM workflow_replay_projections
+		WHERE workflow_id = ?
+	`, workflowID)
+	var (
+		record         WorkflowReplayProjection
+		state          string
+		failure        string
+		status         string
+		reasonsJSON    string
+		updatedAt      string
+		freshness      string
+	)
+	record.WorkflowID = workflowID
+	if err := row.Scan(&record.TaskID, &record.Intent, &state, &failure, &record.ApprovalID, &record.BundleArtifactID, &record.SummaryArtifactID, &status, &record.SchemaVersion, &reasonsJSON, &record.SummaryJSON, &record.ExplanationJSON, &record.CompareInputJSON, &updatedAt, &freshness); err != nil {
+		if errorsIsNoRows(err) {
+			return WorkflowReplayProjection{}, false, nil
+		}
+		return WorkflowReplayProjection{}, false, err
+	}
+	record.RuntimeState = WorkflowExecutionState(state)
+	record.FailureCategory = FailureCategory(failure)
+	record.ProjectionStatus = ReplayProjectionStatus(status)
+	reasons, err := unmarshalStringSlice(reasonsJSON)
+	if err != nil {
+		return WorkflowReplayProjection{}, false, err
+	}
+	record.DegradationReasons = reasons
+	record.UpdatedAt = mustParseTime(updatedAt)
+	record.ProjectionFreshness = mustParseTime(freshness)
+	return record, true, nil
+}
+
+func (s *sqliteReplayProjectionStore) LoadTaskGraphProjection(graphID string) (TaskGraphReplayProjection, bool, error) {
+	row := s.db.db.QueryRow(`
+		SELECT parent_workflow_id, parent_task_id, runtime_state, pending_approval_id, bundle_artifact_id, summary_artifact_id,
+		       projection_status, schema_version, degradation_reasons_json, summary_json, explanation_json, compare_input_json,
+		       updated_at, projection_freshness
+		FROM task_graph_replay_projections
+		WHERE graph_id = ?
+	`, graphID)
+	var (
+		record      TaskGraphReplayProjection
+		state       string
+		status      string
+		reasonsJSON string
+		updatedAt   string
+		freshness   string
+	)
+	record.GraphID = graphID
+	if err := row.Scan(&record.ParentWorkflowID, &record.ParentTaskID, &state, &record.PendingApprovalID, &record.BundleArtifactID, &record.SummaryArtifactID, &status, &record.SchemaVersion, &reasonsJSON, &record.SummaryJSON, &record.ExplanationJSON, &record.CompareInputJSON, &updatedAt, &freshness); err != nil {
+		if errorsIsNoRows(err) {
+			return TaskGraphReplayProjection{}, false, nil
+		}
+		return TaskGraphReplayProjection{}, false, err
+	}
+	record.RuntimeState = WorkflowExecutionState(state)
+	record.ProjectionStatus = ReplayProjectionStatus(status)
+	reasons, err := unmarshalStringSlice(reasonsJSON)
+	if err != nil {
+		return TaskGraphReplayProjection{}, false, err
+	}
+	record.DegradationReasons = reasons
+	record.UpdatedAt = mustParseTime(updatedAt)
+	record.ProjectionFreshness = mustParseTime(freshness)
+	return record, true, nil
+}
+
+func (s *sqliteReplayProjectionStore) LoadBuild(scope ReplayProjectionScope) (ReplayProjectionBuildRecord, bool, error) {
+	row := s.db.db.QueryRow(`
+		SELECT schema_version, status, degradation_reasons_json, built_at, source_event_count, source_artifact_count
+		FROM replay_projection_builds
+		WHERE scope_kind = ? AND scope_id = ?
+	`, string(scope.ScopeKind), scope.ScopeID)
+	var (
+		record      ReplayProjectionBuildRecord
+		status      string
+		reasonsJSON string
+		builtAt     string
+	)
+	record.ScopeKind = scope.ScopeKind
+	record.ScopeID = scope.ScopeID
+	if err := row.Scan(&record.SchemaVersion, &status, &reasonsJSON, &builtAt, &record.SourceEventCount, &record.SourceArtifactCount); err != nil {
+		if errorsIsNoRows(err) {
+			return ReplayProjectionBuildRecord{}, false, nil
+		}
+		return ReplayProjectionBuildRecord{}, false, err
+	}
+	record.Status = ReplayProjectionStatus(status)
+	reasons, err := unmarshalStringSlice(reasonsJSON)
+	if err != nil {
+		return ReplayProjectionBuildRecord{}, false, err
+	}
+	record.DegradationReasons = reasons
+	record.BuiltAt = mustParseTime(builtAt)
+	return record, true, nil
+}
+
+func (s *sqliteReplayProjectionStore) ListProvenance(scope ReplayProjectionScope) ([]ProvenanceNodeRecord, []ProvenanceEdgeRecord, error) {
+	nodes := make([]ProvenanceNodeRecord, 0)
+	nodeRows, err := s.db.db.Query(`
+		SELECT node_id, node_type, ref_id, label, summary, attributes_json
+		FROM replay_provenance_nodes
+		WHERE scope_kind = ? AND scope_id = ?
+		ORDER BY node_id ASC
+	`, string(scope.ScopeKind), scope.ScopeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer nodeRows.Close()
+	for nodeRows.Next() {
+		var node ProvenanceNodeRecord
+		node.ScopeKind = scope.ScopeKind
+		node.ScopeID = scope.ScopeID
+		if err := nodeRows.Scan(&node.NodeID, &node.NodeType, &node.RefID, &node.Label, &node.Summary, &node.AttributesJSON); err != nil {
+			return nil, nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	if err := nodeRows.Err(); err != nil {
+		return nil, nil, err
+	}
+	edges := make([]ProvenanceEdgeRecord, 0)
+	edgeRows, err := s.db.db.Query(`
+		SELECT edge_id, from_node_id, to_node_id, edge_type, reason, attributes_json
+		FROM replay_provenance_edges
+		WHERE scope_kind = ? AND scope_id = ?
+		ORDER BY edge_id ASC
+	`, string(scope.ScopeKind), scope.ScopeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer edgeRows.Close()
+	for edgeRows.Next() {
+		var edge ProvenanceEdgeRecord
+		edge.ScopeKind = scope.ScopeKind
+		edge.ScopeID = scope.ScopeID
+		if err := edgeRows.Scan(&edge.EdgeID, &edge.FromNodeID, &edge.ToNodeID, &edge.EdgeType, &edge.Reason, &edge.AttributesJSON); err != nil {
+			return nil, nil, err
+		}
+		edges = append(edges, edge)
+	}
+	return nodes, edges, edgeRows.Err()
+}
+
+func (s *sqliteReplayProjectionStore) ListExecutionAttributions(scope ReplayProjectionScope) ([]ExecutionAttributionRecord, error) {
+	rows, err := s.db.db.Query(`
+		SELECT execution_id, category, summary, source_refs_json, details_json
+		FROM replay_execution_attributions
+		WHERE scope_kind = ? AND scope_id = ?
+		ORDER BY execution_id ASC, category ASC
+	`, string(scope.ScopeKind), scope.ScopeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]ExecutionAttributionRecord, 0)
+	for rows.Next() {
+		var record ExecutionAttributionRecord
+		record.ScopeKind = scope.ScopeKind
+		record.ScopeID = scope.ScopeID
+		if err := rows.Scan(&record.ExecutionID, &record.Category, &record.Summary, &record.SourceRefsJSON, &record.DetailsJSON); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
+func (s *sqliteReplayProjectionStore) ListFailureAttributions(scope ReplayProjectionScope) ([]FailureAttributionRecord, error) {
+	rows, err := s.db.db.Query(`
+		SELECT attribution_id, failure_category, reason_code, summary, related_kind, related_id, source_refs_json, details_json
+		FROM replay_failure_attributions
+		WHERE scope_kind = ? AND scope_id = ?
+		ORDER BY attribution_id ASC
+	`, string(scope.ScopeKind), scope.ScopeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]FailureAttributionRecord, 0)
+	for rows.Next() {
+		var record FailureAttributionRecord
+		record.ScopeKind = scope.ScopeKind
+		record.ScopeID = scope.ScopeID
+		if err := rows.Scan(&record.AttributionID, &record.FailureCategory, &record.ReasonCode, &record.Summary, &record.RelatedKind, &record.RelatedID, &record.SourceRefsJSON, &record.DetailsJSON); err != nil {
+			return nil, err
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
 type sqliteArtifactMetadataStore struct {
 	db *SQLiteRuntimeDB
 }
@@ -728,6 +1179,85 @@ func (s *sqliteArtifactMetadataStore) ListArtifactsByTask(taskID string) ([]repo
 		result = append(result, artifact)
 	}
 	return result, rows.Err()
+}
+
+func (s *sqliteArtifactMetadataStore) ListArtifactsByWorkflow(workflowID string) ([]reporting.WorkflowArtifact, error) {
+	rows, err := s.db.db.Query(`
+		SELECT artifact_id, kind, workflow_id, task_id, produced_by, summary, storage_ref, created_at, ref_json
+		FROM workflow_artifacts
+		WHERE workflow_id = ?
+		ORDER BY created_at ASC, artifact_id ASC
+	`, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]reporting.WorkflowArtifact, 0)
+	for rows.Next() {
+		var (
+			artifact   reporting.WorkflowArtifact
+			kind       string
+			summary    string
+			storageRef sql.NullString
+			createdAt  string
+			refJSON    string
+		)
+		if err := rows.Scan(&artifact.ID, &kind, &artifact.WorkflowID, &artifact.TaskID, &artifact.ProducedBy, &summary, &storageRef, &createdAt, &refJSON); err != nil {
+			return nil, err
+		}
+		artifact.Kind = reporting.ArtifactKind(kind)
+		artifact.CreatedAt = mustParseTime(createdAt)
+		if err := unmarshalJSON(refJSON, &artifact.Ref); err != nil {
+			return nil, err
+		}
+		if artifact.Ref.Summary == "" {
+			artifact.Ref.Summary = summary
+		}
+		if storageRef.Valid {
+			artifact.Ref.Location = storageRef.String
+		}
+		result = append(result, artifact)
+	}
+	return result, rows.Err()
+}
+
+func (s *sqliteArtifactMetadataStore) LoadArtifact(artifactID string) (reporting.WorkflowArtifact, bool, error) {
+	row := s.db.db.QueryRow(`
+		SELECT kind, workflow_id, task_id, produced_by, summary, storage_ref, created_at, ref_json
+		FROM workflow_artifacts
+		WHERE artifact_id = ?
+	`, artifactID)
+	var (
+		artifact   reporting.WorkflowArtifact
+		kind       string
+		summary    string
+		storageRef sql.NullString
+		createdAt  string
+		refJSON    string
+	)
+	artifact.ID = artifactID
+	if err := row.Scan(&kind, &artifact.WorkflowID, &artifact.TaskID, &artifact.ProducedBy, &summary, &storageRef, &createdAt, &refJSON); err != nil {
+		if errorsIsNoRows(err) {
+			return reporting.WorkflowArtifact{}, false, nil
+		}
+		return reporting.WorkflowArtifact{}, false, err
+	}
+	artifact.Kind = reporting.ArtifactKind(kind)
+	artifact.CreatedAt = mustParseTime(createdAt)
+	if err := unmarshalJSON(refJSON, &artifact.Ref); err != nil {
+		return reporting.WorkflowArtifact{}, false, err
+	}
+	if artifact.Ref.Summary == "" {
+		artifact.Ref.Summary = summary
+	}
+	if storageRef.Valid {
+		artifact.Ref.Location = storageRef.String
+		payload, err := os.ReadFile(storageRef.String)
+		if err == nil {
+			artifact.ContentJSON = string(payload)
+		}
+	}
+	return artifact, true, nil
 }
 
 func saveTaskGraphTx(tx *sql.Tx, db *SQLiteRuntimeDB, snapshot TaskGraphSnapshot, update bool, expectedVersion int64) error {

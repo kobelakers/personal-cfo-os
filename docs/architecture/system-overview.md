@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, and a trustworthy finance reasoning substrate on the current live path.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a trustworthy finance reasoning substrate on the current live path, and a first operator-grade replay/eval/debug plane.
 
 ## Core Loop
 
@@ -17,7 +17,25 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, child workflow execution records, and committed state handoff.
 12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
 13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
-14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, memory query/hit/reject/select traces, embedding calls, finance metric records, validator verdicts, policy rule hits, approval triggers, and operator/runtime provenance chains.
+14. Runtime durable truth is now augmented by versioned replay/debug projection rows plus artifact refs, so replay/debug can query the same durable plane without introducing a second explanation database.
+15. `ReplayQueryService` can answer workflow/task-graph/task/execution/approval why/how questions from authoritative runtime truth, normalized projections, and artifact refs, while degrading gracefully when projections are missing or stale.
+16. `cmd/eval` now runs a deterministic canonical regression corpus over the current backbone instead of only phase-specific runners, and golden replay/debug samples are produced from the same mock/runtime fixtures.
+
+## Replay / Eval / Debug Plane (Phase 6A)
+
+Phase 6A upgrades replay/eval/debug from durable trace export into a local operator-grade plane with these boundaries:
+
+1. durable truth source is now:
+   - runtime durable truth
+   - replay/debug projection rows
+   - artifact refs for rich bundles and golden outputs
+2. projection rows are normalized and versioned rather than artifacts-only; query does not require deserializing a single large JSON blob to answer replay questions
+3. projection rows are rebuildable/backfillable from authoritative runtime truth through a dedicated projection rebuilder
+4. query semantics are explicit:
+   - authoritative runtime truth missing -> hard failure
+   - projection missing/stale/incomplete -> partial replay view with degradation reasons
+5. provenance is now treated as a directed graph instead of an ID bag, so replay can explain parent workflow -> generated task -> child workflow -> artifact -> state commit -> operator action chains
+6. the canonical 6A regression corpus is deterministic/mock only; live provider paths are retained for smoke/manual evidence, not stable regression
 
 ## Trustworthy Finance Reasoning (Phase 5D)
 
@@ -109,7 +127,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -122,13 +140,14 @@ The repository is now best described as **system-agent backbone + first real dom
 - semantic retrieval is now real for the Monthly Review path through provider-backed embeddings, but still uses local brute-force vector scoring instead of ANN/pgvector
 - runtime is local Temporal-aligned rather than connected to a live Temporal cluster
 - durable persistence is local SQLite + artifact refs rather than Postgres + object storage
-- observability is now durable and queryable for runtime replay, but not yet backed by full tracing infrastructure
+- observability is now durable and queryable for runtime replay/debug, but not yet backed by full tracing infrastructure
 - system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
 - only `PlannerAgent` and `CashflowAgent` currently use real provider-backed reasoning, and only inside Monthly Review
 - prompt/provider/token/cost traces are now visible in workflow dumps, but they are not yet promoted to a separate operator-facing durable intelligence store
 - `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
 - follow-up execution is now capability-backed for `tax_optimization` and `portfolio_rebalance`, but only at execution depth 1 and only through runtime allowlist policy
 - other generated intents can still remain `ready`, `dependency_blocked`, `deferred`, or `queued_pending_capability` without being auto-run
-- broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and full replay/eval-plane maturation remain explicitly out of scope for this phase
+- broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and richer blocked/deferred/capability regression coverage remain explicitly out of scope for this phase
+- richer provider/prompt A/B evaluation and full external observability infra promotion remain explicitly out of scope for this phase
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

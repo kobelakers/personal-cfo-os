@@ -26,7 +26,12 @@ type ServiceOptions struct {
 }
 
 type Service struct {
-	runtime *LocalWorkflowRuntime
+	runtime                *LocalWorkflowRuntime
+	replayProjectionWriter ReplayProjectionWriter
+}
+
+type ReplayProjectionWriter interface {
+	RebuildTaskGraph(ctx context.Context, graphID string) (ReplayProjectionBuildRecord, error)
 }
 
 func NewService(options ServiceOptions) *Service {
@@ -48,6 +53,10 @@ func NewService(options ServiceOptions) *Service {
 
 func (s *Service) Runtime() *LocalWorkflowRuntime {
 	return s.runtime
+}
+
+func (s *Service) SetReplayProjectionWriter(writer ReplayProjectionWriter) {
+	s.replayProjectionWriter = writer
 }
 
 func (s *Service) SetCapabilities(resolver TaskCapabilityResolver) {
@@ -95,6 +104,9 @@ func (s *Service) ReevaluateTaskGraph(ctx context.Context, cmd ReevaluateTaskGra
 	}); err != nil {
 		return TaskActivationResult{}, TaskCommandResult{}, err
 	}
+	if err := s.rebuildTaskGraphProjection(ctx, cmd.GraphID); err != nil {
+		return TaskActivationResult{}, TaskCommandResult{}, err
+	}
 	return activation, TaskCommandResult{
 		Action:  action,
 		GraphID: cmd.GraphID,
@@ -103,11 +115,18 @@ func (s *Service) ReevaluateTaskGraph(ctx context.Context, cmd ReevaluateTaskGra
 }
 
 func (s *Service) ExecuteAutoReadyFollowUps(ctx context.Context, graphID string, policy AutoExecutionPolicy) (FollowUpExecutionBatchResult, error) {
-	return s.runtime.ExecuteReadyFollowUps(ctx, ExecutionContext{
+	result, err := s.runtime.ExecuteReadyFollowUps(ctx, ExecutionContext{
 		WorkflowID:    graphID,
 		CorrelationID: graphID,
 		Attempt:       1,
 	}, graphID, policy)
+	if err != nil {
+		return FollowUpExecutionBatchResult{}, err
+	}
+	if err := s.rebuildTaskGraphProjection(ctx, graphID); err != nil {
+		return FollowUpExecutionBatchResult{}, err
+	}
+	return result, nil
 }
 
 func (s *Service) beginAction(actionType OperatorActionType, requestID string, actor string, roles []string, graphID string, taskID string, approvalID string, workflowID string, note string, expectedVersion int64) (OperatorActionRecord, TaskCommandResult, bool, error) {
@@ -175,6 +194,14 @@ func (s *Service) appendReplay(event ReplayEventRecord) error {
 		return nil
 	}
 	return s.runtime.Replay.Append(event)
+}
+
+func (s *Service) rebuildTaskGraphProjection(ctx context.Context, graphID string) error {
+	if s == nil || s.replayProjectionWriter == nil || strings.TrimSpace(graphID) == "" {
+		return nil
+	}
+	_, err := s.replayProjectionWriter.RebuildTaskGraph(ctx, graphID)
+	return err
 }
 
 func (s *Service) loadTaskGraph(graphID string) (TaskGraphSnapshot, error) {

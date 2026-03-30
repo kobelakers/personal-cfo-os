@@ -34,7 +34,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    *addr,
-		Handler: api.NewServer(plane.Query, plane.Operator, plane.Service).Handler(),
+		Handler: api.NewServer(plane.Query, plane.ReplayQuery, plane.Operator, plane.Service).Handler(),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

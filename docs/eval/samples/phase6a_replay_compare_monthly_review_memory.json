@@ -1,0 +1,24 @@
+{
+  "left": {
+    "kind": "workflow",
+    "id": "workflow-monthly-review-20260329080000"
+  },
+  "right": {
+    "kind": "workflow",
+    "id": "workflow-monthly-review-20260329080001"
+  },
+  "diffs": [
+    {
+      "category": "memory",
+      "field": "memory_summary",
+      "right": [
+        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+      ],
+      "summary": "memory selection/rejection changed"
+    }
+  ],
+  "summary": [
+    "memory selection/rejection changed"
+  ]
+}

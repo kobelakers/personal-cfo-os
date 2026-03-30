@@ -22,12 +22,15 @@ type SQLiteRuntimeDB struct {
 
 type SQLiteRuntimeStores struct {
 	DB              *SQLiteRuntimeDB
+	WorkflowRuns    WorkflowRunStore
 	TaskGraphs      TaskGraphStore
 	Executions      TaskExecutionStore
 	Approvals       ApprovalStateStore
 	OperatorActions OperatorActionStore
 	Checkpoints     CheckpointStore
 	Replay          ReplayStore
+	ReplayProjection ReplayProjectionStore
+	ReplayQuery     ReplayProjectionQueryStore
 	Artifacts       ArtifactMetadataStore
 }
 
@@ -37,14 +40,17 @@ func NewSQLiteRuntimeStores(dbPath string) (*SQLiteRuntimeStores, error) {
 		return nil, err
 	}
 	return &SQLiteRuntimeStores{
-		DB:              db,
-		TaskGraphs:      &sqliteTaskGraphStore{db: db},
-		Executions:      &sqliteTaskExecutionStore{db: db},
-		Approvals:       &sqliteApprovalStateStore{db: db},
-		OperatorActions: &sqliteOperatorActionStore{db: db},
-		Checkpoints:     &sqliteCheckpointStore{db: db},
-		Replay:          &sqliteReplayStore{db: db},
-		Artifacts:       &sqliteArtifactMetadataStore{db: db},
+		DB:               db,
+		WorkflowRuns:     &sqliteWorkflowRunStore{db: db},
+		TaskGraphs:       &sqliteTaskGraphStore{db: db},
+		Executions:       &sqliteTaskExecutionStore{db: db},
+		Approvals:        &sqliteApprovalStateStore{db: db},
+		OperatorActions:  &sqliteOperatorActionStore{db: db},
+		Checkpoints:      &sqliteCheckpointStore{db: db},
+		Replay:           &sqliteReplayStore{db: db},
+		ReplayProjection: &sqliteReplayProjectionStore{db: db},
+		ReplayQuery:      &sqliteReplayProjectionStore{db: db},
+		Artifacts:        &sqliteArtifactMetadataStore{db: db},
 	}, nil
 }
 
@@ -241,6 +247,114 @@ func (db *SQLiteRuntimeDB) EnsureSchema() error {
 			ON replay_events(graph_id, occurred_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_replay_events_task_time
 			ON replay_events(task_id, occurred_at);`,
+		`CREATE TABLE IF NOT EXISTS workflow_runs (
+			workflow_id TEXT PRIMARY KEY,
+			task_id TEXT NOT NULL,
+			intent TEXT NOT NULL,
+			runtime_state TEXT NOT NULL,
+			failure_category TEXT,
+			failure_summary TEXT,
+			approval_id TEXT,
+			checkpoint_id TEXT,
+			resume_token TEXT,
+			task_graph_id TEXT,
+			root_correlation_id TEXT,
+			summary TEXT,
+			started_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			record_json TEXT
+		);`,
+		`CREATE TABLE IF NOT EXISTS replay_projection_builds (
+			scope_kind TEXT NOT NULL,
+			scope_id TEXT NOT NULL,
+			schema_version INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			degradation_reasons_json TEXT,
+			built_at TEXT NOT NULL,
+			source_event_count INTEGER NOT NULL,
+			source_artifact_count INTEGER NOT NULL,
+			PRIMARY KEY (scope_kind, scope_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS workflow_replay_projections (
+			workflow_id TEXT PRIMARY KEY,
+			task_id TEXT,
+			intent TEXT,
+			runtime_state TEXT NOT NULL,
+			failure_category TEXT,
+			approval_id TEXT,
+			bundle_artifact_id TEXT,
+			summary_artifact_id TEXT,
+			projection_status TEXT NOT NULL,
+			schema_version INTEGER NOT NULL,
+			degradation_reasons_json TEXT,
+			summary_json TEXT,
+			explanation_json TEXT,
+			compare_input_json TEXT,
+			updated_at TEXT NOT NULL,
+			projection_freshness TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS task_graph_replay_projections (
+			graph_id TEXT PRIMARY KEY,
+			parent_workflow_id TEXT,
+			parent_task_id TEXT,
+			runtime_state TEXT NOT NULL,
+			pending_approval_id TEXT,
+			bundle_artifact_id TEXT,
+			summary_artifact_id TEXT,
+			projection_status TEXT NOT NULL,
+			schema_version INTEGER NOT NULL,
+			degradation_reasons_json TEXT,
+			summary_json TEXT,
+			explanation_json TEXT,
+			compare_input_json TEXT,
+			updated_at TEXT NOT NULL,
+			projection_freshness TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS replay_provenance_nodes (
+			scope_kind TEXT NOT NULL,
+			scope_id TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			node_type TEXT NOT NULL,
+			ref_id TEXT,
+			label TEXT NOT NULL,
+			summary TEXT,
+			attributes_json TEXT,
+			PRIMARY KEY (scope_kind, scope_id, node_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS replay_provenance_edges (
+			scope_kind TEXT NOT NULL,
+			scope_id TEXT NOT NULL,
+			edge_id TEXT NOT NULL,
+			from_node_id TEXT NOT NULL,
+			to_node_id TEXT NOT NULL,
+			edge_type TEXT NOT NULL,
+			reason TEXT,
+			attributes_json TEXT,
+			PRIMARY KEY (scope_kind, scope_id, edge_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS replay_execution_attributions (
+			scope_kind TEXT NOT NULL,
+			scope_id TEXT NOT NULL,
+			execution_id TEXT NOT NULL,
+			category TEXT NOT NULL,
+			summary TEXT NOT NULL,
+			source_refs_json TEXT,
+			details_json TEXT,
+			PRIMARY KEY (scope_kind, scope_id, execution_id, category)
+		);`,
+		`CREATE TABLE IF NOT EXISTS replay_failure_attributions (
+			scope_kind TEXT NOT NULL,
+			scope_id TEXT NOT NULL,
+			attribution_id TEXT NOT NULL,
+			failure_category TEXT NOT NULL,
+			reason_code TEXT,
+			summary TEXT NOT NULL,
+			related_kind TEXT,
+			related_id TEXT,
+			source_refs_json TEXT,
+			details_json TEXT,
+			PRIMARY KEY (scope_kind, scope_id, attribution_id)
+		);`,
 		`CREATE TABLE IF NOT EXISTS workflow_artifacts (
 			artifact_id TEXT PRIMARY KEY,
 			kind TEXT NOT NULL,
@@ -258,7 +372,7 @@ func (db *SQLiteRuntimeDB) EnsureSchema() error {
 			return err
 		}
 	}
-	_, err := db.db.Exec(`INSERT OR IGNORE INTO runtime_schema_migrations(version, applied_at) VALUES (1, ?);`, time.Now().UTC().Format(time.RFC3339Nano))
+	_, err := db.db.Exec(`INSERT OR IGNORE INTO runtime_schema_migrations(version, applied_at) VALUES (?, ?);`, ReplayProjectionSchemaVersion, time.Now().UTC().Format(time.RFC3339Nano))
 	return err
 }
 

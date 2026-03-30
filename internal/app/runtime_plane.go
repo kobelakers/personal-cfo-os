@@ -30,15 +30,18 @@ type RuntimePlaneOptions struct {
 }
 
 type RuntimePlane struct {
-	Stores     *runtime.SQLiteRuntimeStores
-	Service    *runtime.Service
-	Operator   *runtime.OperatorService
-	Query      *runtime.QueryService
-	Replay     *observability.ReplayService
-	EventLog   *observability.EventLog
-	AgentTrace *observability.AgentTraceLog
-	FixtureDir string
-	runtimeDB  *runtime.SQLiteRuntimeDB
+	Stores          *runtime.SQLiteRuntimeStores
+	Service         *runtime.Service
+	Operator        *runtime.OperatorService
+	Query           *runtime.QueryService
+	Replay          *observability.ReplayService
+	ReplayQuery     *runtime.ReplayQueryService
+	ReplayRebuilder *runtime.ReplayProjectionRebuilder
+	LifeEvent       workflows.LifeEventTriggerWorkflow
+	EventLog        *observability.EventLog
+	AgentTrace      *observability.AgentTraceLog
+	FixtureDir      string
+	runtimeDB       *runtime.SQLiteRuntimeDB
 }
 
 func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
@@ -91,6 +94,29 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 		Now:             nowFn,
 	})
 	local := service.Runtime()
+	replayRebuilder := runtime.NewReplayProjectionRebuilder(service, stores.WorkflowRuns, stores.ReplayProjection, stores.Artifacts, stores.Replay, nowFn)
+	service.SetReplayProjectionWriter(replayRebuilder)
+	replayQuery := runtime.NewReplayQueryService(service, stores.WorkflowRuns, stores.ReplayQuery, stores.Artifacts, stores.Replay)
+	lifeEventWorkflow := workflows.LifeEventTriggerWorkflow{
+		Intake: taskspec.EventTriggeredIntakeService{Now: nowFn},
+		TriggerService: workflows.LifeEventWorkflowService{
+			QueryEvent:            tools.QueryEventTool{Adapter: deps.EventAdapter},
+			QueryCalendarDeadline: tools.QueryCalendarDeadlineTool{Adapter: deps.DeadlineAdapter},
+			QueryTransaction:      tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:        tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:        tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ParseDocument: tools.ParseDocumentTool{
+				Structured: deps.StructuredDocAdapter,
+				Agentic:    deps.AgenticDocAdapter,
+			},
+			ReducerEngine: reducers.DeterministicReducerEngine{Now: nowFn},
+			EventLog:      eventLog,
+		},
+		SystemSteps: systemSteps,
+		Runtime:     local,
+		EventLog:    eventLog,
+		Now:         nowFn,
+	}
 	taxWorkflow := workflows.TaxOptimizationWorkflow{
 		Service:     followUpService,
 		SystemSteps: systemSteps,
@@ -119,15 +145,18 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 	}
 	service.SetCapabilities(resolver)
 	return &RuntimePlane{
-		Stores:     stores,
-		Service:    service,
-		Operator:   runtime.NewOperatorService(service),
-		Query:      runtime.NewQueryService(service),
-		Replay:     observability.NewReplayService(runtime.NewObservabilityReplayStore(stores.Replay)),
-		EventLog:   eventLog,
-		AgentTrace: agentTrace,
-		FixtureDir: fixtureDir,
-		runtimeDB:  stores.DB,
+		Stores:          stores,
+		Service:         service,
+		Operator:        runtime.NewOperatorService(service),
+		Query:           runtime.NewQueryService(service),
+		Replay:          observability.NewReplayService(runtime.NewObservabilityReplayStore(stores.Replay)),
+		ReplayQuery:     replayQuery,
+		ReplayRebuilder: replayRebuilder,
+		LifeEvent:       lifeEventWorkflow,
+		EventLog:        eventLog,
+		AgentTrace:      agentTrace,
+		FixtureDir:      fixtureDir,
+		runtimeDB:       stores.DB,
 	}, nil
 }
 

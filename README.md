@@ -1,6 +1,6 @@
 # Personal CFO OS
 
-Personal CFO OS is a 2026-style personal finance agent system. It is intentionally designed as a goal-driven, stateful, memory-aware, protocol-oriented, verifiable, governed, and observable system rather than a toy "LLM routes to an agent and calls a few tools" demo.
+Personal CFO OS is a 2026-style personal finance agent system. It is intentionally designed as a goal-driven, stateful, memory-aware, protocol-oriented, verifiable, governed, observable, and replayable/evaluable system rather than a toy "LLM routes to an agent and calls a few tools" demo.
 
 ## Why This Is Not a Toy Multi-Agent Demo
 
@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, and a first trustworthy finance reasoning substrate:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a first trustworthy finance reasoning substrate, and a first operator-grade replay/eval/debug plane:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -36,6 +36,7 @@ The repository now runs a real governed finance workflow backbone with system-ag
 18. `cmd/eval` plus `scripts/run_monthly_review_5b.sh` can now produce a trace dump and report artifact for the Phase 5B Monthly Review golden path in either mock or env-gated live mode
 19. `cmd/eval --phase 5c` plus `scripts/run_monthly_review_5c.sh` now reopen the same injected `memory.db`, retrieve durable memories through lexical + semantic + fusion + rejection, and show that prior monthly-review memories can change planner/cashflow output in a later session
 20. `internal/finance` now acts as the current live path's numeric truth source, shared typed recommendations carry risk/grounding/approval semantics, deterministic validators harden recommendation trust, and governance can move high-risk finance actions into `waiting_approval`
+21. runtime durable truth is now augmented by replay/debug projection rows plus artifact refs, `cmd/replay` can answer workflow/task/execution/approval why/how questions from the same durable plane, and `cmd/eval --mode corpus` can run a deterministic regression corpus instead of only phase runners
 
 ## Phase 5C Real Memory Substrate
 
@@ -92,9 +93,32 @@ Phase 5D adds a trust layer on top of the existing intelligence + memory backbon
   - policy rule hits
   - approval triggers
 
+## Phase 6A Replay / Eval / Debug Plane
+
+Phase 6A upgrades replay/eval/debug from "export a trace and read JSON by hand" into a local operator-grade plane:
+
+- replay truth source is now:
+  - runtime durable truth
+  - normalized replay/debug projection rows
+  - artifact refs for rich bundles and golden outputs
+- replay/debug projections are versioned and rebuildable/backfillable from authoritative runtime truth; query does not assume projections are always complete
+- `ReplayQueryService` now supports workflow / task-graph / task / execution / approval replay queries with explicit degrade semantics:
+  - authoritative runtime truth missing -> hard failure
+  - projection missing, stale, or incomplete -> partial replay view plus degradation reasons
+- provenance is now a directed graph rather than an ID bag, so replay can explain:
+  - why a workflow failed
+  - why a task entered `waiting_approval`
+  - why a generated task exists
+  - why a child workflow executed
+  - why memory was selected or rejected
+  - what changed between two runs
+- `cmd/replay` is no longer a placeholder; it can query a single scope, compare two scopes, rebuild projections, and print JSON or human-readable summaries
+- `cmd/eval` is no longer mainly a phase runner; it now has a deterministic regression harness with a canonical 10-scenario corpus
+- the canonical 6A corpus only runs deterministic fixtures / mock intelligence paths; live provider paths remain smoke/manual evidence and are intentionally excluded from stable regression
+
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
@@ -112,6 +136,7 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - only `PlannerAgent` and `CashflowAgent` enter the real provider-backed intelligence path in this phase, and only inside Monthly Review
 - only Monthly Review currently proves durable-memory influence; this is not yet a claim about every workflow or every agent
 - Monthly Review is now the strongest trustworthy-finance path, while Debt vs Invest carries the canonical deterministic approval proof for 5D
+- replay/eval/debug is now operator-grade on the same local durable plane, but it is still local-first rather than a full external observability stack
 - provider-backed intelligence is now a load-bearing substrate layer rather than workflow-local string prompts: prompts are versioned, render policy is real code rather than dead metadata, context is token-aware at MVP scope, outputs are schema-validated/repaired/fallbacked, and traces include provider/prompt/token/cost/fallback evidence
 - deterministic finance truth now lives in Finance Engine metric bundles rather than in scattered helper logic or model text
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
@@ -169,6 +194,9 @@ go test ./...
 go vet ./...
 go run ./cmd/api --db ./var/runtime.db
 go run ./cmd/worker --db ./var/runtime.db --once
+go run ./cmd/replay --runtime-db ./var/runtime.db --workflow-id <workflow-id> --format summary
+go run ./cmd/replay --runtime-db ./var/runtime.db --rebuild-projections --all
+go run ./cmd/eval --mode corpus --corpus phase6a-default --format summary
 ./scripts/run_monthly_review_5b.sh mock
 ./scripts/run_monthly_review_5c.sh mock
 ./scripts/run_monthly_review_5d.sh mock
@@ -279,6 +307,33 @@ Phase 5D now proves:
 - Debt vs Invest can enter `waiting_approval` deterministically
 - trust validators and governance decisions are visible in workflow trace
 
+### Phase 6A Replay / Eval / Debug Evidence
+
+Run the canonical deterministic corpus:
+
+```bash
+go run ./cmd/eval --mode corpus --corpus phase6a-default --format summary
+```
+
+Replay a waiting-approval workflow:
+
+```bash
+go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/runtime.db --workflow-id workflow-debt-vs-invest-20260329080000 --format summary
+```
+
+Rebuild replay/debug projections from authoritative runtime truth:
+
+```bash
+go run ./cmd/replay --runtime-db ./var/runtime.db --rebuild-projections --all
+```
+
+Stable 6A sample outputs checked into the repo:
+
+- `docs/eval/samples/phase6a_eval_default_corpus.json`
+- `docs/eval/samples/phase6a_replay_compare_monthly_review_memory.json`
+- `docs/eval/samples/phase6a_replay_debt_vs_invest_waiting_approval.json`
+- `docs/eval/samples/phase6a_replay_life_event_task_graph.json`
+
 The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 
 ## What Is Still Stubbed
@@ -289,12 +344,13 @@ The `web/` directory is intentionally minimal in this phase. Install dependencie
 - finance reasoning is now hardened on the current live path, but this is still not a full finance engine, market simulator, or tax-law system
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - durable runtime uses a local SQLite seam and metadata/file refs, not Postgres + object storage yet
+- replay/eval/debug is now queryable and regression-capable on the local durable plane, but it is not yet a full OTel / Prometheus / Grafana / Tempo observability stack
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet
 - repair traces now preserve distinct initial vs repair prompt identity, but that intelligence evidence still only exists on the Monthly Review golden path
 - `TaxAgent` and `PortfolioAgent` are only live inside Workflow C; Monthly Review and Debt vs Invest still keep tax/portfolio as deferred or residual sections
 - capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
 - no real Postgres / pgvector / MinIO / Temporal cluster is required yet
-- finance engine hardening, full replay/eval-plane maturation, broader memory-native workflow rollout, and stronger memory infrastructure promotion are intentionally deferred to later phases instead of being mixed into the current Monthly Review memory substrate work
+- richer provider/prompt A/B regression, broader replay coverage for blocked/deferred capability cases, fuller observability infra promotion, broader memory-native workflow rollout, and stronger memory infrastructure promotion are intentionally deferred to later phases instead of being mixed into the current 6A plane
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.
 

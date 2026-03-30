@@ -258,6 +258,8 @@ type ReplayStore interface {
 type ArtifactMetadataStore interface {
 	SaveArtifact(workflowID string, taskID string, artifact reporting.WorkflowArtifact) error
 	ListArtifactsByTask(taskID string) ([]reporting.WorkflowArtifact, error)
+	ListArtifactsByWorkflow(workflowID string) ([]reporting.WorkflowArtifact, error)
+	LoadArtifact(artifactID string) (reporting.WorkflowArtifact, bool, error)
 }
 
 type SchemaBootstrapper interface {

@@ -68,6 +68,9 @@ func (s *OperatorService) ApproveTask(ctx context.Context, cmd ApproveTaskComman
 	}); err != nil {
 		return TaskCommandResult{}, err
 	}
+	if err := s.service.rebuildTaskGraphProjection(ctx, approval.GraphID); err != nil {
+		return TaskCommandResult{}, err
+	}
 	result = TaskCommandResult{
 		Action:          action,
 		GraphID:         approval.GraphID,
@@ -168,6 +171,9 @@ func (s *OperatorService) DenyTask(ctx context.Context, cmd DenyTaskCommand) (Ta
 	}); err != nil {
 		return TaskCommandResult{}, err
 	}
+	if err := s.service.rebuildTaskGraphProjection(ctx, approval.GraphID); err != nil {
+		return TaskCommandResult{}, err
+	}
 	return TaskCommandResult{
 		Action:         action,
 		GraphID:        approval.GraphID,
@@ -236,6 +242,9 @@ func (s *OperatorService) RetryFailedFollowUpTask(ctx context.Context, cmd Retry
 	action.AppliedAt = &now
 	action.WorkflowID = record.WorkflowID
 	if err := s.service.runtime.OperatorActions.Save(action); err != nil {
+		return TaskCommandResult{}, err
+	}
+	if err := s.service.rebuildTaskGraphProjection(ctx, snapshot.Graph.GraphID); err != nil {
 		return TaskCommandResult{}, err
 	}
 	return TaskCommandResult{
@@ -389,6 +398,9 @@ func (s *OperatorService) resumeTaskInternal(ctx context.Context, cmd ResumeFoll
 		}); err != nil {
 			return TaskCommandResult{}, err
 		}
+	}
+	if err := s.service.rebuildTaskGraphProjection(ctx, snapshot.Graph.GraphID); err != nil {
+		return TaskCommandResult{}, err
 	}
 	return TaskCommandResult{
 		Action:      action,

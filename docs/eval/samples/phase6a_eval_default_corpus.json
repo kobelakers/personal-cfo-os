@@ -1,0 +1,2355 @@
+{
+  "run_id": "phase6a-default-1774771200000000000",
+  "corpus_id": "phase6a-default",
+  "deterministic_only": true,
+  "started_at": "2026-03-29T08:00:00Z",
+  "completed_at": "2026-03-29T08:00:00Z",
+  "results": [
+    {
+      "scenario_id": "monthly_review_happy_path",
+      "category": "monthly_review",
+      "description": "Monthly Review happy path with completed report and replay query by workflow",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-monthly-review-20260329080000"
+      },
+      "workflow_id": "workflow-monthly-review-20260329080000",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-monthly-review-20260329080000"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080000"
+        },
+        "workflow": {
+          "workflow_id": "workflow-monthly-review-20260329080000",
+          "task_id": "task-monthly-review-20260329",
+          "intent": "monthly_review",
+          "runtime_state": "completed",
+          "root_correlation_id": "workflow-monthly-review-20260329080000",
+          "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+          "artifacts": [
+            {
+              "id": "workflow-monthly-review-20260329080000-monthly_review_report",
+              "kind": "monthly_review_report",
+              "workflow_id": "workflow-monthly-review-20260329080000",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_happy_path/artifacts/workflow-monthly-review-20260329080000-monthly_review_report.json",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-29T08:00:00Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260329080000-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-monthly-review-20260329080000",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_happy_path/artifacts/workflow-monthly-review-20260329080000-replay_bundle.json",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.681145Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260329080000-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-monthly-review-20260329080000",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_happy_path/artifacts/workflow-monthly-review-20260329080000-replay_summary.json",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.681145Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-monthly-review-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:workflow-monthly-review-20260329080000-monthly_review_report",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080000-monthly_review_report",
+              "label": "monthly_review_report",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260329080000-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080000-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260329080000-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080000-replay_summary",
+              "label": "replay_summary",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "policy_decision:workflow-monthly-review-20260329080000:0",
+              "type": "policy_decision",
+              "label": "monthly_review_report",
+              "summary": "action allowed by default"
+            },
+            {
+              "id": "task:task-monthly-review-20260329",
+              "type": "task",
+              "ref_id": "task-monthly-review-20260329",
+              "label": "task-monthly-review-20260329"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:grounding:0",
+              "type": "validator_verdict",
+              "label": "financial_grounding_validator",
+              "summary": "finance recommendation grounding checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-monthly-review-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-monthly-review-20260329080000",
+              "label": "workflow-monthly-review-20260329080000",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080000:workflow-monthly-review-20260329080000-monthly_review_report",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080000-monthly_review_report",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080000:workflow-monthly-review-20260329080000-replay_bundle",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080000-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080000:workflow-monthly-review-20260329080000-replay_summary",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080000-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-policy_decision:workflow-monthly-review-20260329080000:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "policy_decision:workflow-monthly-review-20260329080000:0",
+              "type": "blocked_by_policy"
+            },
+            {
+              "id": "workflow-task:workflow-monthly-review-20260329080000:task-monthly-review-20260329",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "task:task-monthly-review-20260329",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:business:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:grounding:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:numeric:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "summary": {
+          "goal_summary": "monthly_review",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=cashflow-review,debt-review"
+          ],
+          "validator_summary": [
+            "grounding:financial_grounding_validator:pass",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "governance_summary": [
+            "monthly_review_report:allow"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_memory_decision": [
+            "selected memories injected into downstream context"
+          ]
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-monthly-review-20260329080000",
+        "final_runtime_state": "completed",
+        "goal": "monthly_review",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=cashflow-review,debt-review"
+        ],
+        "validator_summary": [
+          "grounding:financial_grounding_validator:pass",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "governance_summary": [
+          "monthly_review_report:allow"
+        ],
+        "explanation": [
+          "selected memories injected into downstream context"
+        ]
+      },
+      "token_usage": 1615,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "monthly_review_cross_session_memory_influence",
+      "category": "monthly_review",
+      "description": "Monthly Review cross-session memory influence with replay comparison between two workflow runs",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-monthly-review-20260329080001"
+      },
+      "workflow_id": "workflow-monthly-review-20260329080001",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-monthly-review-20260329080001"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080001"
+        },
+        "workflow": {
+          "workflow_id": "workflow-monthly-review-20260329080001",
+          "task_id": "task-monthly-review-20260329",
+          "intent": "monthly_review",
+          "runtime_state": "completed",
+          "root_correlation_id": "workflow-monthly-review-20260329080001",
+          "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+          "artifacts": [
+            {
+              "id": "workflow-monthly-review-20260329080001-monthly_review_report",
+              "kind": "monthly_review_report",
+              "workflow_id": "workflow-monthly-review-20260329080001",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/artifacts/workflow-monthly-review-20260329080001-monthly_review_report.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-29T08:00:01Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260329080001-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-monthly-review-20260329080001",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/artifacts/workflow-monthly-review-20260329080001-replay_bundle.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.719938Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260329080001-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-monthly-review-20260329080001",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/artifacts/workflow-monthly-review-20260329080001-replay_summary.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.719938Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-monthly-review-20260329080001"
+          },
+          "nodes": [
+            {
+              "id": "artifact:workflow-monthly-review-20260329080001-monthly_review_report",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080001-monthly_review_report",
+              "label": "monthly_review_report",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260329080001-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080001-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260329080001-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080001-replay_summary",
+              "label": "replay_summary",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "label": "workflow-monthly-review-20260329080000-memory-debt-pressure"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-late-night",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-late-night",
+              "label": "workflow-monthly-review-20260329080000-memory-late-night"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-procedure",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-procedure",
+              "label": "workflow-monthly-review-20260329080000-memory-procedure"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-subscriptions",
+              "label": "workflow-monthly-review-20260329080000-memory-subscriptions"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-tax-signal",
+              "label": "workflow-monthly-review-20260329080000-memory-tax-signal"
+            },
+            {
+              "id": "policy_decision:workflow-monthly-review-20260329080001:0",
+              "type": "policy_decision",
+              "label": "monthly_review_report",
+              "summary": "action allowed by default"
+            },
+            {
+              "id": "task:task-monthly-review-20260329",
+              "type": "task",
+              "ref_id": "task-monthly-review-20260329",
+              "label": "task-monthly-review-20260329"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080001:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080001:grounding:0",
+              "type": "validator_verdict",
+              "label": "financial_grounding_validator",
+              "summary": "finance recommendation grounding checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080001:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-monthly-review-20260329080001",
+              "type": "workflow",
+              "ref_id": "workflow-monthly-review-20260329080001",
+              "label": "workflow-monthly-review-20260329080001",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080001-monthly_review_report",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080001-monthly_review_report",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080001-replay_bundle",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080001-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080001-replay_summary",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080001-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080000-memory-late-night",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-late-night",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080000-memory-procedure",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-procedure",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260329080001:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-policy_decision:workflow-monthly-review-20260329080001:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "policy_decision:workflow-monthly-review-20260329080001:0",
+              "type": "blocked_by_policy"
+            },
+            {
+              "id": "workflow-task:workflow-monthly-review-20260329080001:task-monthly-review-20260329",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "task:task-monthly-review-20260329",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080001:business:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "validator:workflow-monthly-review-20260329080001:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080001:grounding:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "validator:workflow-monthly-review-20260329080001:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080001:numeric:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080001",
+              "to_node_id": "validator:workflow-monthly-review-20260329080001:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "summary": {
+          "goal_summary": "monthly_review",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=cashflow-review,debt-review"
+          ],
+          "memory_summary": [
+            "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+          ],
+          "validator_summary": [
+            "grounding:financial_grounding_validator:pass",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "governance_summary": [
+            "monthly_review_report:allow"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_memory_decision": [
+            "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "selected memories injected into downstream context",
+            "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+          ]
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-monthly-review-20260329080001",
+        "final_runtime_state": "completed",
+        "goal": "monthly_review",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=cashflow-review,debt-review"
+        ],
+        "memory_summary": [
+          "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+        ],
+        "validator_summary": [
+          "grounding:financial_grounding_validator:pass",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "governance_summary": [
+          "monthly_review_report:allow"
+        ],
+        "explanation": [
+          "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "selected memories injected into downstream context",
+          "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+        ]
+      },
+      "comparison": {
+        "left": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080000"
+        },
+        "right": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080001"
+        },
+        "diffs": [
+          {
+            "category": "memory",
+            "field": "memory_summary",
+            "right": [
+              "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+            ],
+            "summary": "memory selection/rejection changed"
+          }
+        ],
+        "summary": [
+          "memory selection/rejection changed"
+        ]
+      },
+      "token_usage": 1985,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "monthly_review_trust_validator_failure",
+      "category": "monthly_review",
+      "description": "Monthly Review trust validation failure path ending in failed runtime state",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "failed",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-monthly-review-20260329080000"
+      },
+      "workflow_id": "workflow-monthly-review-20260329080000",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-monthly-review-20260329080000"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080000"
+        },
+        "workflow": {
+          "workflow_id": "workflow-monthly-review-20260329080000",
+          "task_id": "task-monthly-review-20260329",
+          "intent": "monthly_review",
+          "runtime_state": "failed",
+          "failure_category": "trust_validation",
+          "failure_summary": "trust validation failed for monthly review report",
+          "root_correlation_id": "workflow-monthly-review-20260329080000",
+          "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+          "artifacts": [
+            {
+              "id": "workflow-monthly-review-20260329080000-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-monthly-review-20260329080000",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_trust_validator_failure/artifacts/workflow-monthly-review-20260329080000-replay_bundle.json",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.740468Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260329080000-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-monthly-review-20260329080000",
+              "task_id": "task-monthly-review-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_trust_validator_failure/artifacts/workflow-monthly-review-20260329080000-replay_summary.json",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T04:36:10.740468Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-monthly-review-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:workflow-monthly-review-20260329080000-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080000-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260329080000-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260329080000-replay_summary",
+              "label": "replay_summary",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "task:task-monthly-review-20260329",
+              "type": "task",
+              "ref_id": "task-monthly-review-20260329",
+              "label": "task-monthly-review-20260329"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:grounding:0",
+              "type": "validator_verdict",
+              "label": "forced_monthly_review_grounding_failure",
+              "summary": "deterministic eval grounding failure for monthly review"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260329080000:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-monthly-review-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-monthly-review-20260329080000",
+              "label": "workflow-monthly-review-20260329080000",
+              "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080000:workflow-monthly-review-20260329080000-replay_bundle",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080000-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260329080000:workflow-monthly-review-20260329080000-replay_summary",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260329080000-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-task:workflow-monthly-review-20260329080000:task-monthly-review-20260329",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "task:task-monthly-review-20260329",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:business:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:grounding:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260329080000:numeric:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260329080000",
+              "to_node_id": "validator:workflow-monthly-review-20260329080000:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "failure_attributions": [
+          {
+            "failure_category": "grounding",
+            "summary": "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review",
+            "related_kind": "workflow",
+            "related_id": "workflow-monthly-review-20260329080000"
+          }
+        ],
+        "summary": {
+          "goal_summary": "monthly_review",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=cashflow-review,debt-review"
+          ],
+          "validator_summary": [
+            "grounding:forced_monthly_review_grounding_failure:fail",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "final_state": "failed"
+        },
+        "explanation": {
+          "why_failed": "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review",
+          "why_memory_decision": [
+            "selected memories injected into downstream context"
+          ],
+          "why_validation_failed": [
+            "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review"
+          ]
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-monthly-review-20260329080000",
+        "final_runtime_state": "failed",
+        "goal": "monthly_review",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=cashflow-review,debt-review"
+        ],
+        "validator_summary": [
+          "grounding:forced_monthly_review_grounding_failure:fail",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "explanation": [
+          "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review",
+          "selected memories injected into downstream context"
+        ]
+      },
+      "token_usage": 1615,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "debt_vs_invest_waiting_approval",
+      "category": "debt_vs_invest",
+      "description": "Debt vs Invest deterministic waiting_approval path with approval metadata and policy provenance",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "waiting_approval",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-debt-vs-invest-20260329080000"
+      },
+      "workflow_id": "workflow-debt-vs-invest-20260329080000",
+      "approval_id": "workflow-debt-vs-invest-20260329080000-approval",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-debt-vs-invest-20260329080000"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-debt-vs-invest-20260329080000"
+        },
+        "workflow": {
+          "workflow_id": "workflow-debt-vs-invest-20260329080000",
+          "task_id": "task-debt-vs-invest-20260329",
+          "intent": "debt_vs_invest",
+          "runtime_state": "waiting_approval",
+          "approval_id": "workflow-debt-vs-invest-20260329080000-approval",
+          "root_correlation_id": "workflow-debt-vs-invest-20260329080000",
+          "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+          "artifacts": [
+            {
+              "id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-debt-vs-invest-20260329080000",
+              "task_id": "task-debt-vs-invest-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_bundle.json",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+              "created_at": "2026-03-30T04:36:10.757402Z"
+            },
+            {
+              "id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-debt-vs-invest-20260329080000",
+              "task_id": "task-debt-vs-invest-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_summary.json",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+              "created_at": "2026-03-30T04:36:10.757402Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-debt-vs-invest-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+              "type": "approval",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-approval",
+              "label": "workflow-debt-vs-invest-20260329080000-approval"
+            },
+            {
+              "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            },
+            {
+              "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+              "label": "replay_summary",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            },
+            {
+              "id": "policy_decision:workflow-debt-vs-invest-20260329080000:0",
+              "type": "policy_decision",
+              "label": "debt_vs_invest_recommendation",
+              "summary": "低流动性或高债务压力下的 invest_more 建议需要治理审批"
+            },
+            {
+              "id": "task:task-debt-vs-invest-20260329",
+              "type": "task",
+              "ref_id": "task-debt-vs-invest-20260329",
+              "label": "task-debt-vs-invest-20260329"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "type": "validator_verdict",
+              "label": "financial_grounding_validator",
+              "summary": "finance recommendation grounding checks passed"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-debt-vs-invest-20260329080000",
+              "label": "workflow-debt-vs-invest-20260329080000",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-approval:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-approval",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+              "type": "requested_approval"
+            },
+            {
+              "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-policy_decision:workflow-debt-vs-invest-20260329080000:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "policy_decision:workflow-debt-vs-invest-20260329080000:0",
+              "type": "blocked_by_policy"
+            },
+            {
+              "id": "workflow-task:workflow-debt-vs-invest-20260329080000:task-debt-vs-invest-20260329",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "task:task-debt-vs-invest-20260329",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "summary": {
+          "goal_summary": "debt_vs_invest",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=debt-tradeoff,cashflow-liquidity"
+          ],
+          "validator_summary": [
+            "grounding:financial_grounding_validator:pass",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "governance_summary": [
+            "debt_vs_invest_recommendation:require_approval"
+          ],
+          "final_state": "waiting_approval"
+        },
+        "explanation": {
+          "why_waiting_approval": "低流动性或高债务压力下的 invest_more 建议需要治理审批"
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-debt-vs-invest-20260329080000",
+        "final_runtime_state": "waiting_approval",
+        "goal": "debt_vs_invest",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=debt-tradeoff,cashflow-liquidity"
+        ],
+        "validator_summary": [
+          "grounding:financial_grounding_validator:pass",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "governance_summary": [
+          "debt_vs_invest_recommendation:require_approval"
+        ],
+        "explanation": [
+          "低流动性或高债务压力下的 invest_more 建议需要治理审批"
+        ]
+      },
+      "token_usage": 927,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "debt_vs_invest_fail",
+      "category": "debt_vs_invest",
+      "description": "Debt vs Invest trust failure path ending in failed runtime state",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "failed",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-debt-vs-invest-20260329080000"
+      },
+      "workflow_id": "workflow-debt-vs-invest-20260329080000",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-debt-vs-invest-20260329080000"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-debt-vs-invest-20260329080000"
+        },
+        "workflow": {
+          "workflow_id": "workflow-debt-vs-invest-20260329080000",
+          "task_id": "task-debt-vs-invest-20260329",
+          "intent": "debt_vs_invest",
+          "runtime_state": "failed",
+          "failure_category": "trust_validation",
+          "failure_summary": "trust validation failed for debt decision report",
+          "approval_id": "workflow-debt-vs-invest-20260329080000-approval",
+          "root_correlation_id": "workflow-debt-vs-invest-20260329080000",
+          "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+          "artifacts": [
+            {
+              "id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-debt-vs-invest-20260329080000",
+              "task_id": "task-debt-vs-invest-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_fail/artifacts/workflow-debt-vs-invest-20260329080000-replay_bundle.json",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+              "created_at": "2026-03-30T04:36:10.778563Z"
+            },
+            {
+              "id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-debt-vs-invest-20260329080000",
+              "task_id": "task-debt-vs-invest-20260329",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_fail/artifacts/workflow-debt-vs-invest-20260329080000-replay_summary.json",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+              "created_at": "2026-03-30T04:36:10.778563Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-debt-vs-invest-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+              "type": "approval",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-approval",
+              "label": "workflow-debt-vs-invest-20260329080000-approval"
+            },
+            {
+              "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            },
+            {
+              "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+              "label": "replay_summary",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            },
+            {
+              "id": "task:task-debt-vs-invest-20260329",
+              "type": "task",
+              "ref_id": "task-debt-vs-invest-20260329",
+              "label": "task-debt-vs-invest-20260329"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "type": "validator_verdict",
+              "label": "forced_debt_decision_grounding_failure",
+              "summary": "deterministic eval grounding failure for debt-vs-invest"
+            },
+            {
+              "id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-debt-vs-invest-20260329080000",
+              "label": "workflow-debt-vs-invest-20260329080000",
+              "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-approval:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-approval",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+              "type": "requested_approval"
+            },
+            {
+              "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-task:workflow-debt-vs-invest-20260329080000:task-debt-vs-invest-20260329",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "task:task-debt-vs-invest-20260329",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+              "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "failure_attributions": [
+          {
+            "failure_category": "grounding",
+            "summary": "forced_debt_decision_grounding_failure: deterministic eval grounding failure for debt-vs-invest",
+            "related_kind": "workflow",
+            "related_id": "workflow-debt-vs-invest-20260329080000"
+          }
+        ],
+        "summary": {
+          "goal_summary": "debt_vs_invest",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=debt-tradeoff,cashflow-liquidity"
+          ],
+          "validator_summary": [
+            "grounding:forced_debt_decision_grounding_failure:fail",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "final_state": "failed"
+        },
+        "explanation": {
+          "why_failed": "forced_debt_decision_grounding_failure: deterministic eval grounding failure for debt-vs-invest",
+          "why_validation_failed": [
+            "forced_debt_decision_grounding_failure: deterministic eval grounding failure for debt-vs-invest"
+          ]
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-debt-vs-invest-20260329080000",
+        "final_runtime_state": "failed",
+        "goal": "debt_vs_invest",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=debt-tradeoff,cashflow-liquidity"
+        ],
+        "validator_summary": [
+          "grounding:forced_debt_decision_grounding_failure:fail",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "explanation": [
+          "forced_debt_decision_grounding_failure: deterministic eval grounding failure for debt-vs-invest"
+        ]
+      },
+      "token_usage": 927,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "life_event_generated_follow_up_tasks",
+      "category": "life_event",
+      "description": "Life event workflow generates and executes capability-backed follow-up task graph",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "task_graph",
+        "id": "graph-life-event-eval-20260329080000"
+      },
+      "workflow_id": "workflow-life-event-eval-20260329080000",
+      "task_graph_id": "graph-life-event-eval-20260329080000",
+      "replay": {
+        "query": {
+          "task_graph_id": "graph-life-event-eval-20260329080000"
+        },
+        "scope": {
+          "kind": "task_graph",
+          "id": "graph-life-event-eval-20260329080000"
+        },
+        "task_graph": {
+          "task_graph_id": "graph-life-event-eval-20260329080000",
+          "parent_workflow_id": "workflow-life-event-eval-20260329080000",
+          "parent_task_id": "task-life-event-eval",
+          "task_ids": [
+            "task-tax-follow-up",
+            "task-portfolio-follow-up"
+          ],
+          "execution_ids": [
+            "1d4d790be9b06fee",
+            "9a8d0d43de6c1e5c"
+          ],
+          "artifacts": [
+            {
+              "id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "kind": "tax_optimization_report",
+              "workflow_id": "workflow-child-tax-task-tax-follow-up",
+              "task_id": "task-tax-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/life_event_generated_follow_up_tasks/artifacts/artifact-workflow-child-tax-task-tax-follow-up.json",
+              "summary": "deterministic tax follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            },
+            {
+              "id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "kind": "portfolio_rebalance_report",
+              "workflow_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "task_id": "task-portfolio-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/life_event_generated_follow_up_tasks/artifacts/artifact-workflow-child-portfolio-task-portfolio-follow-up.json",
+              "summary": "deterministic portfolio follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "task_graph",
+            "id": "graph-life-event-eval-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "artifact",
+              "ref_id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "artifact-workflow-child-portfolio-task-portfolio-follow-up"
+            },
+            {
+              "id": "artifact:artifact-workflow-child-tax-task-tax-follow-up",
+              "type": "artifact",
+              "ref_id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "label": "artifact-workflow-child-tax-task-tax-follow-up"
+            },
+            {
+              "id": "execution:1d4d790be9b06fee",
+              "type": "execution",
+              "ref_id": "1d4d790be9b06fee",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "completed"
+            },
+            {
+              "id": "execution:9a8d0d43de6c1e5c",
+              "type": "execution",
+              "ref_id": "9a8d0d43de6c1e5c",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "completed"
+            },
+            {
+              "id": "state:state-v2",
+              "type": "state_snapshot",
+              "ref_id": "state-v2",
+              "label": "state-v2"
+            },
+            {
+              "id": "state:state-v3",
+              "type": "state_snapshot",
+              "ref_id": "state-v3",
+              "label": "state-v3"
+            },
+            {
+              "id": "task:task-portfolio-follow-up",
+              "type": "task",
+              "ref_id": "task-portfolio-follow-up",
+              "label": "portfolio_rebalance",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "portfolio_rebalance_workflow"
+              }
+            },
+            {
+              "id": "task:task-tax-follow-up",
+              "type": "task",
+              "ref_id": "task-tax-follow-up",
+              "label": "tax_optimization",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "tax_optimization_workflow"
+              }
+            },
+            {
+              "id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "task_graph",
+              "ref_id": "graph-life-event-eval-20260329080000",
+              "label": "graph-life-event-eval-20260329080000",
+              "summary": "deterministic eval life-event follow-up task graph"
+            },
+            {
+              "id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "child workflow for task-portfolio-follow-up"
+            },
+            {
+              "id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-tax-task-tax-follow-up",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "child workflow for task-tax-follow-up"
+            },
+            {
+              "id": "workflow:workflow-life-event-eval-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-life-event-eval-20260329080000",
+              "label": "workflow-life-event-eval-20260329080000"
+            }
+          ],
+          "edges": [
+            {
+              "id": "execution-artifact:1d4d790be9b06fee:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "artifact:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "execution-artifact:9a8d0d43de6c1e5c:artifact-workflow-child-tax-task-tax-follow-up",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "artifact:artifact-workflow-child-tax-task-tax-follow-up",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "execution-state:1d4d790be9b06fee:state-v3",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "state:state-v3",
+              "type": "committed_state"
+            },
+            {
+              "id": "execution-state:9a8d0d43de6c1e5c:state-v2",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "state:state-v2",
+              "type": "committed_state"
+            },
+            {
+              "id": "execution-workflow:1d4d790be9b06fee:workflow-child-portfolio-task-portfolio-follow-up",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "triggered_child_workflow"
+            },
+            {
+              "id": "execution-workflow:9a8d0d43de6c1e5c:workflow-child-tax-task-tax-follow-up",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "triggered_child_workflow"
+            },
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-portfolio-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-portfolio-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-tax-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-tax-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "parent-workflow:workflow-life-event-eval-20260329080000:graph-life-event-eval-20260329080000",
+              "from_node_id": "workflow:workflow-life-event-eval-20260329080000",
+              "to_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "generated_task_graph"
+            },
+            {
+              "id": "task-execution:task-portfolio-follow-up:1d4d790be9b06fee",
+              "from_node_id": "task:task-portfolio-follow-up",
+              "to_node_id": "execution:1d4d790be9b06fee",
+              "type": "executed_as"
+            },
+            {
+              "id": "task-execution:task-tax-follow-up:9a8d0d43de6c1e5c",
+              "from_node_id": "task:task-tax-follow-up",
+              "to_node_id": "execution:9a8d0d43de6c1e5c",
+              "type": "executed_as"
+            }
+          ]
+        },
+        "execution_attributions": [
+          {
+            "execution_id": "1d4d790be9b06fee",
+            "category": "task_execution",
+            "summary": "task-portfolio-follow-up ended as completed",
+            "source_refs": [
+              "task-portfolio-follow-up",
+              "workflow-child-portfolio-task-portfolio-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "portfolio_rebalance",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          },
+          {
+            "execution_id": "9a8d0d43de6c1e5c",
+            "category": "task_execution",
+            "summary": "task-tax-follow-up ended as completed",
+            "source_refs": [
+              "task-tax-follow-up",
+              "workflow-child-tax-task-tax-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "tax_optimization",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          }
+        ],
+        "summary": {
+          "goal_summary": "deterministic eval life-event follow-up task graph",
+          "child_workflow_summary": [
+            "task-portfolio-follow-up:portfolio_rebalance:completed",
+            "task-tax-follow-up:tax_optimization:completed"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_generated_task": [
+            "task-tax-follow-up:tax_optimization",
+            "task-portfolio-follow-up:portfolio_rebalance"
+          ],
+          "why_child_executed": [
+            "task-portfolio-follow-up executed child workflow workflow-child-portfolio-task-portfolio-follow-up with status completed",
+            "task-tax-follow-up executed child workflow workflow-child-tax-task-tax-follow-up with status completed"
+          ]
+        },
+        "degraded": true,
+        "degradation_reasons": [
+          {
+            "reason": "projection_incomplete",
+            "message": "replay projection is only partially available"
+          },
+          {
+            "reason": "projection_incomplete",
+            "message": "task-graph replay bundle artifact is missing; projection was rebuilt from authoritative runtime truth only"
+          }
+        ],
+        "projection_status": "partial",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "task_graph_id": "graph-life-event-eval-20260329080000",
+        "final_runtime_state": "completed",
+        "child_workflows": [
+          "task-portfolio-follow-up:portfolio_rebalance:completed",
+          "task-tax-follow-up:tax_optimization:completed"
+        ]
+      },
+      "token_usage": 0,
+      "evidence_complete": true,
+      "child_workflow_count": 2,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "tax_child_workflow_happy_path",
+      "category": "tax_follow_up",
+      "description": "Tax child workflow completes and can be replayed by task id",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "task",
+        "id": "task-tax-follow-up"
+      },
+      "workflow_id": "workflow-life-event-eval-20260329080000",
+      "task_graph_id": "graph-life-event-eval-20260329080000",
+      "task_id": "task-tax-follow-up",
+      "replay": {
+        "query": {
+          "task_id": "task-tax-follow-up"
+        },
+        "scope": {
+          "kind": "task",
+          "id": "task-tax-follow-up"
+        },
+        "task_graph": {
+          "task_graph_id": "graph-life-event-eval-20260329080000",
+          "parent_workflow_id": "workflow-life-event-eval-20260329080000",
+          "parent_task_id": "task-life-event-eval",
+          "task_ids": [
+            "task-tax-follow-up"
+          ],
+          "execution_ids": [
+            "9a8d0d43de6c1e5c"
+          ],
+          "artifacts": [
+            {
+              "id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "kind": "tax_optimization_report",
+              "workflow_id": "workflow-child-tax-task-tax-follow-up",
+              "task_id": "task-tax-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/tax_child_workflow_happy_path/artifacts/artifact-workflow-child-tax-task-tax-follow-up.json",
+              "summary": "deterministic tax follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            },
+            {
+              "id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "kind": "portfolio_rebalance_report",
+              "workflow_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "task_id": "task-portfolio-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/tax_child_workflow_happy_path/artifacts/artifact-workflow-child-portfolio-task-portfolio-follow-up.json",
+              "summary": "deterministic portfolio follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "task_graph",
+            "id": "graph-life-event-eval-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "task:task-tax-follow-up",
+              "type": "task",
+              "ref_id": "task-tax-follow-up",
+              "label": "tax_optimization",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "tax_optimization_workflow"
+              }
+            },
+            {
+              "id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "task_graph",
+              "ref_id": "graph-life-event-eval-20260329080000",
+              "label": "graph-life-event-eval-20260329080000",
+              "summary": "deterministic eval life-event follow-up task graph"
+            },
+            {
+              "id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "child workflow for task-portfolio-follow-up"
+            },
+            {
+              "id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-tax-task-tax-follow-up",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "child workflow for task-tax-follow-up"
+            },
+            {
+              "id": "workflow:workflow-life-event-eval-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-life-event-eval-20260329080000",
+              "label": "workflow-life-event-eval-20260329080000"
+            }
+          ],
+          "edges": [
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-tax-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-tax-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "parent-workflow:workflow-life-event-eval-20260329080000:graph-life-event-eval-20260329080000",
+              "from_node_id": "workflow:workflow-life-event-eval-20260329080000",
+              "to_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "generated_task_graph"
+            }
+          ]
+        },
+        "execution_attributions": [
+          {
+            "execution_id": "9a8d0d43de6c1e5c",
+            "category": "task_execution",
+            "summary": "task-tax-follow-up ended as completed",
+            "source_refs": [
+              "task-tax-follow-up",
+              "workflow-child-tax-task-tax-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "tax_optimization",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          }
+        ],
+        "summary": {
+          "goal_summary": "deterministic eval life-event follow-up task graph",
+          "child_workflow_summary": [
+            "task-tax-follow-up:tax_optimization:completed"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_generated_task": [
+            "task-tax-follow-up:tax_optimization",
+            "task-portfolio-follow-up:portfolio_rebalance"
+          ],
+          "why_child_executed": [
+            "task-portfolio-follow-up executed child workflow workflow-child-portfolio-task-portfolio-follow-up with status completed",
+            "task-tax-follow-up executed child workflow workflow-child-tax-task-tax-follow-up with status completed"
+          ]
+        },
+        "degraded": true,
+        "degradation_reasons": [
+          {
+            "reason": "projection_incomplete",
+            "message": "replay projection is only partially available"
+          },
+          {
+            "reason": "projection_incomplete",
+            "message": "task-graph replay bundle artifact is missing; projection was rebuilt from authoritative runtime truth only"
+          }
+        ],
+        "projection_status": "partial",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "task_graph_id": "graph-life-event-eval-20260329080000",
+        "final_runtime_state": "completed",
+        "child_workflows": [
+          "task-tax-follow-up:tax_optimization:completed"
+        ]
+      },
+      "token_usage": 0,
+      "evidence_complete": true,
+      "child_workflow_count": 1,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "portfolio_child_workflow_happy_path",
+      "category": "portfolio_follow_up",
+      "description": "Portfolio child workflow completes and can be replayed by execution id",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "execution",
+        "id": "1d4d790be9b06fee"
+      },
+      "workflow_id": "workflow-life-event-eval-20260329080000",
+      "task_graph_id": "graph-life-event-eval-20260329080000",
+      "task_id": "task-portfolio-follow-up",
+      "execution_id": "1d4d790be9b06fee",
+      "replay": {
+        "query": {
+          "execution_id": "1d4d790be9b06fee"
+        },
+        "scope": {
+          "kind": "execution",
+          "id": "1d4d790be9b06fee"
+        },
+        "task_graph": {
+          "task_graph_id": "graph-life-event-eval-20260329080000",
+          "parent_workflow_id": "workflow-life-event-eval-20260329080000",
+          "parent_task_id": "task-life-event-eval",
+          "task_ids": [
+            "task-portfolio-follow-up"
+          ],
+          "execution_ids": [
+            "1d4d790be9b06fee"
+          ],
+          "artifacts": [
+            {
+              "id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "kind": "tax_optimization_report",
+              "workflow_id": "workflow-child-tax-task-tax-follow-up",
+              "task_id": "task-tax-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/portfolio_child_workflow_happy_path/artifacts/artifact-workflow-child-tax-task-tax-follow-up.json",
+              "summary": "deterministic tax follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            },
+            {
+              "id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "kind": "portfolio_rebalance_report",
+              "workflow_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "task_id": "task-portfolio-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/portfolio_child_workflow_happy_path/artifacts/artifact-workflow-child-portfolio-task-portfolio-follow-up.json",
+              "summary": "deterministic portfolio follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "task_graph",
+            "id": "graph-life-event-eval-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "task:task-portfolio-follow-up",
+              "type": "task",
+              "ref_id": "task-portfolio-follow-up",
+              "label": "portfolio_rebalance",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "portfolio_rebalance_workflow"
+              }
+            },
+            {
+              "id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "task_graph",
+              "ref_id": "graph-life-event-eval-20260329080000",
+              "label": "graph-life-event-eval-20260329080000",
+              "summary": "deterministic eval life-event follow-up task graph"
+            },
+            {
+              "id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "child workflow for task-portfolio-follow-up"
+            },
+            {
+              "id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-tax-task-tax-follow-up",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "child workflow for task-tax-follow-up"
+            },
+            {
+              "id": "workflow:workflow-life-event-eval-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-life-event-eval-20260329080000",
+              "label": "workflow-life-event-eval-20260329080000"
+            }
+          ],
+          "edges": [
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-portfolio-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-portfolio-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "parent-workflow:workflow-life-event-eval-20260329080000:graph-life-event-eval-20260329080000",
+              "from_node_id": "workflow:workflow-life-event-eval-20260329080000",
+              "to_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "generated_task_graph"
+            }
+          ]
+        },
+        "execution_attributions": [
+          {
+            "execution_id": "1d4d790be9b06fee",
+            "category": "task_execution",
+            "summary": "task-portfolio-follow-up ended as completed",
+            "source_refs": [
+              "task-portfolio-follow-up",
+              "workflow-child-portfolio-task-portfolio-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "portfolio_rebalance",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          }
+        ],
+        "summary": {
+          "goal_summary": "deterministic eval life-event follow-up task graph",
+          "child_workflow_summary": [
+            "task-portfolio-follow-up:portfolio_rebalance:completed"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_generated_task": [
+            "task-tax-follow-up:tax_optimization",
+            "task-portfolio-follow-up:portfolio_rebalance"
+          ],
+          "why_child_executed": [
+            "task-portfolio-follow-up executed child workflow workflow-child-portfolio-task-portfolio-follow-up with status completed",
+            "task-tax-follow-up executed child workflow workflow-child-tax-task-tax-follow-up with status completed"
+          ]
+        },
+        "degraded": true,
+        "degradation_reasons": [
+          {
+            "reason": "projection_incomplete",
+            "message": "replay projection is only partially available"
+          },
+          {
+            "reason": "projection_incomplete",
+            "message": "task-graph replay bundle artifact is missing; projection was rebuilt from authoritative runtime truth only"
+          }
+        ],
+        "projection_status": "partial",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "task_graph_id": "graph-life-event-eval-20260329080000",
+        "final_runtime_state": "completed",
+        "child_workflows": [
+          "task-portfolio-follow-up:portfolio_rebalance:completed"
+        ]
+      },
+      "token_usage": 0,
+      "evidence_complete": true,
+      "child_workflow_count": 1,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "retry_and_reevaluate",
+      "category": "runtime_recovery",
+      "description": "Reevaluate a queued task graph and complete execution through retry recovery",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "task_graph",
+        "id": "graph-eval-20260329080000"
+      },
+      "task_graph_id": "graph-eval-20260329080000",
+      "replay": {
+        "query": {
+          "task_graph_id": "graph-eval-20260329080000"
+        },
+        "scope": {
+          "kind": "task_graph",
+          "id": "graph-eval-20260329080000"
+        },
+        "task_graph": {
+          "task_graph_id": "graph-eval-20260329080000",
+          "parent_workflow_id": "workflow-life-event-eval",
+          "parent_task_id": "task-life-event-eval",
+          "task_ids": [
+            "task-tax-retry-eval"
+          ],
+          "execution_ids": [
+            "00ef16f91e4fb18d"
+          ],
+          "artifacts": [
+            {
+              "id": "artifact-workflow-child-task-tax-retry-eval",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-child-task-tax-retry-eval",
+              "task_id": "task-tax-retry-eval",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/retry_and_reevaluate/artifacts/artifact-workflow-child-task-tax-retry-eval.json",
+              "summary": "deterministic eval artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "task_graph",
+            "id": "graph-eval-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:artifact-workflow-child-task-tax-retry-eval",
+              "type": "artifact",
+              "ref_id": "artifact-workflow-child-task-tax-retry-eval",
+              "label": "artifact-workflow-child-task-tax-retry-eval"
+            },
+            {
+              "id": "execution:00ef16f91e4fb18d",
+              "type": "execution",
+              "ref_id": "00ef16f91e4fb18d",
+              "label": "workflow-child-task-tax-retry-eval",
+              "summary": "completed"
+            },
+            {
+              "id": "state:state-v2",
+              "type": "state_snapshot",
+              "ref_id": "state-v2",
+              "label": "state-v2"
+            },
+            {
+              "id": "task:task-tax-retry-eval",
+              "type": "task",
+              "ref_id": "task-tax-retry-eval",
+              "label": "tax_optimization",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "tax_optimization_workflow"
+              }
+            },
+            {
+              "id": "task_graph:graph-eval-20260329080000",
+              "type": "task_graph",
+              "ref_id": "graph-eval-20260329080000",
+              "label": "graph-eval-20260329080000",
+              "summary": "deterministic eval task graph"
+            },
+            {
+              "id": "workflow:workflow-child-task-tax-retry-eval",
+              "type": "workflow",
+              "ref_id": "workflow-child-task-tax-retry-eval",
+              "label": "workflow-child-task-tax-retry-eval",
+              "summary": "child workflow for task-tax-retry-eval"
+            },
+            {
+              "id": "workflow:workflow-life-event-eval",
+              "type": "workflow",
+              "ref_id": "workflow-life-event-eval",
+              "label": "workflow-life-event-eval"
+            }
+          ],
+          "edges": [
+            {
+              "id": "execution-artifact:00ef16f91e4fb18d:artifact-workflow-child-task-tax-retry-eval",
+              "from_node_id": "execution:00ef16f91e4fb18d",
+              "to_node_id": "artifact:artifact-workflow-child-task-tax-retry-eval",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "execution-state:00ef16f91e4fb18d:state-v2",
+              "from_node_id": "execution:00ef16f91e4fb18d",
+              "to_node_id": "state:state-v2",
+              "type": "committed_state"
+            },
+            {
+              "id": "execution-workflow:00ef16f91e4fb18d:workflow-child-task-tax-retry-eval",
+              "from_node_id": "execution:00ef16f91e4fb18d",
+              "to_node_id": "workflow:workflow-child-task-tax-retry-eval",
+              "type": "triggered_child_workflow"
+            },
+            {
+              "id": "graph-task:graph-eval-20260329080000:task-tax-retry-eval",
+              "from_node_id": "task_graph:graph-eval-20260329080000",
+              "to_node_id": "task:task-tax-retry-eval",
+              "type": "generated_task"
+            },
+            {
+              "id": "parent-workflow:workflow-life-event-eval:graph-eval-20260329080000",
+              "from_node_id": "workflow:workflow-life-event-eval",
+              "to_node_id": "task_graph:graph-eval-20260329080000",
+              "type": "generated_task_graph"
+            },
+            {
+              "id": "task-execution:task-tax-retry-eval:00ef16f91e4fb18d",
+              "from_node_id": "task:task-tax-retry-eval",
+              "to_node_id": "execution:00ef16f91e4fb18d",
+              "type": "executed_as"
+            }
+          ]
+        },
+        "execution_attributions": [
+          {
+            "execution_id": "00ef16f91e4fb18d",
+            "category": "task_execution",
+            "summary": "task-tax-retry-eval ended as completed",
+            "source_refs": [
+              "task-tax-retry-eval",
+              "workflow-child-task-tax-retry-eval"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "tax_optimization",
+              "last_recovery_strategy": "retry",
+              "status": "completed"
+            }
+          }
+        ],
+        "summary": {
+          "goal_summary": "deterministic eval task graph",
+          "child_workflow_summary": [
+            "task-tax-retry-eval:tax_optimization:completed"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_generated_task": [
+            "task-tax-retry-eval:tax_optimization"
+          ],
+          "why_child_executed": [
+            "task-tax-retry-eval executed child workflow workflow-child-task-tax-retry-eval with status completed"
+          ]
+        },
+        "degraded": true,
+        "degradation_reasons": [
+          {
+            "reason": "projection_incomplete",
+            "message": "replay projection is only partially available"
+          },
+          {
+            "reason": "projection_incomplete",
+            "message": "task-graph replay bundle artifact is missing; projection was rebuilt from authoritative runtime truth only"
+          }
+        ],
+        "projection_status": "partial",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "task_graph_id": "graph-eval-20260329080000",
+        "final_runtime_state": "completed",
+        "child_workflows": [
+          "task-tax-retry-eval:tax_optimization:completed"
+        ]
+      },
+      "token_usage": 0,
+      "evidence_complete": true,
+      "child_workflow_count": 1,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "parent_child_provenance_reconstruction",
+      "category": "provenance",
+      "description": "Replay reconstructs parent workflow to child workflow, artifact, and state chain",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "task_graph",
+        "id": "graph-life-event-eval-20260329080000"
+      },
+      "workflow_id": "workflow-life-event-eval-20260329080000",
+      "task_graph_id": "graph-life-event-eval-20260329080000",
+      "replay": {
+        "query": {
+          "task_graph_id": "graph-life-event-eval-20260329080000"
+        },
+        "scope": {
+          "kind": "task_graph",
+          "id": "graph-life-event-eval-20260329080000"
+        },
+        "task_graph": {
+          "task_graph_id": "graph-life-event-eval-20260329080000",
+          "parent_workflow_id": "workflow-life-event-eval-20260329080000",
+          "parent_task_id": "task-life-event-eval",
+          "task_ids": [
+            "task-tax-follow-up",
+            "task-portfolio-follow-up"
+          ],
+          "execution_ids": [
+            "1d4d790be9b06fee",
+            "9a8d0d43de6c1e5c"
+          ],
+          "artifacts": [
+            {
+              "id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "kind": "tax_optimization_report",
+              "workflow_id": "workflow-child-tax-task-tax-follow-up",
+              "task_id": "task-tax-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/parent_child_provenance_reconstruction/artifacts/artifact-workflow-child-tax-task-tax-follow-up.json",
+              "summary": "deterministic tax follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            },
+            {
+              "id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "kind": "portfolio_rebalance_report",
+              "workflow_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "task_id": "task-portfolio-follow-up",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/parent_child_provenance_reconstruction/artifacts/artifact-workflow-child-portfolio-task-portfolio-follow-up.json",
+              "summary": "deterministic portfolio follow-up artifact",
+              "created_at": "0001-01-01T00:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "task_graph",
+            "id": "graph-life-event-eval-20260329080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "artifact",
+              "ref_id": "artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "artifact-workflow-child-portfolio-task-portfolio-follow-up"
+            },
+            {
+              "id": "artifact:artifact-workflow-child-tax-task-tax-follow-up",
+              "type": "artifact",
+              "ref_id": "artifact-workflow-child-tax-task-tax-follow-up",
+              "label": "artifact-workflow-child-tax-task-tax-follow-up"
+            },
+            {
+              "id": "execution:1d4d790be9b06fee",
+              "type": "execution",
+              "ref_id": "1d4d790be9b06fee",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "completed"
+            },
+            {
+              "id": "execution:9a8d0d43de6c1e5c",
+              "type": "execution",
+              "ref_id": "9a8d0d43de6c1e5c",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "completed"
+            },
+            {
+              "id": "state:state-v2",
+              "type": "state_snapshot",
+              "ref_id": "state-v2",
+              "label": "state-v2"
+            },
+            {
+              "id": "state:state-v3",
+              "type": "state_snapshot",
+              "ref_id": "state-v3",
+              "label": "state-v3"
+            },
+            {
+              "id": "task:task-portfolio-follow-up",
+              "type": "task",
+              "ref_id": "task-portfolio-follow-up",
+              "label": "portfolio_rebalance",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "portfolio_rebalance_workflow"
+              }
+            },
+            {
+              "id": "task:task-tax-follow-up",
+              "type": "task",
+              "ref_id": "task-tax-follow-up",
+              "label": "tax_optimization",
+              "summary": "completed",
+              "attributes": {
+                "missing_capability_reason": "",
+                "required_capability": "tax_optimization_workflow"
+              }
+            },
+            {
+              "id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "task_graph",
+              "ref_id": "graph-life-event-eval-20260329080000",
+              "label": "graph-life-event-eval-20260329080000",
+              "summary": "deterministic eval life-event follow-up task graph"
+            },
+            {
+              "id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-portfolio-task-portfolio-follow-up",
+              "label": "workflow-child-portfolio-task-portfolio-follow-up",
+              "summary": "child workflow for task-portfolio-follow-up"
+            },
+            {
+              "id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "workflow",
+              "ref_id": "workflow-child-tax-task-tax-follow-up",
+              "label": "workflow-child-tax-task-tax-follow-up",
+              "summary": "child workflow for task-tax-follow-up"
+            },
+            {
+              "id": "workflow:workflow-life-event-eval-20260329080000",
+              "type": "workflow",
+              "ref_id": "workflow-life-event-eval-20260329080000",
+              "label": "workflow-life-event-eval-20260329080000"
+            }
+          ],
+          "edges": [
+            {
+              "id": "execution-artifact:1d4d790be9b06fee:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "artifact:artifact-workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "execution-artifact:9a8d0d43de6c1e5c:artifact-workflow-child-tax-task-tax-follow-up",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "artifact:artifact-workflow-child-tax-task-tax-follow-up",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "execution-state:1d4d790be9b06fee:state-v3",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "state:state-v3",
+              "type": "committed_state"
+            },
+            {
+              "id": "execution-state:9a8d0d43de6c1e5c:state-v2",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "state:state-v2",
+              "type": "committed_state"
+            },
+            {
+              "id": "execution-workflow:1d4d790be9b06fee:workflow-child-portfolio-task-portfolio-follow-up",
+              "from_node_id": "execution:1d4d790be9b06fee",
+              "to_node_id": "workflow:workflow-child-portfolio-task-portfolio-follow-up",
+              "type": "triggered_child_workflow"
+            },
+            {
+              "id": "execution-workflow:9a8d0d43de6c1e5c:workflow-child-tax-task-tax-follow-up",
+              "from_node_id": "execution:9a8d0d43de6c1e5c",
+              "to_node_id": "workflow:workflow-child-tax-task-tax-follow-up",
+              "type": "triggered_child_workflow"
+            },
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-portfolio-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-portfolio-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "graph-task:graph-life-event-eval-20260329080000:task-tax-follow-up",
+              "from_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "to_node_id": "task:task-tax-follow-up",
+              "type": "generated_task"
+            },
+            {
+              "id": "parent-workflow:workflow-life-event-eval-20260329080000:graph-life-event-eval-20260329080000",
+              "from_node_id": "workflow:workflow-life-event-eval-20260329080000",
+              "to_node_id": "task_graph:graph-life-event-eval-20260329080000",
+              "type": "generated_task_graph"
+            },
+            {
+              "id": "task-execution:task-portfolio-follow-up:1d4d790be9b06fee",
+              "from_node_id": "task:task-portfolio-follow-up",
+              "to_node_id": "execution:1d4d790be9b06fee",
+              "type": "executed_as"
+            },
+            {
+              "id": "task-execution:task-tax-follow-up:9a8d0d43de6c1e5c",
+              "from_node_id": "task:task-tax-follow-up",
+              "to_node_id": "execution:9a8d0d43de6c1e5c",
+              "type": "executed_as"
+            }
+          ]
+        },
+        "execution_attributions": [
+          {
+            "execution_id": "1d4d790be9b06fee",
+            "category": "task_execution",
+            "summary": "task-portfolio-follow-up ended as completed",
+            "source_refs": [
+              "task-portfolio-follow-up",
+              "workflow-child-portfolio-task-portfolio-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "portfolio_rebalance",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          },
+          {
+            "execution_id": "9a8d0d43de6c1e5c",
+            "category": "task_execution",
+            "summary": "task-tax-follow-up ended as completed",
+            "source_refs": [
+              "task-tax-follow-up",
+              "workflow-child-tax-task-tax-follow-up"
+            ],
+            "details": {
+              "failure_category": "",
+              "failure_summary": "",
+              "intent": "tax_optimization",
+              "last_recovery_strategy": "",
+              "status": "completed"
+            }
+          }
+        ],
+        "summary": {
+          "goal_summary": "deterministic eval life-event follow-up task graph",
+          "child_workflow_summary": [
+            "task-portfolio-follow-up:portfolio_rebalance:completed",
+            "task-tax-follow-up:tax_optimization:completed"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_generated_task": [
+            "task-tax-follow-up:tax_optimization",
+            "task-portfolio-follow-up:portfolio_rebalance"
+          ],
+          "why_child_executed": [
+            "task-portfolio-follow-up executed child workflow workflow-child-portfolio-task-portfolio-follow-up with status completed",
+            "task-tax-follow-up executed child workflow workflow-child-tax-task-tax-follow-up with status completed"
+          ]
+        },
+        "degraded": true,
+        "degradation_reasons": [
+          {
+            "reason": "projection_incomplete",
+            "message": "replay projection is only partially available"
+          },
+          {
+            "reason": "projection_incomplete",
+            "message": "task-graph replay bundle artifact is missing; projection was rebuilt from authoritative runtime truth only"
+          }
+        ],
+        "projection_status": "partial",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "task_graph_id": "graph-life-event-eval-20260329080000",
+        "final_runtime_state": "completed",
+        "child_workflows": [
+          "task-portfolio-follow-up:portfolio_rebalance:completed",
+          "task-tax-follow-up:tax_optimization:completed"
+        ]
+      },
+      "token_usage": 0,
+      "evidence_complete": true,
+      "child_workflow_count": 2,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    }
+  ],
+  "score": {
+    "scenario_count": 10,
+    "passed_count": 10,
+    "failed_count": 0,
+    "task_success_rate": 0.8,
+    "validator_pass_rate": 0.5,
+    "policy_violation_rate": 0,
+    "approval_frequency": 0.1,
+    "retry_frequency": 0.1,
+    "average_latency_milliseconds": 0,
+    "total_token_usage": 7069,
+    "evidence_completeness_rate": 1,
+    "child_workflow_completion_rate": 1
+  },
+  "summary": {
+    "corpus_id": "phase6a-default",
+    "deterministic_only": true,
+    "passed_scenarios": [
+      "monthly_review_happy_path",
+      "monthly_review_cross_session_memory_influence",
+      "monthly_review_trust_validator_failure",
+      "debt_vs_invest_waiting_approval",
+      "debt_vs_invest_fail",
+      "life_event_generated_follow_up_tasks",
+      "tax_child_workflow_happy_path",
+      "portfolio_child_workflow_happy_path",
+      "retry_and_reevaluate",
+      "parent_child_provenance_reconstruction"
+    ],
+    "approval_scenarios": [
+      "debt_vs_invest_waiting_approval"
+    ],
+    "summary_lines": [
+      "corpus=phase6a-default deterministic_only=true",
+      "passed=10 failed=0",
+      "task_success_rate=0.80 validator_pass_rate=0.50 approval_frequency=0.10"
+    ]
+  }
+}

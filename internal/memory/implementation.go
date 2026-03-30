@@ -148,6 +148,7 @@ func (w DefaultMemoryWriter) Write(ctx context.Context, record MemoryRecord) err
 }
 
 func (w DefaultMemoryWriter) prepareWrite(ctx context.Context, record MemoryRecord) (PreparedMemoryWrite, error) {
+	auditTime := time.Now().UTC()
 	prepared := PreparedMemoryWrite{
 		Record: record,
 		Relations: MemoryRelations{
@@ -156,7 +157,7 @@ func (w DefaultMemoryWriter) prepareWrite(ctx context.Context, record MemoryReco
 			Conflicts:  record.Conflicts,
 		},
 		Audit: &MemoryAccessAudit{
-			ID:         fmt.Sprintf("%s-write-%d", record.ID, record.UpdatedAt.UnixNano()),
+			ID:         fmt.Sprintf("%s-write-%s-%d", record.ID, fallbackString(record.Source.TraceID, fallbackString(record.Source.WorkflowID, record.Source.TaskID)), auditTime.UnixNano()),
 			MemoryID:   record.ID,
 			WorkflowID: record.Source.WorkflowID,
 			TaskID:     record.Source.TaskID,
@@ -167,7 +168,7 @@ func (w DefaultMemoryWriter) prepareWrite(ctx context.Context, record MemoryReco
 			AccessedAt: record.UpdatedAt,
 		},
 		WriteEvents: []MemoryWriteEvent{{
-			ID:         fmt.Sprintf("%s-write-event-%d", record.ID, record.UpdatedAt.UnixNano()),
+			ID:         fmt.Sprintf("%s-write-event-%s-%d", record.ID, fallbackString(record.Source.TraceID, fallbackString(record.Source.WorkflowID, record.Source.TaskID)), auditTime.UnixNano()),
 			MemoryID:   record.ID,
 			WorkflowID: record.Source.WorkflowID,
 			TaskID:     record.Source.TaskID,
@@ -201,7 +202,7 @@ func (w DefaultMemoryWriter) prepareWrite(ctx context.Context, record MemoryReco
 		}
 		prepared.Terms = tokenFrequency(semanticText(record))
 		prepared.WriteEvents = append(prepared.WriteEvents, MemoryWriteEvent{
-			ID:         fmt.Sprintf("%s-index-%d", record.ID, record.UpdatedAt.UnixNano()),
+			ID:         fmt.Sprintf("%s-index-%s-%d", record.ID, fallbackString(record.Source.TraceID, fallbackString(record.Source.WorkflowID, record.Source.TaskID)), auditTime.UnixNano()),
 			MemoryID:   record.ID,
 			WorkflowID: record.Source.WorkflowID,
 			TaskID:     record.Source.TaskID,
@@ -835,12 +836,12 @@ func topK(results []RetrievalResult, limit int) []RetrievalResult {
 
 func logMemoryResults(ctx context.Context, log *MemoryAccessAuditLog, store MemoryAuditStore, query RetrievalQuery, results []RetrievalResult, action string, purpose string) {
 	now := time.Now().UTC()
-	for _, result := range results {
+	for index, result := range results {
 		if result.MemoryID == "" {
 			continue
 		}
 		entry := MemoryAccessAudit{
-			ID:         fmt.Sprintf("%s-%s-%d", result.MemoryID, action, now.UnixNano()),
+			ID:         fmt.Sprintf("%s-%s-%d-%d", result.MemoryID, action, now.UnixNano(), index),
 			MemoryID:   result.MemoryID,
 			WorkflowID: query.WorkflowID,
 			TaskID:     query.TaskID,

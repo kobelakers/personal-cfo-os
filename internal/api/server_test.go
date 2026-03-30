@@ -18,7 +18,7 @@ import (
 )
 
 func TestApproveEndpointReturns400ForBadPayload(t *testing.T) {
-	server, approvalID := newTestServer(t)
+	server, approvalID, _ := newTestServer(t)
 	req := httptest.NewRequest(http.MethodPost, "/approvals/"+approvalID+"/approve", bytes.NewBufferString("{"))
 	resp := httptest.NewRecorder()
 	server.Handler().ServeHTTP(resp, req)
@@ -28,7 +28,7 @@ func TestApproveEndpointReturns400ForBadPayload(t *testing.T) {
 }
 
 func TestApproveEndpointReturns404ForMissingApproval(t *testing.T) {
-	server, _ := newTestServer(t)
+	server, _, _ := newTestServer(t)
 	resp := performJSONRequest(t, server, http.MethodPost, "/approvals/missing/approve", map[string]any{
 		"request_id": "approve-missing",
 		"actor":      "operator",
@@ -39,7 +39,7 @@ func TestApproveEndpointReturns404ForMissingApproval(t *testing.T) {
 }
 
 func TestApproveEndpointReturns409ForInvalidStateTransition(t *testing.T) {
-	server, approvalID := newTestServer(t)
+	server, approvalID, _ := newTestServer(t)
 	first := performJSONRequest(t, server, http.MethodPost, "/approvals/"+approvalID+"/approve", map[string]any{
 		"request_id": "approve-once",
 		"actor":      "operator",
@@ -59,7 +59,7 @@ func TestApproveEndpointReturns409ForInvalidStateTransition(t *testing.T) {
 }
 
 func TestApproveEndpointReturns409ForVersionConflict(t *testing.T) {
-	server, approvalID := newTestServer(t)
+	server, approvalID, _ := newTestServer(t)
 	resp := performJSONRequest(t, server, http.MethodPost, "/approvals/"+approvalID+"/approve", map[string]any{
 		"request_id":       "approve-conflict",
 		"actor":            "operator",
@@ -71,20 +71,43 @@ func TestApproveEndpointReturns409ForVersionConflict(t *testing.T) {
 	}
 }
 
-func newTestServer(t *testing.T) (*Server, string) {
+func TestReplayTaskGraphEndpointReturnsStructuredView(t *testing.T) {
+	server, _, graphID := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/replay/task-graphs/"+graphID, nil)
+	resp := httptest.NewRecorder()
+	server.Handler().ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("expected 200 for replay task graph endpoint, got %d body=%s", resp.Code, resp.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode replay response: %v", err)
+	}
+	if payload["task_graph"] == nil {
+		t.Fatalf("expected replay payload to include task_graph view, got %v", payload)
+	}
+}
+
+func newTestServer(t *testing.T) (*Server, string, string) {
 	t.Helper()
 	now := time.Date(2026, 3, 29, 15, 0, 0, 0, time.UTC)
+	workflowRuns := runtime.NewInMemoryWorkflowRunStore()
+	replayProjections := runtime.NewInMemoryReplayProjectionStore()
+	artifactStore := runtime.NewInMemoryArtifactMetadataStore()
+	replayStore := runtime.NewInMemoryReplayStore()
 	service := runtime.NewService(runtime.ServiceOptions{
 		CheckpointStore: runtime.NewInMemoryCheckpointStore(),
 		TaskGraphs:      runtime.NewInMemoryTaskGraphStore(),
 		Executions:      runtime.NewInMemoryTaskExecutionStore(),
 		Approvals:       runtime.NewInMemoryApprovalStateStore(),
 		OperatorActions: runtime.NewInMemoryOperatorActionStore(),
-		Replay:          runtime.NewInMemoryReplayStore(),
-		Artifacts:       runtime.NewInMemoryArtifactMetadataStore(),
+		Replay:          replayStore,
+		Artifacts:       artifactStore,
 		Controller:      runtime.DefaultWorkflowController{},
 		Now:             func() time.Time { return now },
 	})
+	rebuilder := runtime.NewReplayProjectionRebuilder(service, workflowRuns, replayProjections, artifactStore, replayStore, func() time.Time { return now })
+	service.SetReplayProjectionWriter(rebuilder)
 	service.SetCapabilities(runtime.StaticTaskCapabilityResolver{
 		Capabilities: map[taskspec.UserIntentType]string{
 			taskspec.UserIntentTaxOptimization: "tax_optimization_workflow",
@@ -155,11 +178,15 @@ func newTestServer(t *testing.T) (*Server, string) {
 	if _, err := service.Runtime().ExecuteReadyFollowUps(context.Background(), execCtx, graph.GraphID, runtime.DefaultAutoExecutionPolicy()); err != nil {
 		t.Fatalf("execute api test follow-up: %v", err)
 	}
+	if _, err := rebuilder.RebuildTaskGraph(context.Background(), graph.GraphID); err != nil {
+		t.Fatalf("rebuild api test replay projection: %v", err)
+	}
 	approval, ok, err := service.Runtime().Approvals.LoadByTask(graph.GraphID, task.ID)
 	if err != nil || !ok {
 		t.Fatalf("load api test approval: %v %+v", err, approval)
 	}
-	return NewServer(runtime.NewQueryService(service), runtime.NewOperatorService(service), service), approval.ApprovalID
+	replayQuery := runtime.NewReplayQueryService(service, workflowRuns, replayProjections, artifactStore, replayStore)
+	return NewServer(runtime.NewQueryService(service), replayQuery, runtime.NewOperatorService(service), service), approval.ApprovalID, graph.GraphID
 }
 
 func performJSONRequest(t *testing.T, server *Server, method string, path string, body any) *httptest.ResponseRecorder {

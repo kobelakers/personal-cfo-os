@@ -189,3 +189,40 @@ func TestWorkflowTraceDumpWithTrustIncludesFinanceAndApprovalEvidence(t *testing
 		t.Fatalf("expected trust trace fields to be populated, got %+v", dump)
 	}
 }
+
+func TestBuildDebugSummaryFromReplayCapturesCoreSections(t *testing.T) {
+	now := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	summary := observability.BuildDebugSummaryFromReplay(observability.ReplayView{
+		Scope: observability.ReplayScope{Kind: "workflow", ID: "workflow-6a-1"},
+		Workflow: &observability.WorkflowReplayView{
+			WorkflowID: "workflow-6a-1",
+		},
+		Summary: observability.ReplaySummary{
+			GoalSummary:          "monthly_review",
+			PlanSummary:          []string{"cashflow-review", "debt-review"},
+			MemorySummary:        []string{"selected=memory-1"},
+			ValidatorSummary:     []string{"grounding:pass"},
+			GovernanceSummary:    []string{"monthly_review_report:allow"},
+			ChildWorkflowSummary: []string{"task-tax-1:tax_optimization:completed"},
+			FinalState:           "completed",
+		},
+		Explanation: observability.ReplayExplanation{
+			WhyMemoryDecision: []string{"memory selected because retrieval score was highest"},
+		},
+		Provenance: observability.ProvenanceGraph{
+			Scope: observability.ReplayScope{Kind: "workflow", ID: "workflow-6a-1"},
+			Nodes: []observability.ProvenanceNode{{
+				ID:    "workflow:workflow-6a-1",
+				Type:  "workflow",
+				RefID: "workflow-6a-1",
+				Label: now.Format(time.RFC3339),
+			}},
+		},
+	})
+	if summary.WorkflowID != "workflow-6a-1" || summary.FinalRuntimeState != "completed" {
+		t.Fatalf("expected debug summary to preserve workflow identity and final state, got %+v", summary)
+	}
+	if len(summary.PlanSummary) == 0 || len(summary.MemorySummary) == 0 || len(summary.ChildWorkflows) == 0 {
+		t.Fatalf("expected debug summary to capture plan/memory/child workflow sections, got %+v", summary)
+	}
+}

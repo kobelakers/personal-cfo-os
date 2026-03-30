@@ -22,6 +22,9 @@ const (
 	ArtifactKindVerificationReport       ArtifactKind = "verification_report"
 	ArtifactKindCheckpointDump           ArtifactKind = "checkpoint_dump"
 	ArtifactKindApprovalRequest          ArtifactKind = "approval_request"
+	ArtifactKindReplayBundle            ArtifactKind = "replay_bundle"
+	ArtifactKindReplaySummary           ArtifactKind = "replay_summary"
+	ArtifactKindEvalRunResult           ArtifactKind = "eval_run_result"
 )
 
 type ArtifactRef struct {

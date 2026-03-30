@@ -1,0 +1,174 @@
+{
+  "query": {
+    "workflow_id": "workflow-debt-vs-invest-20260329080000"
+  },
+  "scope": {
+    "kind": "workflow",
+    "id": "workflow-debt-vs-invest-20260329080000"
+  },
+  "workflow": {
+    "workflow_id": "workflow-debt-vs-invest-20260329080000",
+    "task_id": "task-debt-vs-invest-20260329",
+    "intent": "debt_vs_invest",
+    "runtime_state": "waiting_approval",
+    "approval_id": "workflow-debt-vs-invest-20260329080000-approval",
+    "root_correlation_id": "workflow-debt-vs-invest-20260329080000",
+    "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+    "artifacts": [
+      {
+        "id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+        "kind": "replay_bundle",
+        "workflow_id": "workflow-debt-vs-invest-20260329080000",
+        "task_id": "task-debt-vs-invest-20260329",
+        "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_bundle.json",
+        "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+        "created_at": "2026-03-30T04:36:10.757402Z"
+      },
+      {
+        "id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+        "kind": "replay_summary",
+        "workflow_id": "workflow-debt-vs-invest-20260329080000",
+        "task_id": "task-debt-vs-invest-20260329",
+        "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_summary.json",
+        "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+        "created_at": "2026-03-30T04:36:10.757402Z"
+      }
+    ]
+  },
+  "provenance": {
+    "scope": {
+      "kind": "workflow",
+      "id": "workflow-debt-vs-invest-20260329080000"
+    },
+    "nodes": [
+      {
+        "id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+        "type": "approval",
+        "ref_id": "workflow-debt-vs-invest-20260329080000-approval",
+        "label": "workflow-debt-vs-invest-20260329080000-approval"
+      },
+      {
+        "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+        "type": "artifact",
+        "ref_id": "workflow-debt-vs-invest-20260329080000-replay_bundle",
+        "label": "replay_bundle",
+        "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+      },
+      {
+        "id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+        "type": "artifact",
+        "ref_id": "workflow-debt-vs-invest-20260329080000-replay_summary",
+        "label": "replay_summary",
+        "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+      },
+      {
+        "id": "policy_decision:workflow-debt-vs-invest-20260329080000:0",
+        "type": "policy_decision",
+        "label": "debt_vs_invest_recommendation",
+        "summary": "低流动性或高债务压力下的 invest_more 建议需要治理审批"
+      },
+      {
+        "id": "task:task-debt-vs-invest-20260329",
+        "type": "task",
+        "ref_id": "task-debt-vs-invest-20260329",
+        "label": "task-debt-vs-invest-20260329"
+      },
+      {
+        "id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+        "type": "validator_verdict",
+        "label": "financial_business_rule_validator",
+        "summary": "financial business-rule checks passed"
+      },
+      {
+        "id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+        "type": "validator_verdict",
+        "label": "financial_grounding_validator",
+        "summary": "finance recommendation grounding checks passed"
+      },
+      {
+        "id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+        "type": "validator_verdict",
+        "label": "financial_numeric_consistency_validator",
+        "summary": "numeric consistency checks passed"
+      },
+      {
+        "id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "type": "workflow",
+        "ref_id": "workflow-debt-vs-invest-20260329080000",
+        "label": "workflow-debt-vs-invest-20260329080000",
+        "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。"
+      }
+    ],
+    "edges": [
+      {
+        "id": "workflow-approval:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-approval",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "approval:workflow-debt-vs-invest-20260329080000-approval",
+        "type": "requested_approval"
+      },
+      {
+        "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_bundle",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_bundle",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-artifact:workflow-debt-vs-invest-20260329080000:workflow-debt-vs-invest-20260329080000-replay_summary",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "artifact:workflow-debt-vs-invest-20260329080000-replay_summary",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-policy_decision:workflow-debt-vs-invest-20260329080000:0",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "policy_decision:workflow-debt-vs-invest-20260329080000:0",
+        "type": "blocked_by_policy"
+      },
+      {
+        "id": "workflow-task:workflow-debt-vs-invest-20260329080000:task-debt-vs-invest-20260329",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "task:task-debt-vs-invest-20260329",
+        "type": "executed_as"
+      },
+      {
+        "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:business:0",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:business:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:grounding:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+        "from_node_id": "workflow:workflow-debt-vs-invest-20260329080000",
+        "to_node_id": "validator:workflow-debt-vs-invest-20260329080000:numeric:0",
+        "type": "validated_by"
+      }
+    ]
+  },
+  "summary": {
+    "goal_summary": "debt_vs_invest",
+    "plan_summary": [
+      "generated 2 execution blocks blocks=debt-tradeoff,cashflow-liquidity"
+    ],
+    "validator_summary": [
+      "grounding:financial_grounding_validator:pass",
+      "numeric:financial_numeric_consistency_validator:pass",
+      "business:financial_business_rule_validator:pass"
+    ],
+    "governance_summary": [
+      "debt_vs_invest_recommendation:require_approval"
+    ],
+    "final_state": "waiting_approval"
+  },
+  "explanation": {
+    "why_waiting_approval": "低流动性或高债务压力下的 invest_more 建议需要治理审批"
+  },
+  "degraded": false,
+  "projection_status": "complete",
+  "projection_version": 1
+}
