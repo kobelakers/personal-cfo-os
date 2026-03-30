@@ -91,6 +91,9 @@ func (r *ReplayProjectionRebuilder) RebuildWorkflow(_ context.Context, workflowI
 	if summary.GoalSummary == "" {
 		summary.GoalSummary = firstNonEmpty(record.Intent, record.Summary)
 	}
+	summary.AsyncRuntimeSummary = asyncRuntimeSummaryFromEvents(events)
+	explanation.WhyAsyncRuntime = asyncRuntimeExplanationFromEvents(events)
+	provenance = augmentProvenanceWithAsyncEvents(provenance, events)
 
 	summaryJSON, err := marshalJSON(summary)
 	if err != nil {
@@ -198,6 +201,9 @@ func (r *ReplayProjectionRebuilder) RebuildTaskGraph(ctx context.Context, graphI
 	provenance := bestEffortTaskGraphProvenance(view)
 	execAttrs := bestEffortExecutionAttributions(view.Executions)
 	failureAttrs := bestEffortGraphFailureAttributions(view)
+	summary.AsyncRuntimeSummary = asyncRuntimeSummaryFromEvents(events)
+	explanation.WhyAsyncRuntime = asyncRuntimeExplanationFromEvents(events)
+	provenance = augmentProvenanceWithAsyncEvents(provenance, events)
 	bundleArtifactID := findArtifactMetaIDByKind(view.Artifacts, string(reporting.ArtifactKindReplayBundle))
 	summaryArtifactID := findArtifactMetaIDByKind(view.Artifacts, string(reporting.ArtifactKindReplaySummary))
 	if bundleArtifactID == "" {

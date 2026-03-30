@@ -117,3 +117,23 @@ The 6B corpus intentionally remains deterministic/mock-only so:
 - skill family / version / recipe selection stays stable
 - procedural-memory-driven compare output stays regression-friendly
 - checked-in replay samples do not depend on provider drift
+
+## Phase 7A
+
+Stable runtime-promotion evidence for the async runtime backbone:
+
+- `phase7a_runtime_promotion_profile.json`
+- `phase7a_async_runtime_proofs.json`
+
+Bring up the promoted runtime profile and regenerate the checked-in 7A evidence:
+
+```bash
+./scripts/run_runtime_promotion_7a.sh proof
+```
+
+The 7A proof surface is intentionally different from 6A/6B:
+
+- it is driven by deterministic async/runtime tests plus a local runtime-promotion deployment profile
+- it uses Postgres as the promoted runtime backend
+- it uses MinIO-compatible blob refs for checkpoint/report/replay payload storage
+- it keeps canonical replay/debug on the same durable runtime truth plane instead of introducing a second async debugger

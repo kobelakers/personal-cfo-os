@@ -16,12 +16,30 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "API listen address")
 	dbPath := flag.String("db", "./var/runtime.db", "durable runtime sqlite path")
+	runtimeProfile := flag.String("runtime-profile", "local-lite", "runtime profile: local-lite or runtime-promotion")
+	runtimeBackend := flag.String("runtime-backend", "sqlite", "runtime backend: sqlite or postgres")
+	runtimeDSN := flag.String("runtime-dsn", "", "runtime backend dsn (required for postgres)")
+	blobBackend := flag.String("blob-backend", "localfs", "blob backend: localfs or minio")
+	blobRoot := flag.String("blob-root", "", "localfs blob root")
+	blobEndpoint := flag.String("blob-endpoint", "", "minio endpoint")
+	blobBucket := flag.String("blob-bucket", "", "minio bucket")
+	blobAccessKey := flag.String("blob-access-key", "", "minio access key")
+	blobSecretKey := flag.String("blob-secret-key", "", "minio secret key")
 	fixtureDir := flag.String("fixture-dir", "./tests/fixtures", "fixture directory for local observation seeds")
 	flag.Parse()
 
 	plane, err := app.OpenRuntimePlane(app.RuntimePlaneOptions{
-		DBPath:     *dbPath,
-		FixtureDir: *fixtureDir,
+		DBPath:         *dbPath,
+		RuntimeProfile: *runtimeProfile,
+		RuntimeBackend: *runtimeBackend,
+		RuntimeDSN:     *runtimeDSN,
+		BlobBackend:    *blobBackend,
+		BlobRoot:       *blobRoot,
+		BlobEndpoint:   *blobEndpoint,
+		BlobBucket:     *blobBucket,
+		BlobAccessKey:  *blobAccessKey,
+		BlobSecretKey:  *blobSecretKey,
+		FixtureDir:     *fixtureDir,
 	})
 	if err != nil {
 		log.Fatalf("open runtime plane: %v", err)
@@ -48,7 +66,14 @@ func main() {
 		}
 	}()
 
-	log.Printf("personal-cfo-os api listening on %s (db=%s)", *addr, *dbPath)
+	log.Printf(
+		"personal-cfo-os api listening on %s (profile=%s backend=%s db=%s blob=%s)",
+		*addr,
+		*runtimeProfile,
+		*runtimeBackend,
+		*dbPath,
+		*blobBackend,
+	)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("serve api: %v", err)
 	}

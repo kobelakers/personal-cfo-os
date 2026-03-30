@@ -21,18 +21,22 @@ type SQLiteRuntimeDB struct {
 }
 
 type SQLiteRuntimeStores struct {
-	DB              *SQLiteRuntimeDB
-	WorkflowRuns    WorkflowRunStore
-	TaskGraphs      TaskGraphStore
-	Executions      TaskExecutionStore
-	SkillExecutions SkillExecutionStore
-	Approvals       ApprovalStateStore
-	OperatorActions OperatorActionStore
-	Checkpoints     CheckpointStore
-	Replay          ReplayStore
+	DB               *SQLiteRuntimeDB
+	WorkflowRuns     WorkflowRunStore
+	TaskGraphs       TaskGraphStore
+	Executions       TaskExecutionStore
+	SkillExecutions  SkillExecutionStore
+	Approvals        ApprovalStateStore
+	OperatorActions  OperatorActionStore
+	Checkpoints      CheckpointStore
+	Replay           ReplayStore
 	ReplayProjection ReplayProjectionStore
-	ReplayQuery     ReplayProjectionQueryStore
-	Artifacts       ArtifactMetadataStore
+	ReplayQuery      ReplayProjectionQueryStore
+	Artifacts        ArtifactMetadataStore
+	WorkQueue        WorkQueueStore
+	WorkAttempts     WorkAttemptStore
+	Workers          WorkerRegistryStore
+	Scheduler        SchedulerStore
 }
 
 func NewSQLiteRuntimeStores(dbPath string) (*SQLiteRuntimeStores, error) {
@@ -53,6 +57,10 @@ func NewSQLiteRuntimeStores(dbPath string) (*SQLiteRuntimeStores, error) {
 		ReplayProjection: &sqliteReplayProjectionStore{db: db},
 		ReplayQuery:      &sqliteReplayProjectionStore{db: db},
 		Artifacts:        &sqliteArtifactMetadataStore{db: db},
+		WorkQueue:        &sqliteWorkQueueStore{db: db},
+		WorkAttempts:     &sqliteWorkAttemptStore{db: db},
+		Workers:          &sqliteWorkerRegistryStore{db: db},
+		Scheduler:        &sqliteSchedulerStore{db: db},
 	}, nil
 }
 
@@ -379,6 +387,77 @@ func (db *SQLiteRuntimeDB) EnsureSchema() error {
 			created_at TEXT NOT NULL,
 			ref_json TEXT
 		);`,
+		`CREATE TABLE IF NOT EXISTS work_items (
+			work_item_id TEXT PRIMARY KEY,
+			kind TEXT NOT NULL,
+			status TEXT NOT NULL,
+			dedupe_key TEXT,
+			graph_id TEXT,
+			task_id TEXT,
+			execution_id TEXT,
+			approval_id TEXT,
+			checkpoint_id TEXT,
+			workflow_id TEXT,
+			available_at TEXT NOT NULL,
+			claimed_at TEXT,
+			completed_at TEXT,
+			failed_at TEXT,
+			last_updated_at TEXT NOT NULL,
+			reason TEXT,
+			wakeup_kind TEXT,
+			retry_not_before TEXT,
+			attempt_count INTEGER NOT NULL,
+			lease_id TEXT,
+			fencing_token INTEGER NOT NULL,
+			claim_token TEXT,
+			claimed_by_worker_id TEXT,
+			lease_expires_at TEXT
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_work_items_status_available
+			ON work_items(status, available_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_work_items_graph
+			ON work_items(graph_id, available_at);`,
+		`CREATE TABLE IF NOT EXISTS work_attempts (
+			attempt_id TEXT PRIMARY KEY,
+			work_item_id TEXT NOT NULL,
+			work_item_kind TEXT NOT NULL,
+			graph_id TEXT,
+			task_id TEXT,
+			execution_id TEXT,
+			approval_id TEXT,
+			worker_id TEXT NOT NULL,
+			lease_id TEXT NOT NULL,
+			fencing_token INTEGER NOT NULL,
+			status TEXT NOT NULL,
+			failure_category TEXT,
+			failure_summary TEXT,
+			started_at TEXT NOT NULL,
+			finished_at TEXT,
+			checkpoint_id TEXT,
+			produced_artifact_ids_json TEXT,
+			record_json TEXT NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_work_attempts_work_item_started
+			ON work_attempts(work_item_id, started_at ASC);`,
+		`CREATE TABLE IF NOT EXISTS worker_registrations (
+			worker_id TEXT PRIMARY KEY,
+			role TEXT NOT NULL,
+			backend_profile TEXT,
+			started_at TEXT NOT NULL,
+			last_heartbeat TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS scheduler_wakeups (
+			wakeup_id TEXT PRIMARY KEY,
+			graph_id TEXT,
+			task_id TEXT,
+			execution_id TEXT,
+			approval_id TEXT,
+			kind TEXT NOT NULL,
+			available_at TEXT NOT NULL,
+			reason TEXT
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_scheduler_wakeups_available
+			ON scheduler_wakeups(available_at);`,
 	}
 	for _, stmt := range statements {
 		if _, err := db.db.Exec(stmt); err != nil {

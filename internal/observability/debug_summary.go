@@ -14,6 +14,7 @@ func BuildReplaySummaryFromTrace(trace WorkflowTraceDump, finalState string) Rep
 		MemorySummary:        traceMemorySummary(trace),
 		ValidatorSummary:     traceValidatorSummary(trace),
 		GovernanceSummary:    traceGovernanceSummary(trace),
+		AsyncRuntimeSummary:  traceEventSummary(trace, []string{"work_claimed", "lease_heartbeat", "lease_reclaimed", "scheduler_wakeup_dispatch", "reevaluate_task_graph", "execute_ready_task", "resume_approved_checkpoint", "retry_failed_execution"}),
 		ChildWorkflowSummary: traceChildWorkflowSummary(trace),
 		FinalState:           finalState,
 	}
@@ -26,6 +27,7 @@ func BuildReplayExplanationFromTrace(trace WorkflowTraceDump, finalState string)
 		WhyChildExecuted:    traceEventSummary(trace, []string{"life_event_follow_up_execution", "follow_up_execution"}),
 		WhyMemoryDecision:   traceMemoryDecisionExplanation(trace),
 		WhyValidationFailed: traceValidationFailureExplanation(trace),
+		WhyAsyncRuntime:     traceEventSummary(trace, []string{"work_claimed", "lease_heartbeat", "lease_reclaimed", "scheduler_wakeup_dispatch", "reevaluate_task_graph", "execute_ready_task", "resume_approved_checkpoint", "retry_failed_execution"}),
 	}
 	if finalState == "failed" {
 		explanation.WhyFailed = strings.Join(traceValidationFailureExplanation(trace), "; ")
@@ -55,17 +57,19 @@ func BuildDebugSummaryFromTrace(workflowID string, trace WorkflowTraceDump, fina
 	lines = append(lines, explanation.WhySkillSelected...)
 	lines = append(lines, explanation.WhyValidationFailed...)
 	lines = append(lines, explanation.WhyMemoryDecision...)
+	lines = append(lines, explanation.WhyAsyncRuntime...)
 	lines = dedupeStrings(lines)
 	return DebugSummary{
-		WorkflowID:        workflowID,
-		FinalRuntimeState: finalState,
-		PlanSummary:       summary.PlanSummary,
-		SkillSummary:      summary.SkillSummary,
-		MemorySummary:     summary.MemorySummary,
-		ValidatorSummary:  summary.ValidatorSummary,
-		GovernanceSummary: summary.GovernanceSummary,
-		ChildWorkflows:    summary.ChildWorkflowSummary,
-		Explanation:       lines,
+		WorkflowID:          workflowID,
+		FinalRuntimeState:   finalState,
+		PlanSummary:         summary.PlanSummary,
+		SkillSummary:        summary.SkillSummary,
+		MemorySummary:       summary.MemorySummary,
+		ValidatorSummary:    summary.ValidatorSummary,
+		GovernanceSummary:   summary.GovernanceSummary,
+		AsyncRuntimeSummary: summary.AsyncRuntimeSummary,
+		ChildWorkflows:      summary.ChildWorkflowSummary,
+		Explanation:         lines,
 	}
 }
 
@@ -80,15 +84,17 @@ func BuildDebugSummaryFromReplay(view ReplayView) DebugSummary {
 	explanation = append(explanation, view.Explanation.WhySkillSelected...)
 	explanation = append(explanation, view.Explanation.WhyValidationFailed...)
 	explanation = append(explanation, view.Explanation.WhyMemoryDecision...)
+	explanation = append(explanation, view.Explanation.WhyAsyncRuntime...)
 	summary := DebugSummary{
-		FinalRuntimeState: view.Summary.FinalState,
-		PlanSummary:       append([]string{}, view.Summary.PlanSummary...),
-		SkillSummary:      append([]string{}, view.Summary.SkillSummary...),
-		MemorySummary:     append([]string{}, view.Summary.MemorySummary...),
-		ValidatorSummary:  append([]string{}, view.Summary.ValidatorSummary...),
-		GovernanceSummary: append([]string{}, view.Summary.GovernanceSummary...),
-		ChildWorkflows:    append([]string{}, view.Summary.ChildWorkflowSummary...),
-		Explanation:       dedupeStrings(explanation),
+		FinalRuntimeState:   view.Summary.FinalState,
+		PlanSummary:         append([]string{}, view.Summary.PlanSummary...),
+		SkillSummary:        append([]string{}, view.Summary.SkillSummary...),
+		MemorySummary:       append([]string{}, view.Summary.MemorySummary...),
+		ValidatorSummary:    append([]string{}, view.Summary.ValidatorSummary...),
+		GovernanceSummary:   append([]string{}, view.Summary.GovernanceSummary...),
+		AsyncRuntimeSummary: append([]string{}, view.Summary.AsyncRuntimeSummary...),
+		ChildWorkflows:      append([]string{}, view.Summary.ChildWorkflowSummary...),
+		Explanation:         dedupeStrings(explanation),
 	}
 	if view.Workflow != nil {
 		summary.WorkflowID = view.Workflow.WorkflowID

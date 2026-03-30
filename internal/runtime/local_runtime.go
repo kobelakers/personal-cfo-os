@@ -36,6 +36,7 @@ type LocalRuntimeOptions struct {
 	Replay          ReplayStore
 	Artifacts       ArtifactMetadataStore
 	Capabilities    TaskCapabilityResolver
+	FenceValidator  FenceValidator
 	Now             func() time.Time
 }
 
@@ -52,6 +53,7 @@ type LocalWorkflowRuntime struct {
 	Replay          ReplayStore
 	Artifacts       ArtifactMetadataStore
 	Capabilities    TaskCapabilityResolver
+	FenceValidator  FenceValidator
 	Now             func() time.Time
 }
 
@@ -109,6 +111,7 @@ func NewLocalWorkflowRuntime(workflowID string, options LocalRuntimeOptions) *Lo
 		Replay:          replay,
 		Artifacts:       artifacts,
 		Capabilities:    options.Capabilities,
+		FenceValidator:  options.FenceValidator,
 		Now:             options.Now,
 	}
 }

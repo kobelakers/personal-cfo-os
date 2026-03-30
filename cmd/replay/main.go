@@ -24,29 +24,50 @@ func main() {
 
 func run(args []string, stdout io.Writer, stderr io.Writer) error {
 	var (
-		fs           = flag.NewFlagSet("replay", flag.ContinueOnError)
-		runtimeDB    = fs.String("runtime-db", fallbackRuntimeDBPath(), "runtime sqlite db path")
-		workflowID   = fs.String("workflow-id", "", "query replay by workflow id")
-		taskGraphID  = fs.String("task-graph-id", "", "query replay by task graph id")
-		taskID       = fs.String("task-id", "", "query replay by task id")
-		executionID  = fs.String("execution-id", "", "query replay by execution id")
-		approvalID   = fs.String("approval-id", "", "query replay by approval id")
-		compareLeft  = fs.String("compare-left", "", "compare left replay scope in the form workflow:<id>, task_graph:<id>, task:<id>, execution:<id>, approval:<id>")
-		compareRight = fs.String("compare-right", "", "compare right replay scope in the form workflow:<id>, task_graph:<id>, task:<id>, execution:<id>, approval:<id>")
-		format       = fs.String("format", "summary", "output format: json or summary")
-		rebuild      = fs.Bool("rebuild-projections", false, "rebuild replay/debug projections from authoritative runtime truth")
-		all          = fs.Bool("all", false, "rebuild all replay/debug projections")
+		fs             = flag.NewFlagSet("replay", flag.ContinueOnError)
+		runtimeDB      = fs.String("runtime-db", fallbackRuntimeDBPath(), "runtime sqlite db path")
+		runtimeProfile = fs.String("runtime-profile", "local-lite", "runtime profile: local-lite or runtime-promotion")
+		runtimeBackend = fs.String("runtime-backend", "sqlite", "runtime backend: sqlite or postgres")
+		runtimeDSN     = fs.String("runtime-dsn", "", "runtime backend dsn (required for postgres)")
+		blobBackend    = fs.String("blob-backend", "localfs", "blob backend: localfs or minio")
+		blobRoot       = fs.String("blob-root", "", "localfs blob root")
+		blobEndpoint   = fs.String("blob-endpoint", "", "minio endpoint")
+		blobBucket     = fs.String("blob-bucket", "", "minio bucket")
+		blobAccessKey  = fs.String("blob-access-key", "", "minio access key")
+		blobSecretKey  = fs.String("blob-secret-key", "", "minio secret key")
+		workflowID     = fs.String("workflow-id", "", "query replay by workflow id")
+		taskGraphID    = fs.String("task-graph-id", "", "query replay by task graph id")
+		taskID         = fs.String("task-id", "", "query replay by task id")
+		executionID    = fs.String("execution-id", "", "query replay by execution id")
+		approvalID     = fs.String("approval-id", "", "query replay by approval id")
+		compareLeft    = fs.String("compare-left", "", "compare left replay scope in the form workflow:<id>, task_graph:<id>, task:<id>, execution:<id>, approval:<id>")
+		compareRight   = fs.String("compare-right", "", "compare right replay scope in the form workflow:<id>, task_graph:<id>, task:<id>, execution:<id>, approval:<id>")
+		format         = fs.String("format", "summary", "output format: json or summary")
+		rebuild        = fs.Bool("rebuild-projections", false, "rebuild replay/debug projections from authoritative runtime truth")
+		all            = fs.Bool("all", false, "rebuild all replay/debug projections")
 	)
 	fs.SetOutput(stderr)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	stores, err := runtime.NewSQLiteRuntimeStores(*runtimeDB)
+	stores, _, err := runtime.OpenStoreBundle(runtime.StoreFactoryOptions{
+		RuntimeProfile: *runtimeProfile,
+		RuntimeBackend: *runtimeBackend,
+		SQLitePath:     *runtimeDB,
+		PostgresDSN:    *runtimeDSN,
+		BlobBackend:    *blobBackend,
+		BlobRoot:       *blobRoot,
+		BlobEndpoint:   *blobEndpoint,
+		BlobBucket:     *blobBucket,
+		BlobAccessKey:  *blobAccessKey,
+		BlobSecretKey:  *blobSecretKey,
+		Now:            func() time.Time { return time.Now().UTC() },
+	})
 	if err != nil {
 		return fmt.Errorf("open runtime stores: %w", err)
 	}
-	defer func() { _ = stores.DB.Close() }()
+	defer func() { _ = stores.Close() }()
 	service := runtime.NewService(runtime.ServiceOptions{
 		CheckpointStore: stores.Checkpoints,
 		TaskGraphs:      stores.TaskGraphs,
@@ -55,8 +76,13 @@ func run(args []string, stdout io.Writer, stderr io.Writer) error {
 		OperatorActions: stores.OperatorActions,
 		Replay:          stores.Replay,
 		Artifacts:       stores.Artifacts,
+		WorkQueue:       stores.WorkQueue,
+		WorkAttempts:    stores.WorkAttempts,
+		Workers:         stores.Workers,
+		Scheduler:       stores.Scheduler,
 		Controller:      runtime.DefaultWorkflowController{},
 		Now:             func() time.Time { return time.Now().UTC() },
+		BackendProfile:  stores.Profile,
 	})
 	rebuilder := runtime.NewReplayProjectionRebuilder(service, stores.WorkflowRuns, stores.ReplayProjection, stores.Artifacts, stores.Replay, func() time.Time { return time.Now().UTC() })
 	service.SetReplayProjectionWriter(rebuilder)
@@ -202,6 +228,7 @@ func printReplayView(stdout io.Writer, view observability.ReplayView, format str
 		printSection(stdout, "memory", summary.MemorySummary)
 		printSection(stdout, "validation", summary.ValidatorSummary)
 		printSection(stdout, "governance", summary.GovernanceSummary)
+		printSection(stdout, "async_runtime", summary.AsyncRuntimeSummary)
 		printSection(stdout, "child_workflows", summary.ChildWorkflows)
 		printSection(stdout, "explanation", summary.Explanation)
 		if len(view.DegradationReasons) > 0 {

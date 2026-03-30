@@ -6,7 +6,57 @@ import (
 	"time"
 )
 
+type WorkerRunOptions struct {
+	WorkerID          WorkerID
+	Role              WorkerRole
+	LeaseTTL          time.Duration
+	HeartbeatInterval time.Duration
+	ClaimBatch        int
+}
+
 func (s *Service) RunWorkerPass(ctx context.Context, policy AutoExecutionPolicy, dryRun bool) (WorkerPassResult, error) {
+	return s.RunAsyncWorkerOnce(ctx, policy, WorkerRunOptions{
+		WorkerID:   WorkerID("worker-pass"),
+		Role:       WorkerRoleAll,
+		LeaseTTL:   30 * time.Second,
+		ClaimBatch: 4,
+	}, dryRun)
+}
+
+func (s *Service) RunAsyncWorkerOnce(ctx context.Context, policy AutoExecutionPolicy, options WorkerRunOptions, dryRun bool) (WorkerPassResult, error) {
+	if s.workQueue != nil && s.scheduler != nil && s.workers != nil {
+		worker := AsyncWorker{
+			ID:                firstNonEmptyWorker(options.WorkerID, WorkerID("worker-pass")),
+			Role:              firstNonEmptyWorkerRole(options.Role, WorkerRoleAll),
+			Service:           s,
+			Scheduler:         s.schedulerService(policy),
+			Policy:            policy,
+			Clock:             s.clock,
+			LeaseTTL:          options.LeaseTTL,
+			HeartbeatInterval: options.HeartbeatInterval,
+			ClaimBatch:        options.ClaimBatch,
+			BackendProfile:    s.backendProfile,
+		}
+		return worker.RunOnce(ctx, dryRun)
+	}
+	return s.runLegacyWorkerPass(ctx, policy, dryRun)
+}
+
+func firstNonEmptyWorker(value WorkerID, fallback WorkerID) WorkerID {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func firstNonEmptyWorkerRole(value WorkerRole, fallback WorkerRole) WorkerRole {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func (s *Service) runLegacyWorkerPass(ctx context.Context, policy AutoExecutionPolicy, dryRun bool) (WorkerPassResult, error) {
 	if policy.MaxExecutionDepth <= 0 {
 		policy = DefaultAutoExecutionPolicy()
 	}
@@ -74,4 +124,22 @@ func (s *Service) RunWorkerPass(ctx context.Context, policy AutoExecutionPolicy,
 	}
 	result.CompletedAt = s.now().Format(time.RFC3339Nano)
 	return result, nil
+}
+
+func (s *Service) schedulerService(policy AutoExecutionPolicy) SchedulerService {
+	return SchedulerService{
+		TaskGraphs:   s.runtime.TaskGraphs,
+		Executions:   s.runtime.Executions,
+		Approvals:    s.runtime.Approvals,
+		WorkQueue:    s.workQueue,
+		Wakeups:      s.scheduler,
+		Capabilities: s.runtime.Capabilities,
+		Replay:       s.runtime.Replay,
+		Clock:        s.clock,
+		DuePolicy:    DueWindowPolicy{},
+		RetryPolicy: RetryBackoffPolicy{
+			BaseDelay: 5 * time.Second,
+			MaxDelay:  5 * time.Minute,
+		},
+	}
 }

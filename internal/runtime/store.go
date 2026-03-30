@@ -184,10 +184,17 @@ type FollowUpFinalizeResumePayload struct {
 
 type CheckpointPayloadEnvelope struct {
 	Kind                   CheckpointPayloadKind          `json:"kind"`
+	PayloadRef             string                         `json:"payload_ref,omitempty"`
 	FollowUpFinalizeResume *FollowUpFinalizeResumePayload `json:"follow_up_finalize_resume,omitempty"`
 }
 
 func (p CheckpointPayloadEnvelope) Validate() error {
+	if p.PayloadRef != "" {
+		if p.Kind == "" {
+			return errors.New("checkpoint payload ref requires payload kind")
+		}
+		return nil
+	}
 	switch p.Kind {
 	case CheckpointPayloadKindFollowUpFinalizeResume:
 		if p.FollowUpFinalizeResume == nil {

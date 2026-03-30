@@ -1,0 +1,176 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: personal-cfo-runtime-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - runtime-promotion-postgres:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: personal-cfo-runtime-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - runtime-promotion-minio:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: personal-cfo-runtime-minio-init
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do sleep 1; done;
+      mc mb --ignore-existing local/${MINIO_BUCKET};
+
+  api:
+    image: golang:1.25
+    container_name: personal-cfo-runtime-api
+    working_dir: /workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ..:/workspace
+      - runtime-promotion-gomod:/go/pkg/mod
+      - runtime-promotion-gobuild:/root/.cache/go-build
+    command:
+      - go
+      - run
+      - ./cmd/api
+      - --addr
+      - :8080
+      - --runtime-profile
+      - runtime-promotion
+      - --runtime-backend
+      - postgres
+      - --runtime-dsn
+      - ${RUNTIME_DSN_INTERNAL}
+      - --blob-backend
+      - minio
+      - --blob-endpoint
+      - ${MINIO_ENDPOINT_INTERNAL}
+      - --blob-bucket
+      - ${MINIO_BUCKET}
+      - --blob-access-key
+      - ${MINIO_ROOT_USER}
+      - --blob-secret-key
+      - ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${API_PORT}:8080"
+
+  worker-a:
+    image: golang:1.25
+    container_name: personal-cfo-runtime-worker-a
+    working_dir: /workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ..:/workspace
+      - runtime-promotion-gomod:/go/pkg/mod
+      - runtime-promotion-gobuild:/root/.cache/go-build
+    command:
+      - go
+      - run
+      - ./cmd/worker
+      - --runtime-profile
+      - runtime-promotion
+      - --runtime-backend
+      - postgres
+      - --runtime-dsn
+      - ${RUNTIME_DSN_INTERNAL}
+      - --blob-backend
+      - minio
+      - --blob-endpoint
+      - ${MINIO_ENDPOINT_INTERNAL}
+      - --blob-bucket
+      - ${MINIO_BUCKET}
+      - --blob-access-key
+      - ${MINIO_ROOT_USER}
+      - --blob-secret-key
+      - ${MINIO_ROOT_PASSWORD}
+      - --worker-id
+      - worker-a
+      - --role
+      - all
+      - --interval
+      - 5s
+      - --lease-ttl
+      - 30s
+      - --heartbeat-interval
+      - 10s
+      - --claim-batch
+      - "4"
+
+  worker-b:
+    image: golang:1.25
+    container_name: personal-cfo-runtime-worker-b
+    working_dir: /workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ..:/workspace
+      - runtime-promotion-gomod:/go/pkg/mod
+      - runtime-promotion-gobuild:/root/.cache/go-build
+    command:
+      - go
+      - run
+      - ./cmd/worker
+      - --runtime-profile
+      - runtime-promotion
+      - --runtime-backend
+      - postgres
+      - --runtime-dsn
+      - ${RUNTIME_DSN_INTERNAL}
+      - --blob-backend
+      - minio
+      - --blob-endpoint
+      - ${MINIO_ENDPOINT_INTERNAL}
+      - --blob-bucket
+      - ${MINIO_BUCKET}
+      - --blob-access-key
+      - ${MINIO_ROOT_USER}
+      - --blob-secret-key
+      - ${MINIO_ROOT_PASSWORD}
+      - --worker-id
+      - worker-b
+      - --role
+      - all
+      - --interval
+      - 5s
+      - --lease-ttl
+      - 30s
+      - --heartbeat-interval
+      - 10s
+      - --claim-batch
+      - "4"
+
+volumes:
+  runtime-promotion-postgres:
+  runtime-promotion-minio:
+  runtime-promotion-gomod:
+  runtime-promotion-gobuild:

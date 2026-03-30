@@ -1,0 +1,22 @@
+{
+  "phase": "7a",
+  "runtime_profile": "runtime-promotion",
+  "runtime_backend": "postgres",
+  "blob_backend": "minio",
+  "api_addr": "http://127.0.0.1:18080",
+  "workers": [
+    "worker-a",
+    "worker-b"
+  ],
+  "proof_stack": {
+    "postgres": true,
+    "minio": true,
+    "api": true,
+    "multi_worker": true
+  },
+  "notes": [
+    "runtime-promotion keeps typed protocol, verification, governance, and replay on the same durable plane",
+    "Postgres is the authoritative runtime backend for the promoted profile",
+    "checkpoint payloads, final reports, and replay bundles are ref-backed through MinIO-compatible blob storage"
+  ]
+}

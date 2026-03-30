@@ -68,6 +68,48 @@ func (s *OperatorService) ApproveTask(ctx context.Context, cmd ApproveTaskComman
 	}); err != nil {
 		return TaskCommandResult{}, err
 	}
+	if s.service.asyncDispatchEnabled() {
+		item := WorkItem{
+			ID:            makeID("work", WorkItemKindResumeApprovedCheckpoint, approval.ApprovalID),
+			Kind:          WorkItemKindResumeApprovedCheckpoint,
+			Status:        WorkItemStatusQueued,
+			DedupeKey:     fmt.Sprintf("resume:%s:%s", approval.GraphID, approval.TaskID),
+			GraphID:       approval.GraphID,
+			TaskID:        approval.TaskID,
+			ApprovalID:    approval.ApprovalID,
+			WorkflowID:    approval.WorkflowID,
+			AvailableAt:   now,
+			LastUpdatedAt: now,
+			Reason:        "approval resolved to approved",
+			WakeupKind:    SchedulerWakeupApproval,
+		}
+		enqueued, err := s.service.enqueueWorkItem(item)
+		if err != nil {
+			return TaskCommandResult{}, err
+		}
+		if err := s.service.appendReplay(ReplayEventRecord{
+			EventID:           makeID("replay", "approve-enqueue", approval.ApprovalID, now),
+			RootCorrelationID: approval.GraphID,
+			ParentWorkflowID:  approval.WorkflowID,
+			WorkflowID:        approval.WorkflowID,
+			GraphID:           approval.GraphID,
+			TaskID:            approval.TaskID,
+			ApprovalID:        approval.ApprovalID,
+			ActionType:        "async_dispatch",
+			Summary:           fmt.Sprintf("approval %s enqueued async resume", approval.ApprovalID),
+			OccurredAt:        now,
+			OperatorActionID:  action.ActionID,
+			DetailsJSON:       mustMarshalReplayDetails(operatorAsyncDispatchReplayDetails{WorkerAction: string(OperatorActionApprove), WorkItemID: item.ID, WorkItemKind: string(item.Kind), SchedulerDecision: string(SchedulerWakeupApproval), StoreBackendProfile: s.service.backendProfile}),
+		}); err != nil {
+			return TaskCommandResult{}, err
+		}
+		if err := s.service.rebuildTaskGraphProjection(ctx, approval.GraphID); err != nil {
+			return TaskCommandResult{}, err
+		}
+		enqueued.Action = action
+		enqueued.AutoResumeTried = false
+		return enqueued, nil
+	}
 	if err := s.service.rebuildTaskGraphProjection(ctx, approval.GraphID); err != nil {
 		return TaskCommandResult{}, err
 	}
@@ -206,6 +248,59 @@ func (s *OperatorService) RetryFailedFollowUpTask(ctx context.Context, cmd Retry
 	workflowCapability, ok, reason := s.service.runtime.Capabilities.ResolveWorkflow(task.Task)
 	if !ok || workflowCapability == nil {
 		return s.service.failAction(action, result, &ConflictError{Resource: "follow_up_task", ID: task.Task.ID, Reason: firstNonEmpty(reason, "workflow capability is not available")})
+	}
+	if s.service.asyncDispatchEnabled() {
+		now := s.service.now()
+		action.Status = OperatorActionStatusApplied
+		action.AppliedAt = &now
+		if err := s.service.runtime.OperatorActions.Save(action); err != nil {
+			return TaskCommandResult{}, err
+		}
+		existing, ok, err := s.service.runtime.Executions.LoadLatestByTask(snapshot.Graph.GraphID, task.Task.ID)
+		if err != nil {
+			return TaskCommandResult{}, err
+		}
+		if !ok {
+			return TaskCommandResult{}, &NotFoundError{Resource: "task_execution", ID: task.Task.ID}
+		}
+		item := WorkItem{
+			ID:            makeID("work", WorkItemKindRetryFailedExecution, snapshot.Graph.GraphID, task.Task.ID, now),
+			Kind:          WorkItemKindRetryFailedExecution,
+			Status:        WorkItemStatusQueued,
+			DedupeKey:     fmt.Sprintf("retry:%s:%s", snapshot.Graph.GraphID, task.Task.ID),
+			GraphID:       snapshot.Graph.GraphID,
+			TaskID:        task.Task.ID,
+			ExecutionID:   existing.ExecutionID,
+			WorkflowID:    snapshot.Graph.ParentWorkflowID,
+			AvailableAt:   now,
+			LastUpdatedAt: now,
+			Reason:        firstNonEmpty(cmd.Note, "operator requested retry"),
+			WakeupKind:    SchedulerWakeupRetry,
+		}
+		enqueued, err := s.service.enqueueWorkItem(item)
+		if err != nil {
+			return TaskCommandResult{}, err
+		}
+		if err := s.service.appendReplay(ReplayEventRecord{
+			EventID:           makeID("replay", "retry-enqueue", task.Task.ID, now),
+			RootCorrelationID: snapshot.Graph.ParentWorkflowID,
+			ParentWorkflowID:  snapshot.Graph.ParentWorkflowID,
+			GraphID:           snapshot.Graph.GraphID,
+			TaskID:            task.Task.ID,
+			ExecutionID:       existing.ExecutionID,
+			ActionType:        "async_dispatch",
+			Summary:           fmt.Sprintf("operator enqueued async retry for %s", task.Task.ID),
+			OccurredAt:        now,
+			OperatorActionID:  action.ActionID,
+			DetailsJSON:       mustMarshalReplayDetails(operatorAsyncDispatchReplayDetails{WorkerAction: string(OperatorActionRetry), WorkItemID: item.ID, WorkItemKind: string(item.Kind), SchedulerDecision: string(SchedulerWakeupRetry), StoreBackendProfile: s.service.backendProfile}),
+		}); err != nil {
+			return TaskCommandResult{}, err
+		}
+		if err := s.service.rebuildTaskGraphProjection(ctx, snapshot.Graph.GraphID); err != nil {
+			return TaskCommandResult{}, err
+		}
+		enqueued.Action = action
+		return enqueued, nil
 	}
 	expectedGraphVersion := snapshot.Version
 	now := s.service.now()

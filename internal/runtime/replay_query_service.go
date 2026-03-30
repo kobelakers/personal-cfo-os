@@ -73,6 +73,10 @@ func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (o
 	if err != nil {
 		return observability.ReplayView{}, err
 	}
+	events, err := s.listReplayEventsByWorkflow(workflowID)
+	if err != nil {
+		return observability.ReplayView{}, err
+	}
 	view := observability.ReplayView{
 		Query: observability.ReplayQuery{WorkflowID: workflowID},
 		Scope: observability.ReplayScope{Kind: string(ReplayScopeWorkflow), ID: workflowID},
@@ -101,6 +105,7 @@ func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (o
 	}
 	if len(view.Provenance.Nodes) == 0 {
 		view.Provenance = bestEffortWorkflowProvenance(record, artifacts)
+		view.Provenance = augmentProvenanceWithAsyncEvents(view.Provenance, events)
 		degradations = append(degradations, observability.ReplayDegradation{
 			Reason:  observability.ReplayDegradationBestEffortAssembly,
 			Message: "workflow provenance graph was assembled from authoritative runtime truth because durable projection rows were unavailable",
@@ -115,6 +120,12 @@ func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (o
 		})
 	}
 	view.Summary.FinalState = string(record.RuntimeState)
+	if len(view.Summary.AsyncRuntimeSummary) == 0 {
+		view.Summary.AsyncRuntimeSummary = asyncRuntimeSummaryFromEvents(events)
+	}
+	if len(view.Explanation.WhyAsyncRuntime) == 0 {
+		view.Explanation.WhyAsyncRuntime = asyncRuntimeExplanationFromEvents(events)
+	}
 	view.Degraded = len(degradations) > 0
 	view.DegradationReasons = degradations
 	return view, nil
@@ -130,6 +141,10 @@ func (s *ReplayQueryService) byTaskGraph(ctx context.Context, graphID string) (o
 		return observability.ReplayView{}, err
 	}
 	artifacts, err := s.artifactsByGraph(graphView)
+	if err != nil {
+		return observability.ReplayView{}, err
+	}
+	events, err := s.listReplayEventsByGraph(graphID)
 	if err != nil {
 		return observability.ReplayView{}, err
 	}
@@ -160,6 +175,7 @@ func (s *ReplayQueryService) byTaskGraph(ctx context.Context, graphID string) (o
 	}
 	if len(view.Provenance.Nodes) == 0 {
 		view.Provenance = bestEffortTaskGraphProvenance(graphView)
+		view.Provenance = augmentProvenanceWithAsyncEvents(view.Provenance, events)
 		degradations = append(degradations, observability.ReplayDegradation{
 			Reason:  observability.ReplayDegradationBestEffortAssembly,
 			Message: "task-graph provenance graph was assembled from authoritative runtime truth because durable projection rows were unavailable",
@@ -178,9 +194,29 @@ func (s *ReplayQueryService) byTaskGraph(ctx context.Context, graphID string) (o
 		view.FailureAttributions = bestEffortGraphFailureAttributions(graphView)
 	}
 	view.Summary.FinalState = summarizeGraphState(graphView)
+	if len(view.Summary.AsyncRuntimeSummary) == 0 {
+		view.Summary.AsyncRuntimeSummary = asyncRuntimeSummaryFromEvents(events)
+	}
+	if len(view.Explanation.WhyAsyncRuntime) == 0 {
+		view.Explanation.WhyAsyncRuntime = asyncRuntimeExplanationFromEvents(events)
+	}
 	view.Degraded = len(degradations) > 0
 	view.DegradationReasons = degradations
 	return view, nil
+}
+
+func (s *ReplayQueryService) listReplayEventsByWorkflow(workflowID string) ([]ReplayEventRecord, error) {
+	if s.replay == nil {
+		return nil, nil
+	}
+	return s.replay.ListByWorkflow(workflowID)
+}
+
+func (s *ReplayQueryService) listReplayEventsByGraph(graphID string) ([]ReplayEventRecord, error) {
+	if s.replay == nil {
+		return nil, nil
+	}
+	return s.replay.ListByGraph(graphID)
 }
 
 func (s *ReplayQueryService) byTask(ctx context.Context, taskID string) (observability.ReplayView, error) {

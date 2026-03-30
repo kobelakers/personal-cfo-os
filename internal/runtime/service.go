@@ -19,15 +19,27 @@ type ServiceOptions struct {
 	OperatorActions OperatorActionStore
 	Replay          ReplayStore
 	Artifacts       ArtifactMetadataStore
+	WorkQueue       WorkQueueStore
+	WorkAttempts    WorkAttemptStore
+	Workers         WorkerRegistryStore
+	Scheduler       SchedulerStore
 	Capabilities    TaskCapabilityResolver
 	Controller      WorkflowController
 	EventLog        *observability.EventLog
 	Now             func() time.Time
+	Clock           Clock
+	BackendProfile  string
 }
 
 type Service struct {
 	runtime                *LocalWorkflowRuntime
 	replayProjectionWriter ReplayProjectionWriter
+	workQueue              WorkQueueStore
+	workAttempts           WorkAttemptStore
+	workers                WorkerRegistryStore
+	scheduler              SchedulerStore
+	clock                  Clock
+	backendProfile         string
 }
 
 type ReplayProjectionWriter interface {
@@ -35,6 +47,14 @@ type ReplayProjectionWriter interface {
 }
 
 func NewService(options ServiceOptions) *Service {
+	clock := options.Clock
+	if clock == nil {
+		if options.Now != nil {
+			clock = funcClock{now: options.Now}
+		} else {
+			clock = SystemClock{}
+		}
+	}
 	local := NewLocalWorkflowRuntime("runtime-service", LocalRuntimeOptions{
 		Controller:      options.Controller,
 		CheckpointStore: options.CheckpointStore,
@@ -45,10 +65,19 @@ func NewService(options ServiceOptions) *Service {
 		Replay:          options.Replay,
 		Artifacts:       options.Artifacts,
 		Capabilities:    options.Capabilities,
+		FenceValidator:  options.WorkQueue,
 		EventLog:        options.EventLog,
-		Now:             options.Now,
+		Now:             clock.Now,
 	})
-	return &Service{runtime: local}
+	return &Service{
+		runtime:        local,
+		workQueue:      options.WorkQueue,
+		workAttempts:   options.WorkAttempts,
+		workers:        options.Workers,
+		scheduler:      options.Scheduler,
+		clock:          clock,
+		backendProfile: firstNonEmpty(options.BackendProfile, "local-lite"),
+	}
 }
 
 func (s *Service) Runtime() *LocalWorkflowRuntime {
@@ -66,7 +95,18 @@ func (s *Service) SetCapabilities(resolver TaskCapabilityResolver) {
 }
 
 func (s *Service) now() time.Time {
+	if s.clock != nil {
+		return s.clock.Now()
+	}
 	return s.runtime.now()
+}
+
+type funcClock struct {
+	now func() time.Time
+}
+
+func (c funcClock) Now() time.Time {
+	return c.now().UTC()
 }
 
 func (s *Service) ReevaluateTaskGraph(ctx context.Context, cmd ReevaluateTaskGraphCommand) (TaskActivationResult, TaskCommandResult, error) {
@@ -76,6 +116,44 @@ func (s *Service) ReevaluateTaskGraph(ctx context.Context, cmd ReevaluateTaskGra
 	}
 	if duplicate {
 		return TaskActivationResult{}, result, nil
+	}
+	if s.asyncDispatchEnabled() {
+		now := s.now()
+		action.Status = OperatorActionStatusApplied
+		action.AppliedAt = &now
+		if err := s.runtime.OperatorActions.Save(action); err != nil {
+			return TaskActivationResult{}, TaskCommandResult{}, err
+		}
+		item := WorkItem{
+			ID:            makeID("work", WorkItemKindReevaluateTaskGraph, cmd.GraphID, now),
+			Kind:          WorkItemKindReevaluateTaskGraph,
+			Status:        WorkItemStatusQueued,
+			DedupeKey:     fmt.Sprintf("reevaluate:%s", cmd.GraphID),
+			GraphID:       cmd.GraphID,
+			AvailableAt:   now,
+			LastUpdatedAt: now,
+			Reason:        firstNonEmpty(cmd.Note, "operator requested task-graph reevaluation"),
+			WakeupKind:    SchedulerWakeupOperator,
+		}
+		enqueued, err := s.enqueueWorkItem(item)
+		if err != nil {
+			return TaskActivationResult{}, TaskCommandResult{}, err
+		}
+		if err := s.appendReplay(ReplayEventRecord{
+			EventID:           makeID("replay", "reevaluate-enqueued", cmd.GraphID, now),
+			RootCorrelationID: cmd.GraphID,
+			ParentWorkflowID:  cmd.GraphID,
+			GraphID:           cmd.GraphID,
+			ActionType:        string(OperatorActionReevaluate),
+			Summary:           fmt.Sprintf("enqueued task-graph reevaluation for %s", cmd.GraphID),
+			OccurredAt:        now,
+			OperatorActionID:  action.ActionID,
+			DetailsJSON:       mustMarshalReplayDetails(operatorAsyncDispatchReplayDetails{WorkerAction: string(OperatorActionReevaluate), WorkItemID: item.ID, WorkItemKind: string(item.Kind), SchedulerDecision: "operator_reevaluate", StoreBackendProfile: s.backendProfile}),
+		}); err != nil {
+			return TaskActivationResult{}, TaskCommandResult{}, err
+		}
+		enqueued.Action = action
+		return TaskActivationResult{GraphID: cmd.GraphID, EvaluatedAt: now}, enqueued, nil
 	}
 	activation, err := s.runtime.ReevaluateTaskGraph(ExecutionContext{
 		WorkflowID:    firstNonEmpty(cmd.GraphID, "runtime-reevaluator"),
@@ -194,6 +272,28 @@ func (s *Service) appendReplay(event ReplayEventRecord) error {
 		return nil
 	}
 	return s.runtime.Replay.Append(event)
+}
+
+func (s *Service) asyncDispatchEnabled() bool {
+	return s != nil && s.workQueue != nil && s.scheduler != nil
+}
+
+func (s *Service) enqueueWorkItem(item WorkItem) (TaskCommandResult, error) {
+	if s.workQueue == nil {
+		return TaskCommandResult{}, fmt.Errorf("work queue store is required")
+	}
+	if err := s.workQueue.Enqueue(item); err != nil {
+		return TaskCommandResult{}, err
+	}
+	return TaskCommandResult{
+		GraphID:               item.GraphID,
+		TaskID:                item.TaskID,
+		ExecutionID:           item.ExecutionID,
+		ApprovalID:            item.ApprovalID,
+		AsyncDispatchAccepted: true,
+		EnqueuedWorkItemIDs:   []string{item.ID},
+		EnqueuedWorkKinds:     []WorkItemKind{item.Kind},
+	}, nil
 }
 
 func (s *Service) rebuildTaskGraphProjection(ctx context.Context, graphID string) error {

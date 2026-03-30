@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a trustworthy finance reasoning substrate on the current live path, a first operator-grade replay/eval/debug plane, a first versioned skill runtime, and a first formal behavior domain.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a promoted async-capable durable runtime backbone, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a trustworthy finance reasoning substrate on the current live path, a first operator-grade replay/eval/debug plane, a first versioned skill runtime, and a first formal behavior domain.
 
 ## Core Loop
 
@@ -21,6 +21,7 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 15. `internal/runtime.ReplayQueryService` is now the canonical replay plane; it answers workflow/task-graph/task/execution/approval why/how questions from authoritative runtime truth, normalized projections, and artifact refs, while degrading gracefully when projections are missing or stale instead of falling back to a second replay system.
 16. `cmd/eval` now runs a deterministic canonical 11-scenario regression corpus over the current backbone instead of only phase-specific runners, and golden replay/debug samples are produced from the same mock/runtime fixtures, including explicit memory-rejection visibility coverage.
 17. `behavior_intervention` now enters through deterministic intake, planner emits a skill-aware behavior block, orchestrator-side selection resolves concrete family/version/recipe, `BehaviorAgent` executes deterministic behavior analysis, and procedural memory can alter the next similar skill choice.
+18. runtime promotion now adds durable work items, lease/heartbeat/reclaim, fencing-token-protected commits, scheduler-generated wakeups, Postgres-backed runtime-authoritative stores, and ref-backed checkpoint/report/replay payload storage without changing the canonical replay plane or pushing scheduling logic back into workflows.
 
 ## Replay / Eval / Debug Plane (Phase 6A)
 
@@ -48,6 +49,19 @@ Phase 6B promotes one narrow but load-bearing capability/domain path rather than
 4. `BehaviorBlockResult` now enters the same `analysis.BlockResultEnvelope` main chain as other domains, so behavior becomes verification/governance/reporting/replay input rather than a report appendix
 5. procedural memory extends the existing durable memory substrate and can deterministically influence later skill/recipe selection
 6. the canonical high-risk proof is `discretionary_guardrail / hard_cap.v1`, which escalates into `waiting_approval` without performing any external account action
+
+## Runtime Promotion (Phase 7A)
+
+Phase 7A upgrades the runtime backbone rather than widening the system into UI or externalized protocol work:
+
+1. durable work items now drive async execution instead of a pure in-process worker pass
+2. workers claim work through leases, heartbeat lease ownership, and can lose the lease through expiry/reclaim
+3. stale workers are fenced: completion/checkpoint/transition commits now validate lease ownership plus fencing token, so reclaimed workers cannot successfully apply final state
+4. scheduler and reevaluator now enqueue typed work for deferred wakeups, approval resumes, dependency/capability reevaluations, and retry backoff
+5. runtime-authoritative stores now have two formal profiles:
+   - `local-lite`: SQLite + LocalFS
+   - `runtime-promotion`: Postgres + MinIO-compatible blob storage
+6. replay/debug still uses the same canonical `internal/runtime.ReplayQueryService`, but now it can explain claim/lease/heartbeat/reclaim/retry/scheduler chains across workers
 
 ## Trustworthy Finance Reasoning (Phase 5D)
 
@@ -139,7 +153,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane + first versioned skill runtime + first formal behavior domain + procedural-memory-influenced skill selection**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + promoted async-capable durable runtime backbone + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane + first versioned skill runtime + first formal behavior domain + procedural-memory-influenced skill selection**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -150,10 +164,10 @@ The repository is now best described as **system-agent backbone + first real dom
 - agentic document parsing is still a deterministic stub behind a formal observation adapter
 - durable memory now exists for Monthly Review through a local SQLite memory seam, but it is not yet a stronger remote memory substrate
 - semantic retrieval is now real for the Monthly Review path through provider-backed embeddings, but still uses local brute-force vector scoring instead of ANN/pgvector
-- runtime is local Temporal-aligned rather than connected to a live Temporal cluster
-- durable persistence is local SQLite + artifact refs rather than Postgres + object storage
+- runtime is still Temporal-aligned rather than connected to a live Temporal cluster
+- stronger persistence now exists through `runtime-promotion` with Postgres + MinIO-compatible blob refs, but the system is still local-first rather than a fully externalized production deployment
 - observability is now durable and queryable for runtime replay/debug, but not yet backed by full tracing infrastructure
-- system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
+- system-agent execution is still local synchronous dispatch; 7A promotes the runtime around those handlers rather than turning agents into remote inbox/outbox actors
 - only `PlannerAgent` and `CashflowAgent` currently use real provider-backed reasoning, and only inside Monthly Review
 - prompt/provider/token/cost traces are now visible in workflow dumps, but they are not yet promoted to a separate operator-facing durable intelligence store
 - `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is now live only through `behavior_intervention`
@@ -162,4 +176,4 @@ The repository is now best described as **system-agent backbone + first real dom
 - broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and richer blocked/deferred/capability regression coverage remain explicitly out of scope for this phase
 - richer provider/prompt A/B evaluation and full external observability infra promotion remain explicitly out of scope for this phase
 
-The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.
+The system is still intentionally local-first. Postgres and MinIO are now real runtime-promotion backends, but live Temporal, pgvector-backed memory infra, remote agentization, and full observability infrastructure are still deferred behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

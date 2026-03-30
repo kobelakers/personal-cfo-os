@@ -57,6 +57,7 @@ func BuildReplayComparison(left ReplayView, right ReplayView) ReplayComparison {
 	appendSectionDiff("memory", "memory_summary", left.Summary.MemorySummary, right.Summary.MemorySummary, "memory selection/rejection changed")
 	appendSectionDiff("validation", "validator_summary", left.Summary.ValidatorSummary, right.Summary.ValidatorSummary, "validator verdicts changed")
 	appendSectionDiff("governance", "governance_summary", left.Summary.GovernanceSummary, right.Summary.GovernanceSummary, "governance outcome changed")
+	appendSectionDiff("runtime", "async_runtime_summary", left.Summary.AsyncRuntimeSummary, right.Summary.AsyncRuntimeSummary, "async runtime progression changed")
 	appendSectionDiff("runtime", "child_workflow_summary", left.Summary.ChildWorkflowSummary, right.Summary.ChildWorkflowSummary, "child workflow execution changed")
 
 	summary := make([]string, 0, len(diffs))

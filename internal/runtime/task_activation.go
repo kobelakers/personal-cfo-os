@@ -14,6 +14,10 @@ import (
 )
 
 func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx ExecutionContext, graphID string, policy AutoExecutionPolicy) (FollowUpExecutionBatchResult, error) {
+	return r.executeReadyFollowUps(ctx, execCtx, graphID, policy, nil)
+}
+
+func (r LocalWorkflowRuntime) executeReadyFollowUps(ctx context.Context, execCtx ExecutionContext, graphID string, policy AutoExecutionPolicy, fence *FenceValidation) (FollowUpExecutionBatchResult, error) {
 	if r.TaskGraphs == nil {
 		return FollowUpExecutionBatchResult{}, fmt.Errorf("task graph store is required")
 	}
@@ -34,7 +38,7 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 		}
 		dirty := false
 		if graphMutationChanged(snapshot, updated) {
-			snapshot, err = r.saveUpdatedTaskGraphSnapshot(updated, expectedVersion)
+			snapshot, err = r.saveUpdatedTaskGraphSnapshotGuarded(updated, expectedVersion, fence)
 			if err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
@@ -72,12 +76,12 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 			if err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
-			if err := r.persistExecutionOutcome(snapshot, &record, childResult); err != nil {
+			if err := r.persistExecutionOutcomeGuarded(snapshot, &record, childResult, fence); err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
 			executed = append(executed, record)
 			snapshot = applyExecutionRecord(snapshot, record, childResult)
-			snapshot, err = r.saveUpdatedTaskGraphSnapshot(snapshot, expectedVersion)
+			snapshot, err = r.saveUpdatedTaskGraphSnapshotGuarded(snapshot, expectedVersion, fence)
 			if err != nil {
 				return FollowUpExecutionBatchResult{}, err
 			}
@@ -88,7 +92,7 @@ func (r LocalWorkflowRuntime) ExecuteReadyFollowUps(ctx context.Context, execCtx
 		}
 		if !progressed {
 			if dirty {
-				snapshot, err = r.saveUpdatedTaskGraphSnapshot(snapshot, expectedVersion)
+				snapshot, err = r.saveUpdatedTaskGraphSnapshotGuarded(snapshot, expectedVersion, fence)
 				if err != nil {
 					return FollowUpExecutionBatchResult{}, err
 				}

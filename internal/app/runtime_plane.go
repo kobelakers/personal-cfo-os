@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
+	artifactblob "github.com/kobelakers/personal-cfo-os/internal/artifacts"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
@@ -24,13 +25,24 @@ import (
 )
 
 type RuntimePlaneOptions struct {
-	DBPath     string
-	FixtureDir string
-	Now        func() time.Time
+	DBPath         string
+	RuntimeProfile string
+	RuntimeBackend string
+	RuntimeDSN     string
+	BlobBackend    string
+	BlobRoot       string
+	BlobEndpoint   string
+	BlobBucket     string
+	BlobAccessKey  string
+	BlobSecretKey  string
+	FixtureDir     string
+	Now            func() time.Time
+	Clock          runtime.Clock
 }
 
 type RuntimePlane struct {
-	Stores          *runtime.SQLiteRuntimeStores
+	Stores          *runtime.StoreBundle
+	BlobStore       artifactblob.ArtifactBlobStore
 	Service         *runtime.Service
 	Operator        *runtime.OperatorService
 	Query           *runtime.QueryService
@@ -40,7 +52,7 @@ type RuntimePlane struct {
 	EventLog        *observability.EventLog
 	AgentTrace      *observability.AgentTraceLog
 	FixtureDir      string
-	runtimeDB       *runtime.SQLiteRuntimeDB
+	storeBundle     *runtime.StoreBundle
 }
 
 func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
@@ -52,7 +64,19 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 	if fixtureDir == "" {
 		fixtureDir = filepath.Join("tests", "fixtures")
 	}
-	stores, err := runtime.NewSQLiteRuntimeStores(options.DBPath)
+	stores, blobStore, err := runtime.OpenStoreBundle(runtime.StoreFactoryOptions{
+		RuntimeProfile: options.RuntimeProfile,
+		RuntimeBackend: options.RuntimeBackend,
+		SQLitePath:     options.DBPath,
+		PostgresDSN:    options.RuntimeDSN,
+		BlobBackend:    options.BlobBackend,
+		BlobRoot:       options.BlobRoot,
+		BlobEndpoint:   options.BlobEndpoint,
+		BlobBucket:     options.BlobBucket,
+		BlobAccessKey:  options.BlobAccessKey,
+		BlobSecretKey:  options.BlobSecretKey,
+		Now:            nowFn,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -60,12 +84,12 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 	agentTrace := &observability.AgentTraceLog{}
 	deps, err := loadFixtureDeps(fixtureDir, nowFn)
 	if err != nil {
-		_ = stores.DB.Close()
+		_ = stores.Close()
 		return nil, err
 	}
 	systemSteps, err := buildSystemStepBus(deps, eventLog, agentTrace)
 	if err != nil {
-		_ = stores.DB.Close()
+		_ = stores.Close()
 		return nil, err
 	}
 	followUpService := workflows.FollowUpWorkflowService{
@@ -88,9 +112,15 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 		OperatorActions: stores.OperatorActions,
 		Replay:          stores.Replay,
 		Artifacts:       stores.Artifacts,
+		WorkQueue:       stores.WorkQueue,
+		WorkAttempts:    stores.WorkAttempts,
+		Workers:         stores.Workers,
+		Scheduler:       stores.Scheduler,
 		Controller:      runtime.DefaultWorkflowController{},
 		EventLog:        eventLog,
 		Now:             nowFn,
+		Clock:           options.Clock,
+		BackendProfile:  stores.Profile,
 	})
 	local := service.Runtime()
 	replayRebuilder := runtime.NewReplayProjectionRebuilder(service, stores.WorkflowRuns, stores.ReplayProjection, stores.Artifacts, stores.Replay, nowFn)
@@ -145,6 +175,7 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 	service.SetCapabilities(resolver)
 	return &RuntimePlane{
 		Stores:          stores,
+		BlobStore:       blobStore,
 		Service:         service,
 		Operator:        runtime.NewOperatorService(service),
 		Query:           runtime.NewQueryService(service),
@@ -154,15 +185,15 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 		EventLog:        eventLog,
 		AgentTrace:      agentTrace,
 		FixtureDir:      fixtureDir,
-		runtimeDB:       stores.DB,
+		storeBundle:     stores,
 	}, nil
 }
 
 func (p *RuntimePlane) Close() error {
-	if p == nil || p.runtimeDB == nil {
+	if p == nil || p.storeBundle == nil {
 		return nil
 	}
-	return p.runtimeDB.Close()
+	return p.storeBundle.Close()
 }
 
 type fixtureDeps struct {

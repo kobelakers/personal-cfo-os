@@ -71,23 +71,32 @@ type WorkflowArtifactMeta struct {
 }
 
 type TaskCommandResult struct {
-	Action            OperatorActionRecord `json:"action"`
-	GraphID           string               `json:"graph_id"`
-	TaskID            string               `json:"task_id,omitempty"`
-	ApprovalID        string               `json:"approval_id,omitempty"`
-	ExecutionID       string               `json:"execution_id,omitempty"`
-	Status            TaskQueueStatus      `json:"status,omitempty"`
-	AutoResumeTried   bool                 `json:"auto_resume_tried,omitempty"`
-	AutoResumeApplied bool                 `json:"auto_resume_applied,omitempty"`
-	FailureSummary    string               `json:"failure_summary,omitempty"`
+	Action                OperatorActionRecord `json:"action"`
+	GraphID               string               `json:"graph_id"`
+	TaskID                string               `json:"task_id,omitempty"`
+	ApprovalID            string               `json:"approval_id,omitempty"`
+	ExecutionID           string               `json:"execution_id,omitempty"`
+	Status                TaskQueueStatus      `json:"status,omitempty"`
+	AutoResumeTried       bool                 `json:"auto_resume_tried,omitempty"`
+	AutoResumeApplied     bool                 `json:"auto_resume_applied,omitempty"`
+	FailureSummary        string               `json:"failure_summary,omitempty"`
+	EnqueuedWorkItemIDs   []string             `json:"enqueued_work_item_ids,omitempty"`
+	EnqueuedWorkKinds     []WorkItemKind       `json:"enqueued_work_kinds,omitempty"`
+	AsyncDispatchAccepted bool                 `json:"async_dispatch_accepted,omitempty"`
 }
 
 type WorkerPassResult struct {
-	ScannedGraphs    int                  `json:"scanned_graphs"`
-	Reevaluated      []string             `json:"reevaluated,omitempty"`
-	Executed         []TaskExecutionRecord `json:"executed,omitempty"`
-	ResumedTasks     []string             `json:"resumed_tasks,omitempty"`
-	SkippedTasks     []string             `json:"skipped_tasks,omitempty"`
-	CompletedAt      string               `json:"completed_at"`
-	DryRun           bool                 `json:"dry_run"`
+	WorkerID             string                `json:"worker_id,omitempty"`
+	ScannedGraphs        int                   `json:"scanned_graphs"`
+	Reevaluated          []string              `json:"reevaluated,omitempty"`
+	Executed             []TaskExecutionRecord `json:"executed,omitempty"`
+	ResumedTasks         []string              `json:"resumed_tasks,omitempty"`
+	SkippedTasks         []string              `json:"skipped_tasks,omitempty"`
+	ClaimedWorkItemIDs   []string              `json:"claimed_work_item_ids,omitempty"`
+	CompletedWorkItemIDs []string              `json:"completed_work_item_ids,omitempty"`
+	FailedWorkItemIDs    []string              `json:"failed_work_item_ids,omitempty"`
+	ReclaimedWorkItemIDs []string              `json:"reclaimed_work_item_ids,omitempty"`
+	SchedulerWakeups     []string              `json:"scheduler_wakeups,omitempty"`
+	CompletedAt          string                `json:"completed_at"`
+	DryRun               bool                  `json:"dry_run"`
 }

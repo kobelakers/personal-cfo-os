@@ -124,6 +124,7 @@ type ReplaySummary struct {
 	MemorySummary        []string `json:"memory_summary,omitempty"`
 	ValidatorSummary     []string `json:"validator_summary,omitempty"`
 	GovernanceSummary    []string `json:"governance_summary,omitempty"`
+	AsyncRuntimeSummary  []string `json:"async_runtime_summary,omitempty"`
 	ChildWorkflowSummary []string `json:"child_workflow_summary,omitempty"`
 	FinalState           string   `json:"final_state,omitempty"`
 }
@@ -136,6 +137,7 @@ type ReplayExplanation struct {
 	WhyChildExecuted    []string `json:"why_child_executed,omitempty"`
 	WhyMemoryDecision   []string `json:"why_memory_decision,omitempty"`
 	WhyValidationFailed []string `json:"why_validation_failed,omitempty"`
+	WhyAsyncRuntime     []string `json:"why_async_runtime,omitempty"`
 }
 
 type ReplayView struct {
@@ -172,15 +174,16 @@ type ReplayComparison struct {
 }
 
 type DebugSummary struct {
-	WorkflowID        string   `json:"workflow_id,omitempty"`
-	TaskGraphID       string   `json:"task_graph_id,omitempty"`
-	FinalRuntimeState string   `json:"final_runtime_state,omitempty"`
-	Goal              string   `json:"goal,omitempty"`
-	PlanSummary       []string `json:"plan_summary,omitempty"`
-	SkillSummary      []string `json:"skill_summary,omitempty"`
-	MemorySummary     []string `json:"memory_summary,omitempty"`
-	ValidatorSummary  []string `json:"validator_summary,omitempty"`
-	GovernanceSummary []string `json:"governance_summary,omitempty"`
-	ChildWorkflows    []string `json:"child_workflows,omitempty"`
-	Explanation       []string `json:"explanation,omitempty"`
+	WorkflowID          string   `json:"workflow_id,omitempty"`
+	TaskGraphID         string   `json:"task_graph_id,omitempty"`
+	FinalRuntimeState   string   `json:"final_runtime_state,omitempty"`
+	Goal                string   `json:"goal,omitempty"`
+	PlanSummary         []string `json:"plan_summary,omitempty"`
+	SkillSummary        []string `json:"skill_summary,omitempty"`
+	MemorySummary       []string `json:"memory_summary,omitempty"`
+	ValidatorSummary    []string `json:"validator_summary,omitempty"`
+	GovernanceSummary   []string `json:"governance_summary,omitempty"`
+	AsyncRuntimeSummary []string `json:"async_runtime_summary,omitempty"`
+	ChildWorkflows      []string `json:"child_workflows,omitempty"`
+	Explanation         []string `json:"explanation,omitempty"`
 }
