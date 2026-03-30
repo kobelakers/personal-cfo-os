@@ -1,0 +1,564 @@
+{
+  "task_id": "task-monthly-review-20260330",
+  "workflow_id": "workflow-monthly-review-20260330080000",
+  "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+  "cashflow_metrics": {
+    "duplicate_subscription_count": 2,
+    "late_night_spending_frequency": 0.3333,
+    "monthly_inflow_cents": 800000,
+    "monthly_net_income_cents": 644900,
+    "monthly_outflow_cents": 155100,
+    "savings_rate": 0.8061
+  },
+  "tax_signals": {
+    "childcare_tax_signal": true,
+    "effective_tax_rate": 0.18,
+    "tax_advantaged_contribution_cents": 50000,
+    "upcoming_deadline_count": 0
+  },
+  "metric_records": [
+    {
+      "ref": "average_apr",
+      "domain": "debt_decision",
+      "name": "average_apr",
+      "value_type": "float64",
+      "float64_value": 0.0798,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "cash_buffer_impact",
+      "domain": "debt_decision",
+      "name": "cash_buffer_impact",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "one-month surplus relative to monthly outflow"
+    },
+    {
+      "ref": "debt_burden_ratio",
+      "domain": "debt_decision",
+      "name": "debt_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "debt_payoff_pressure",
+      "domain": "debt_decision",
+      "name": "debt_payoff_pressure",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "debt_pressure_score",
+      "domain": "cashflow",
+      "name": "debt_pressure_score",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "duplicate_subscription_count",
+      "domain": "cashflow",
+      "name": "duplicate_subscription_count",
+      "value_type": "int64",
+      "int64_value": 2,
+      "unit": "count",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "effective_tradeoff_score",
+      "domain": "debt_decision",
+      "name": "effective_tradeoff_score",
+      "value_type": "float64",
+      "float64_value": 0.6808000000000001,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "investable surplus signal minus debt payoff pressure"
+    },
+    {
+      "ref": "emergency_fund_coverage_months",
+      "domain": "cashflow",
+      "name": "emergency_fund_coverage_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from portfolio emergency fund coverage"
+    },
+    {
+      "ref": "investable_surplus_cents",
+      "domain": "debt_decision",
+      "name": "investable_surplus_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max(monthly net income, 0)"
+    },
+    {
+      "ref": "late_night_spending_frequency",
+      "domain": "cashflow",
+      "name": "late_night_spending_frequency",
+      "value_type": "float64",
+      "float64_value": 0.3333,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "liquidity_after_paydown",
+      "domain": "debt_decision",
+      "name": "liquidity_after_paydown",
+      "value_type": "float64",
+      "float64_value": 0.29000000000000004,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "emergency fund months after allocating one month surplus to debt paydown"
+    },
+    {
+      "ref": "liquidity_buffer_months",
+      "domain": "cashflow",
+      "name": "liquidity_buffer_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "current emergency fund coverage reused as liquidity buffer metric"
+    },
+    {
+      "ref": "max_allocation_drift",
+      "domain": "debt_decision",
+      "name": "max_allocation_drift",
+      "value_type": "float64",
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max absolute allocation drift"
+    },
+    {
+      "ref": "minimum_payment_pressure",
+      "domain": "debt_decision",
+      "name": "minimum_payment_pressure",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "monthly_inflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_inflow_cents",
+      "value_type": "int64",
+      "int64_value": 800000,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "monthly_net_income_cents",
+      "domain": "cashflow",
+      "name": "monthly_net_income_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "monthly inflow minus outflow"
+    },
+    {
+      "ref": "monthly_outflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_outflow_cents",
+      "value_type": "int64",
+      "int64_value": 155100,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "overall_risk",
+      "domain": "debt_decision",
+      "name": "overall_risk",
+      "value_type": "string",
+      "string_value": "medium",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer risk state"
+    },
+    {
+      "ref": "recurring_expense_signal",
+      "domain": "cashflow",
+      "name": "recurring_expense_signal",
+      "value_type": "float64",
+      "float64_value": 0.7891682785299806,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "fixed expenses relative to monthly outflow"
+    },
+    {
+      "ref": "savings_rate",
+      "domain": "cashflow",
+      "name": "savings_rate",
+      "value_type": "float64",
+      "float64_value": 0.8061,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "savings_rate_quality_score",
+      "domain": "cashflow",
+      "name": "savings_rate_quality_score",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "normalized against 20% savings target"
+    },
+    {
+      "ref": "subscription_burden_ratio",
+      "domain": "cashflow",
+      "name": "subscription_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "duplicate subscriptions relative to recurring subscription set"
+    }
+  ],
+  "risk_items": [
+    {
+      "title": "cashflow_monitoring",
+      "detail": "当前结余为正，但消费波动仍需要继续监控。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "title": "debt_caveat",
+      "detail": "当前债务压力可控，但仍需持续关注最低还款覆盖和流动性缓冲。",
+      "severity": "low",
+      "evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ]
+    }
+  ],
+  "risk_flags": [
+    {
+      "code": "cashflow_monitoring",
+      "severity": "low",
+      "detail": "当前结余为正，但消费波动仍需要继续监控。",
+      "evidence_ids": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "code": "debt_caveat",
+      "severity": "low",
+      "detail": "当前债务压力可控，但仍需持续关注最低还款覆盖和流动性缓冲。",
+      "evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "metric_refs": [
+        "debt_burden_ratio",
+        "minimum_payment_pressure",
+        "average_apr",
+        "monthly_net_income_cents",
+        "debt_payoff_pressure",
+        "liquidity_after_paydown",
+        "investable_surplus_cents",
+        "cash_buffer_impact",
+        "effective_tradeoff_score",
+        "emergency_fund_coverage_months",
+        "max_allocation_drift",
+        "overall_risk"
+      ]
+    }
+  ],
+  "optimization_suggestions": [
+    {
+      "title": "继续清理低使用率订阅",
+      "detail": "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。",
+      "severity": "low"
+    },
+    {
+      "title": "保持债务覆盖并比较投资机会成本",
+      "detail": "当前债务压力可控，但仍需先确保现金流缓冲和最低还款覆盖。",
+      "severity": "medium"
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "expense_reduction",
+      "title": "继续清理低使用率订阅",
+      "detail": "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。",
+      "risk_level": "low",
+      "evidence_refs": [
+        "evidence-document-doc-payslip"
+      ]
+    },
+    {
+      "id": "debt-review:debt-coverage",
+      "type": "debt_paydown",
+      "title": "保持债务覆盖并比较投资机会成本",
+      "detail": "当前债务压力可控，但仍需先确保现金流缓冲和最低还款覆盖。",
+      "risk_level": "medium",
+      "grounding_refs": [
+        "metric:debt_burden_ratio",
+        "metric:minimum_payment_pressure",
+        "metric:average_apr",
+        "metric:monthly_net_income_cents",
+        "metric:debt_payoff_pressure",
+        "metric:liquidity_after_paydown",
+        "metric:investable_surplus_cents",
+        "metric:cash_buffer_impact",
+        "metric:effective_tradeoff_score",
+        "metric:emergency_fund_coverage_months",
+        "metric:max_allocation_drift",
+        "metric:overall_risk"
+      ],
+      "metric_refs": [
+        "debt_burden_ratio",
+        "minimum_payment_pressure",
+        "average_apr",
+        "monthly_net_income_cents",
+        "debt_payoff_pressure",
+        "liquidity_after_paydown",
+        "investable_surplus_cents",
+        "cash_buffer_impact",
+        "effective_tradeoff_score",
+        "emergency_fund_coverage_months",
+        "max_allocation_drift",
+        "overall_risk"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "caveats": [
+        "债务决策中的金额、压力指标和流动性指标均以 Finance Engine 的 deterministic metrics 为准。"
+      ]
+    }
+  ],
+  "todo_items": [
+    {
+      "title": "继续清理低使用率订阅",
+      "detail": "订阅信号已经进入 selected evidence，适合先做低成本的支出优化。",
+      "severity": "low"
+    },
+    {
+      "title": "保持债务覆盖并比较投资机会成本",
+      "detail": "当前债务压力可控，但仍需先确保现金流缓冲和最低还款覆盖。",
+      "severity": "medium"
+    }
+  ],
+  "source_block_ids": [
+    "cashflow-review",
+    "debt-review"
+  ],
+  "source_evidence_ids": [
+    "evidence-debt-snapshot-user-1-20260330080000",
+    "evidence-document-doc-payslip",
+    "evidence-transaction-batch-user-1-20260330080000"
+  ],
+  "grounding_refs": [
+    "metric:average_apr",
+    "metric:cash_buffer_impact",
+    "metric:debt_burden_ratio",
+    "metric:debt_payoff_pressure",
+    "metric:effective_tradeoff_score",
+    "metric:emergency_fund_coverage_months",
+    "metric:investable_surplus_cents",
+    "metric:liquidity_after_paydown",
+    "metric:max_allocation_drift",
+    "metric:minimum_payment_pressure",
+    "metric:monthly_net_income_cents",
+    "metric:overall_risk"
+  ],
+  "caveats": [
+    "债务决策中的金额、压力指标和流动性指标均以 Finance Engine 的 deterministic metrics 为准。",
+    "所有金额与比率以 deterministic metrics 为准。"
+  ],
+  "approval_required": false,
+  "confidence": 0.9075,
+  "generated_at": "2026-03-30T08:00:00Z"
+}

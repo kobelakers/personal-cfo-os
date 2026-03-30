@@ -3,6 +3,7 @@ package governance
 import (
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 )
 
@@ -58,31 +59,39 @@ const (
 )
 
 type PolicyDecision struct {
-	Outcome       PolicyDecisionOutcome `json:"outcome"`
-	Reason        string                `json:"reason"`
-	AppliedPolicy string                `json:"applied_policy"`
-	EvaluatedAt   time.Time             `json:"evaluated_at"`
-	AuditRef      string                `json:"audit_ref"`
+	Outcome        PolicyDecisionOutcome `json:"outcome"`
+	Reason         string                `json:"reason"`
+	AppliedPolicy  string                `json:"applied_policy"`
+	PolicyRuleRefs []string              `json:"policy_rule_refs,omitempty"`
+	EvaluatedAt    time.Time             `json:"evaluated_at"`
+	AuditRef       string                `json:"audit_ref"`
 }
 
 type AuditEvent struct {
-	ID            string    `json:"id"`
-	Actor         string    `json:"actor"`
-	Action        string    `json:"action"`
-	Resource      string    `json:"resource"`
-	Outcome       string    `json:"outcome"`
-	Reason        string    `json:"reason"`
-	OccurredAt    time.Time `json:"occurred_at"`
-	CorrelationID string    `json:"correlation_id"`
+	ID             string    `json:"id"`
+	Actor          string    `json:"actor"`
+	Action         string    `json:"action"`
+	Resource       string    `json:"resource"`
+	Outcome        string    `json:"outcome"`
+	Reason         string    `json:"reason"`
+	PolicyRuleRefs []string  `json:"policy_rule_refs,omitempty"`
+	OccurredAt     time.Time `json:"occurred_at"`
+	CorrelationID  string    `json:"correlation_id"`
 }
 
 type ActionRequest struct {
-	Actor         string          `json:"actor"`
-	ActorRoles    []string        `json:"actor_roles,omitempty"`
-	Action        string          `json:"action"`
-	Resource      string          `json:"resource"`
-	RiskLevel     ActionRiskLevel `json:"risk_level"`
-	CorrelationID string          `json:"correlation_id"`
+	Actor            string                    `json:"actor"`
+	ActorRoles       []string                  `json:"actor_roles,omitempty"`
+	Action           string                    `json:"action"`
+	Resource         string                    `json:"resource"`
+	RiskLevel        ActionRiskLevel           `json:"risk_level"`
+	Recommendations  []analysis.Recommendation `json:"recommendations,omitempty"`
+	RiskFlags        []analysis.RiskFlag       `json:"risk_flags,omitempty"`
+	ApprovalRequired bool                      `json:"approval_required"`
+	ApprovalReason   string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs   []string                  `json:"policy_rule_refs,omitempty"`
+	DisclosureReady  bool                      `json:"disclosure_ready"`
+	CorrelationID    string                    `json:"correlation_id"`
 }
 
 type ReportRequest struct {

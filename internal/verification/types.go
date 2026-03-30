@@ -9,6 +9,8 @@ import (
 type VerificationStatus string
 type VerificationScope string
 type VerificationStage string
+type ValidationCategory string
+type ValidationSeverity string
 
 const (
 	VerificationStatusPass        VerificationStatus = "pass"
@@ -22,6 +24,15 @@ const (
 	VerificationStageFullReport             VerificationStage = "full_report"
 	VerificationStageAnalysisBlocks         VerificationStage = "analysis_blocks"
 	VerificationStageGeneratedTasksAndFinal VerificationStage = "generated_tasks_and_final"
+
+	ValidationCategoryGrounding ValidationCategory = "grounding"
+	ValidationCategoryNumeric   ValidationCategory = "numeric"
+	ValidationCategoryBusiness  ValidationCategory = "business"
+
+	ValidationSeverityInfo     ValidationSeverity = "info"
+	ValidationSeverityWarning  ValidationSeverity = "warning"
+	ValidationSeverityError    ValidationSeverity = "error"
+	ValidationSeverityCritical ValidationSeverity = "critical"
 )
 
 type EvidenceCoverageItem struct {
@@ -37,6 +48,19 @@ type EvidenceCoverageReport struct {
 	Items         []EvidenceCoverageItem `json:"items"`
 }
 
+type ValidationDiagnostic struct {
+	Code                string             `json:"code"`
+	Category            ValidationCategory `json:"category"`
+	Severity            ValidationSeverity `json:"severity"`
+	Message             string             `json:"message"`
+	MetricRefs          []string           `json:"metric_refs,omitempty"`
+	EvidenceRefs        []string           `json:"evidence_refs,omitempty"`
+	MemoryRefs          []string           `json:"memory_refs,omitempty"`
+	GroundingRefs       []string           `json:"grounding_refs,omitempty"`
+	PolicyRuleRefs      []string           `json:"policy_rule_refs,omitempty"`
+	RecommendationIndex *int               `json:"recommendation_index,omitempty"`
+}
+
 type VerificationResult struct {
 	Status                  VerificationStatus     `json:"status"`
 	Scope                   VerificationScope      `json:"scope,omitempty"`
@@ -49,6 +73,8 @@ type VerificationResult struct {
 	MissingEvidence         []string               `json:"missing_evidence,omitempty"`
 	RecommendedReplanAction string                 `json:"recommended_replan_action,omitempty"`
 	Severity                string                 `json:"severity,omitempty"`
+	Category                ValidationCategory     `json:"category,omitempty"`
+	Diagnostics             []ValidationDiagnostic `json:"diagnostics,omitempty"`
 	EvidenceCoverage        EvidenceCoverageReport `json:"evidence_coverage"`
 	CheckedAt               time.Time              `json:"checked_at"`
 }

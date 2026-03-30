@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
@@ -28,7 +29,7 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/workflows"
 )
 
-type MonthlyReview5COptions struct {
+type Phase5DOptions struct {
 	FixtureDir               string
 	HoldingsFixture          string
 	MemoryDBPath             string
@@ -50,31 +51,37 @@ type MonthlyReview5COptions struct {
 	EmbeddingUsageTrace      *observability.EmbeddingUsageLog
 }
 
-type MonthlyReview5CEnvironment struct {
-	Workflow            workflows.MonthlyReviewWorkflow
-	EventLog            *observability.EventLog
-	AgentTrace          *observability.AgentTraceLog
-	PromptTrace         *observability.PromptTraceLog
-	LLMTrace            *observability.LLMCallLog
-	UsageTrace          *observability.UsageTraceLog
-	StructuredTrace     *observability.StructuredOutputTraceLog
-	MemoryTrace         *observability.MemoryTraceLog
-	EmbeddingCallTrace  *observability.EmbeddingCallLog
+type Phase5DEnvironment struct {
+	MonthlyReview      workflows.MonthlyReviewWorkflow
+	DebtVsInvest       workflows.DebtVsInvestWorkflow
+	EventLog           *observability.EventLog
+	AgentTrace         *observability.AgentTraceLog
+	PromptTrace        *observability.PromptTraceLog
+	LLMTrace           *observability.LLMCallLog
+	UsageTrace         *observability.UsageTraceLog
+	StructuredTrace    *observability.StructuredOutputTraceLog
+	MemoryTrace        *observability.MemoryTraceLog
+	EmbeddingCallTrace *observability.EmbeddingCallLog
 	EmbeddingUsageTrace *observability.EmbeddingUsageLog
-	Timeline            *runtimepkg.WorkflowTimeline
-	Journal             *runtimepkg.CheckpointJournal
-	FixtureDir          string
-	MemoryStores        *memory.SQLiteMemoryStores
-	MemoryIndexer       memory.MemoryIndexer
-	MemoryAuditLog      *memory.MemoryAccessAuditLog
+	Timeline           *runtimepkg.WorkflowTimeline
+	Journal            *runtimepkg.CheckpointJournal
+	FixtureDir         string
+	MemoryStores       *memory.SQLiteMemoryStores
+	MemoryIndexer      memory.MemoryIndexer
+	MemoryAuditLog     *memory.MemoryAccessAuditLog
 }
 
-type MonthlyReview5CRunOutput struct {
+type MonthlyReview5DRunOutput struct {
 	Result workflows.MonthlyReviewRunResult `json:"result"`
 	Trace  observability.WorkflowTraceDump  `json:"trace"`
 }
 
-func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyReview5CEnvironment, error) {
+type DebtVsInvest5DRunOutput struct {
+	Result workflows.DebtDecisionRunResult `json:"result"`
+	Trace  observability.WorkflowTraceDump `json:"trace"`
+}
+
+func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error) {
 	nowFn := options.Now
 	if nowFn == nil {
 		nowFn = func() time.Time { return time.Now().UTC() }
@@ -84,7 +91,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		fixtureDir = filepath.Join("tests", "fixtures")
 	}
 	if options.MemoryDBPath == "" {
-		return nil, fmt.Errorf("monthly review 5c environment requires injected memory db path")
+		return nil, fmt.Errorf("phase 5d environment requires injected memory db path")
 	}
 	deps, err := loadFixtureDeps(fixtureDir, nowFn)
 	if err != nil {
@@ -101,6 +108,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		}
 		deps.LedgerAdapter.Holdings = holdings
 	}
+
 	registry := options.PromptRegistry
 	if registry == nil {
 		registry, err = prompt.NewRegistry()
@@ -108,42 +116,16 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 			return nil, err
 		}
 	}
-	eventLog := options.EventLog
-	if eventLog == nil {
-		eventLog = &observability.EventLog{}
-	}
-	agentTrace := options.AgentTrace
-	if agentTrace == nil {
-		agentTrace = &observability.AgentTraceLog{}
-	}
-	promptTrace := options.PromptTrace
-	if promptTrace == nil {
-		promptTrace = &observability.PromptTraceLog{}
-	}
-	llmTrace := options.LLMTrace
-	if llmTrace == nil {
-		llmTrace = &observability.LLMCallLog{}
-	}
-	usageTrace := options.UsageTrace
-	if usageTrace == nil {
-		usageTrace = &observability.UsageTraceLog{}
-	}
-	structuredTrace := options.StructuredTrace
-	if structuredTrace == nil {
-		structuredTrace = &observability.StructuredOutputTraceLog{}
-	}
-	memoryTrace := options.MemoryTrace
-	if memoryTrace == nil {
-		memoryTrace = &observability.MemoryTraceLog{}
-	}
-	embeddingCallTrace := options.EmbeddingCallTrace
-	if embeddingCallTrace == nil {
-		embeddingCallTrace = &observability.EmbeddingCallLog{}
-	}
-	embeddingUsageTrace := options.EmbeddingUsageTrace
-	if embeddingUsageTrace == nil {
-		embeddingUsageTrace = &observability.EmbeddingUsageLog{}
-	}
+	eventLog := valueOrDefault(options.EventLog, &observability.EventLog{})
+	agentTrace := valueOrDefault(options.AgentTrace, &observability.AgentTraceLog{})
+	promptTrace := valueOrDefault(options.PromptTrace, &observability.PromptTraceLog{})
+	llmTrace := valueOrDefault(options.LLMTrace, &observability.LLMCallLog{})
+	usageTrace := valueOrDefault(options.UsageTrace, &observability.UsageTraceLog{})
+	structuredTrace := valueOrDefault(options.StructuredTrace, &observability.StructuredOutputTraceLog{})
+	memoryTrace := valueOrDefault(options.MemoryTrace, &observability.MemoryTraceLog{})
+	embeddingCallTrace := valueOrDefault(options.EmbeddingCallTrace, &observability.EmbeddingCallLog{})
+	embeddingUsageTrace := valueOrDefault(options.EmbeddingUsageTrace, &observability.EmbeddingUsageLog{})
+
 	chatModel := options.ChatModel
 	if options.ChatModelFactory != nil {
 		chatModel = options.ChatModelFactory(llmTrace, usageTrace)
@@ -156,7 +138,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 	} else if embeddingProvider == nil {
 		embeddingProvider = NewMockMonthlyReviewEmbeddingProvider(embeddingCallTrace, embeddingUsageTrace)
 	}
-	embeddingModel := options.EmbeddingModel
+	embeddingModel := strings.TrimSpace(options.EmbeddingModel)
 	if embeddingModel == "" {
 		if live := memory.OpenAIEmbeddingConfigFromEnv().EmbeddingModel; live != "" {
 			embeddingModel = live
@@ -204,9 +186,9 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		RejectionPolicy: memory.ThresholdRejectionPolicy{
 			MinScore: 0.01,
 			DefaultPolicy: memory.RetrievalPolicy{
-				Name: "monthly_review_default",
+				Name: "phase5d_default",
 				FreshnessPolicy: memory.FreshnessPolicy{
-					Name:                  "monthly_review_default",
+					Name:                  "phase5d_default",
 					EpisodicMaxAge:        90 * 24 * time.Hour,
 					RejectLowConfidence:   true,
 					LowConfidenceFloor:    0.7,
@@ -234,6 +216,16 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 						MinAcceptedFusedScore: 0.01,
 					},
 				},
+				"debt_vs_invest_planning": {
+					Name: "debt_vs_invest_planning",
+					FreshnessPolicy: memory.FreshnessPolicy{
+						Name:                  "debt_tradeoff_bias",
+						EpisodicMaxAge:        90 * 24 * time.Hour,
+						RejectLowConfidence:   true,
+						LowConfidenceFloor:    0.7,
+						MinAcceptedFusedScore: 0.01,
+					},
+				},
 			},
 			Now: nowFn,
 		},
@@ -245,31 +237,35 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		Provider:   embeddingProvider,
 		Model:      embeddingModel,
 		Now:        nowFn,
-		WorkflowID: "monthly-review-5c-indexer",
-		TaskID:     "monthly-review-5c-indexer",
-		TraceID:    "trace-monthly-review-5c-indexer",
+		WorkflowID: "phase-5d-indexer",
+		TaskID:     "phase-5d-indexer",
+		TraceID:    "trace-phase-5d-indexer",
 	}
 	timeline := &runtimepkg.WorkflowTimeline{}
 	journal := &runtimepkg.CheckpointJournal{}
-	systemSteps, err := buildMonthlyReview5CStepBus(monthlyReview5CWiring{
-		deps:            deps,
-		registry:        registry,
-		chatModel:       chatModel,
-		eventLog:        eventLog,
-		agentTrace:      agentTrace,
-		promptTrace:     promptTrace,
-		llmTrace:        llmTrace,
-		usageTrace:      usageTrace,
-		structuredTrace: structuredTrace,
-		memoryWriter:    memoryWriter,
-		retriever:       retriever,
-		memoryTrace:     memoryTrace,
+	engine := finance.DeterministicEngine{}
+
+	systemSteps, err := buildPhase5DStepBus(phase5DWiring{
+		deps:               deps,
+		registry:           registry,
+		chatModel:          chatModel,
+		eventLog:           eventLog,
+		agentTrace:         agentTrace,
+		promptTrace:        promptTrace,
+		llmTrace:           llmTrace,
+		usageTrace:         usageTrace,
+		structuredTrace:    structuredTrace,
+		memoryWriter:       memoryWriter,
+		retriever:          retriever,
+		memoryTrace:        memoryTrace,
+		financeEngine:      engine,
 	})
 	if err != nil {
 		_ = stores.DB.Close()
 		return nil, err
 	}
-	workflow := workflows.MonthlyReviewWorkflow{
+
+	monthlyWorkflow := workflows.MonthlyReviewWorkflow{
 		Intake: taskspec.DeterministicIntakeService{Now: deps.LedgerAdapter.Now},
 		ReviewService: workflows.MonthlyReviewService{
 			QueryTransaction: tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
@@ -282,7 +278,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 			ReducerEngine: reducers.DeterministicReducerEngine{Now: deps.LedgerAdapter.Now},
 		},
 		SystemSteps: systemSteps,
-		Runtime: runtimepkg.NewLocalWorkflowRuntime("monthly-review-5c", runtimepkg.LocalRuntimeOptions{
+		Runtime: runtimepkg.NewLocalWorkflowRuntime("monthly-review-5d", runtimepkg.LocalRuntimeOptions{
 			EventLog: eventLog,
 			Timeline: timeline,
 			Journal:  journal,
@@ -290,8 +286,27 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 		}),
 		Now: deps.LedgerAdapter.Now,
 	}
-	return &MonthlyReview5CEnvironment{
-		Workflow:            workflow,
+	debtWorkflow := workflows.DebtVsInvestWorkflow{
+		Intake: taskspec.DeterministicIntakeService{Now: deps.LedgerAdapter.Now},
+		DecisionService: workflows.DebtVsInvestService{
+			QueryTransaction: tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:   tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:   tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ReducerEngine:    reducers.DeterministicReducerEngine{Now: deps.LedgerAdapter.Now},
+		},
+		SystemSteps: systemSteps,
+		Runtime: runtimepkg.NewLocalWorkflowRuntime("debt-vs-invest-5d", runtimepkg.LocalRuntimeOptions{
+			EventLog: eventLog,
+			Timeline: timeline,
+			Journal:  journal,
+			Now:      deps.LedgerAdapter.Now,
+		}),
+		Now: deps.LedgerAdapter.Now,
+	}
+
+	return &Phase5DEnvironment{
+		MonthlyReview:       monthlyWorkflow,
+		DebtVsInvest:        debtWorkflow,
 		EventLog:            eventLog,
 		AgentTrace:          agentTrace,
 		PromptTrace:         promptTrace,
@@ -310,7 +325,7 @@ func OpenMonthlyReview5CEnvironment(options MonthlyReview5COptions) (*MonthlyRev
 	}, nil
 }
 
-type monthlyReview5CWiring struct {
+type phase5DWiring struct {
 	deps            fixtureDeps
 	registry        *prompt.PromptRegistry
 	chatModel       model.ChatModel
@@ -323,9 +338,10 @@ type monthlyReview5CWiring struct {
 	memoryWriter    memory.DefaultMemoryWriter
 	retriever       memory.HybridMemoryRetriever
 	memoryTrace     *observability.MemoryTraceLog
+	financeEngine   finance.Engine
 }
 
-func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus, error) {
+func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
 	memoryService := memory.WorkflowMemoryService{
 		Writer:               w.memoryWriter,
 		Retriever:            w.retriever,
@@ -343,14 +359,14 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 					memory.MemoryKindProcedural,
 				},
 			},
-			CorrelationID: "monthly-review-5c-memory-gate",
+			CorrelationID: "phase-5d-memory-gate",
 		},
 		Now: w.deps.LedgerAdapter.Now,
 	}
 	reportService := reporting.Service{
 		MonthlyReviewAggregator: reporting.MonthlyReviewAggregator{
 			TaxSignals: tools.ComputeTaxSignalTool{},
-			Engine:     finance.DeterministicEngine{},
+			Engine:     w.financeEngine,
 			Now:        w.deps.LedgerAdapter.Now,
 		},
 		DebtDecisionAggregator:       reporting.DebtDecisionAggregator{Now: w.deps.LedgerAdapter.Now},
@@ -367,6 +383,9 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 		CoverageChecker:        verification.DefaultEvidenceCoverageChecker{},
 		DeterministicValidator: verification.MonthlyReviewDeterministicValidator{},
 		BusinessValidator:      verification.MonthlyReviewBusinessValidator{},
+		GroundingValidator:     verification.FinancialGroundingValidator{},
+		NumericValidator:       verification.FinancialNumericConsistencyValidator{},
+		TrustBusinessValidator: verification.TrustBusinessRuleValidator{},
 		SuccessChecker:         verification.DefaultSuccessCriteriaChecker{},
 		Oracle:                 verification.BaselineTrajectoryOracle{},
 		Now:                    w.deps.LedgerAdapter.Now,
@@ -376,7 +395,7 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 		Decider:      governance.ApprovalDecider{},
 		PolicyEngine: governance.StaticPolicyEngine{},
 		ApprovalPolicy: governance.ApprovalPolicy{
-			Name:          "monthly-review-5c",
+			Name:          "trustworthy-finance-5d",
 			MinRiskLevel:  governance.ActionRiskHigh,
 			RequiredRoles: []string{"operator"},
 			AutoApprove:   false,
@@ -402,7 +421,7 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 		Now: w.deps.LedgerAdapter.Now,
 	}
 	cashflowReasoner := agents.ProviderBackedCashflowReasoner{
-		Base:           agents.DeterministicCashflowReasoner{Engine: finance.DeterministicEngine{}},
+		Base:           agents.DeterministicCashflowReasoner{Engine: w.financeEngine},
 		PromptRenderer: renderer,
 		Generator:      structuredGenerator,
 		TraceRecorder:  w.structuredTrace,
@@ -415,10 +434,12 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 		},
 		agents.MemoryStewardHandler{Service: memoryService},
 		agents.CashflowAgentHandler{
-			Engine:   finance.DeterministicEngine{},
+			Engine:   w.financeEngine,
 			Reasoner: cashflowReasoner,
 		},
-		agents.DebtAgentHandler{Engine: finance.DeterministicEngine{}},
+		agents.DebtAgentHandler{Engine: w.financeEngine},
+		agents.TaxAgentHandler{Engine: w.financeEngine},
+		agents.PortfolioAgentHandler{Engine: w.financeEngine},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},
 		agents.VerificationAgentHandler{Pipeline: verificationPipeline},
@@ -442,14 +463,79 @@ func buildMonthlyReview5CStepBus(w monthlyReview5CWiring) (agents.SystemStepBus,
 	}), nil
 }
 
-func (e *MonthlyReview5CEnvironment) Run(ctx context.Context, userID string, rawInput string, current state.FinancialWorldState) (MonthlyReview5CRunOutput, error) {
-	result, err := e.Workflow.Run(ctx, userID, rawInput, current)
+func (e *Phase5DEnvironment) RunMonthlyReview(ctx context.Context, userID string, rawInput string, current state.FinancialWorldState) (MonthlyReview5DRunOutput, error) {
+	result, err := e.MonthlyReview.Run(ctx, userID, rawInput, current)
 	if err != nil {
-		return MonthlyReview5CRunOutput{}, err
+		return MonthlyReview5DRunOutput{}, err
 	}
-	trace := observability.BuildWorkflowTraceDumpWithIntelligence(
-		result.WorkflowID,
-		result.WorkflowID,
+	trace := e.buildTrace(result.WorkflowID, result.Verification, result.Report.MetricRecords, result.ApprovalAudit)
+	return MonthlyReview5DRunOutput{Result: result, Trace: trace}, nil
+}
+
+func (e *Phase5DEnvironment) RunDebtVsInvest(ctx context.Context, userID string, rawInput string, current state.FinancialWorldState) (DebtVsInvest5DRunOutput, error) {
+	result, err := e.DebtVsInvest.Run(ctx, userID, rawInput, current)
+	if err != nil {
+		return DebtVsInvest5DRunOutput{}, err
+	}
+	trace := e.buildTrace(result.WorkflowID, result.Verification, result.Report.MetricRecords, result.ApprovalAudit)
+	return DebtVsInvest5DRunOutput{Result: result, Trace: trace}, nil
+}
+
+func (e *Phase5DEnvironment) ResumeDebtVsInvestAfterApproval(
+	ctx context.Context,
+	result workflows.DebtDecisionRunResult,
+) (DebtVsInvest5DRunOutput, error) {
+	if result.Checkpoint == nil || result.ResumeToken == nil {
+		return DebtVsInvest5DRunOutput{}, fmt.Errorf("debt-vs-invest result does not contain approval resume anchors")
+	}
+	resumed, err := e.DebtVsInvest.ResumeAfterApproval(
+		ctx,
+		result.TaskSpec,
+		runtimepkg.FollowUpActivationContext{
+			RootCorrelationID: result.WorkflowID,
+			ParentGraphID:     result.WorkflowID,
+			TriggeredByTaskID: result.TaskSpec.ID,
+		},
+		result.UpdatedState,
+		*result.Checkpoint,
+		*result.ResumeToken,
+		result.DraftPayload,
+		result.DisclosureDecision,
+	)
+	if err != nil {
+		return DebtVsInvest5DRunOutput{}, err
+	}
+	trace := e.buildTrace(resumed.WorkflowID, resumed.Verification, resumed.Report.MetricRecords, resumed.ApprovalAudit)
+	return DebtVsInvest5DRunOutput{Result: resumed, Trace: trace}, nil
+}
+
+func (e *Phase5DEnvironment) RebuildMemoryIndexes(ctx context.Context) (memory.IndexBuildSummary, error) {
+	if e.MemoryIndexer == nil {
+		return memory.IndexBuildSummary{}, fmt.Errorf("phase 5d environment has no memory indexer")
+	}
+	return e.MemoryIndexer.RebuildIndexes(ctx)
+}
+
+func (e *Phase5DEnvironment) Close() error {
+	if e == nil || e.MemoryStores == nil || e.MemoryStores.DB == nil {
+		return nil
+	}
+	return e.MemoryStores.DB.Close()
+}
+
+func (e *Phase5DEnvironment) buildTrace(
+	workflowID string,
+	verificationResults []verification.VerificationResult,
+	metricRecords []finance.MetricRecord,
+	approvalAudit *governance.AuditEvent,
+) observability.WorkflowTraceDump {
+	var policyRecords []observability.PolicyDecisionRecord
+	if approvalAudit != nil {
+		policyRecords = governance.ToObservabilityRecords([]governance.AuditEvent{*approvalAudit})
+	}
+	return observability.BuildWorkflowTraceDumpWithTrust(
+		workflowID,
+		workflowID,
 		e.Timeline.Records(),
 		e.Journal.Records(),
 		e.AgentTrace.Records(),
@@ -460,30 +546,23 @@ func (e *MonthlyReview5CEnvironment) Run(ctx context.Context, userID string, raw
 		e.MemoryTrace.SelectionRecords(),
 		e.EmbeddingCallTrace.Records(),
 		e.EmbeddingUsageTrace.Records(),
-		nil,
+		policyRecords,
 		e.PromptTrace.Records(),
 		e.LLMTrace.Records(),
 		e.UsageTrace.Records(),
 		e.StructuredTrace.Records(),
+		observability.TrustTraceBundle{
+			FinanceMetrics:            metricRecords,
+			GroundingVerdicts:         observability.FilterVerificationResultsByCategory(verificationResults, verification.ValidationCategoryGrounding),
+			NumericValidationVerdicts: observability.FilterVerificationResultsByCategory(verificationResults, verification.ValidationCategoryNumeric),
+			BusinessRuleVerdicts:      observability.FilterVerificationResultsByCategory(verificationResults, verification.ValidationCategoryBusiness),
+			PolicyRuleHits:            observability.PolicyRuleHitsFromDecisions(policyRecords),
+			ApprovalTriggers:          observability.ApprovalTriggersFromDecisions(policyRecords),
+		},
 	)
-	return MonthlyReview5CRunOutput{Result: result, Trace: trace}, nil
 }
 
-func (e *MonthlyReview5CEnvironment) RebuildMemoryIndexes(ctx context.Context) (memory.IndexBuildSummary, error) {
-	if e.MemoryIndexer == nil {
-		return memory.IndexBuildSummary{}, fmt.Errorf("monthly review 5c environment has no memory indexer")
-	}
-	return e.MemoryIndexer.RebuildIndexes(ctx)
-}
-
-func (e *MonthlyReview5CEnvironment) Close() error {
-	if e == nil || e.MemoryStores == nil || e.MemoryStores.DB == nil {
-		return nil
-	}
-	return e.MemoryStores.DB.Close()
-}
-
-func (o MonthlyReview5CRunOutput) WriteArtifact(path string) error {
+func (o MonthlyReview5DRunOutput) WriteArtifact(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -494,7 +573,7 @@ func (o MonthlyReview5CRunOutput) WriteArtifact(path string) error {
 	return os.WriteFile(path, payload, 0o644)
 }
 
-func (o MonthlyReview5CRunOutput) WriteTrace(path string) error {
+func (o MonthlyReview5DRunOutput) WriteTrace(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -503,4 +582,33 @@ func (o MonthlyReview5CRunOutput) WriteTrace(path string) error {
 		return err
 	}
 	return os.WriteFile(path, payload, 0o644)
+}
+
+func (o DebtVsInvest5DRunOutput) WriteArtifact(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(o.Result, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, payload, 0o644)
+}
+
+func (o DebtVsInvest5DRunOutput) WriteTrace(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	payload, err := json.MarshalIndent(o.Trace, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, payload, 0o644)
+}
+
+func valueOrDefault[T any](value *T, fallback *T) *T {
+	if value != nil {
+		return value
+	}
+	return fallback
 }

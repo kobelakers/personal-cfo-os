@@ -1,4 +1,4 @@
-package planning
+package planning_test
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/model"
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/prompt"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
@@ -19,7 +20,7 @@ func TestProviderBackedPlannerHappyPath(t *testing.T) {
 	}
 	promptTrace := &observability.PromptTraceLog{}
 	structuredTrace := &observability.StructuredOutputTraceLog{}
-	planner := ProviderBackedPlanner{
+	planner := planning.ProviderBackedPlanner{
 		PromptRenderer: prompt.PromptRenderer{
 			Registry:      registry,
 			TraceRecorder: promptTrace,
@@ -51,12 +52,12 @@ func TestProviderBackedPlannerHappyPath(t *testing.T) {
 			},
 		},
 		TraceRecorder: structuredTrace,
-		CatalogBuilder: CandidatePlanCatalogBuilder{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		CatalogBuilder: planning.CandidatePlanCatalogBuilder{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
-		Compiler: PlanCompiler{},
-		Fallback: DeterministicFallbackPlanner{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		Compiler: planning.PlanCompiler{},
+		Fallback: planning.DeterministicFallbackPlanner{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
 		Now: fixedPlannerNow,
 	}
@@ -85,7 +86,7 @@ func TestProviderBackedPlannerFallsBackWhenStructuredOutputIsMalformed(t *testin
 		t.Fatalf("new registry: %v", err)
 	}
 	structuredTrace := &observability.StructuredOutputTraceLog{}
-	planner := ProviderBackedPlanner{
+	planner := planning.ProviderBackedPlanner{
 		PromptRenderer: prompt.PromptRenderer{Registry: registry},
 		Generator: model.DefaultStructuredGenerator{
 			Model: model.StaticChatModel{
@@ -107,12 +108,12 @@ func TestProviderBackedPlannerFallsBackWhenStructuredOutputIsMalformed(t *testin
 			},
 		},
 		TraceRecorder: structuredTrace,
-		CatalogBuilder: CandidatePlanCatalogBuilder{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		CatalogBuilder: planning.CandidatePlanCatalogBuilder{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
-		Compiler: PlanCompiler{},
-		Fallback: DeterministicFallbackPlanner{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		Compiler: planning.PlanCompiler{},
+		Fallback: planning.DeterministicFallbackPlanner{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
 		Now: fixedPlannerNow,
 	}
@@ -138,7 +139,7 @@ func TestProviderBackedPlannerRepairSuccessRecordsRepairTrace(t *testing.T) {
 	structuredTrace := &observability.StructuredOutputTraceLog{}
 	callLog := &modelCallRecorder{}
 	usageLog := &modelUsageRecorder{}
-	planner := ProviderBackedPlanner{
+	planner := planning.ProviderBackedPlanner{
 		PromptRenderer: prompt.PromptRenderer{Registry: registry},
 		Generator: model.DefaultStructuredGenerator{
 			Model: &model.ScriptedChatModel{
@@ -167,12 +168,12 @@ func TestProviderBackedPlannerRepairSuccessRecordsRepairTrace(t *testing.T) {
 			},
 		},
 		TraceRecorder: structuredTrace,
-		CatalogBuilder: CandidatePlanCatalogBuilder{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		CatalogBuilder: planning.CandidatePlanCatalogBuilder{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
-		Compiler: PlanCompiler{},
-		Fallback: DeterministicFallbackPlanner{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		Compiler: planning.PlanCompiler{},
+		Fallback: planning.DeterministicFallbackPlanner{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
 		Now: fixedPlannerNow,
 	}
@@ -202,7 +203,7 @@ func TestProviderBackedPlannerRepairFailureFallsBackAndRecordsRepairAttempt(t *t
 		t.Fatalf("new registry: %v", err)
 	}
 	structuredTrace := &observability.StructuredOutputTraceLog{}
-	planner := ProviderBackedPlanner{
+	planner := planning.ProviderBackedPlanner{
 		PromptRenderer: prompt.PromptRenderer{Registry: registry},
 		Generator: model.DefaultStructuredGenerator{
 			Model: &model.ScriptedChatModel{
@@ -221,12 +222,12 @@ func TestProviderBackedPlannerRepairFailureFallsBackAndRecordsRepairAttempt(t *t
 			},
 		},
 		TraceRecorder: structuredTrace,
-		CatalogBuilder: CandidatePlanCatalogBuilder{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		CatalogBuilder: planning.CandidatePlanCatalogBuilder{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
-		Compiler: PlanCompiler{},
-		Fallback: DeterministicFallbackPlanner{
-			Planner: &DeterministicPlanner{Now: fixedPlannerNow},
+		Compiler: planning.PlanCompiler{},
+		Fallback: planning.DeterministicFallbackPlanner{
+			Planner: &planning.DeterministicPlanner{Now: fixedPlannerNow},
 		},
 		Now: fixedPlannerNow,
 	}

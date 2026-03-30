@@ -9,14 +9,15 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/model"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/prompt"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/structured"
+	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
 	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
@@ -38,39 +39,62 @@ type CashflowReasonerInput struct {
 
 type DeterministicCashflowReasoner struct {
 	MetricsTool tools.ComputeCashflowMetricsTool
+	Engine      finance.Engine
 }
 
 func (r DeterministicCashflowReasoner) Analyze(_ context.Context, input CashflowReasonerInput) (analysis.CashflowBlockResult, error) {
-	metrics := toCashflowMetrics(r.MetricsTool.Compute(input.CurrentState))
+	bundle := r.engine().Cashflow(input.CurrentState, input.RelevantEvidence, metricAsOf(input.CurrentState))
+	metrics := bundle.Metrics
 	evidenceIDs := collectEvidenceIDs(input.RelevantEvidence)
 	memoryIDs := collectMemoryIDsFromRecords(input.RelevantMemories)
 	keyFindings := []string{
 		fmt.Sprintf("本期流入 %d 分，流出 %d 分，净结余 %d 分。", metrics.MonthlyInflowCents, metrics.MonthlyOutflowCents, metrics.MonthlyNetIncomeCents),
-		fmt.Sprintf("储蓄率 %.2f，重复订阅 %d，深夜消费频率 %.2f。", metrics.SavingsRate, metrics.DuplicateSubscriptionCount, metrics.LateNightSpendingFrequency),
+		fmt.Sprintf("储蓄率 %.2f，流动性缓冲 %.2f 月，应急金覆盖 %.2f 月。", metrics.SavingsRate, refMetric(bundle.Records, "liquidity_buffer_months").Float64Value, refMetric(bundle.Records, "emergency_fund_coverage_months").Float64Value),
+		fmt.Sprintf("重复订阅 %d，深夜消费频率 %.2f，订阅负担 %.2f。", metrics.DuplicateSubscriptionCount, metrics.LateNightSpendingFrequency, refMetric(bundle.Records, "subscription_burden_ratio").Float64Value),
 	}
 	riskFlags := make([]analysis.RiskFlag, 0, 3)
-	recommendations := make([]skills.SkillItem, 0, 3)
+	recommendations := make([]analysis.Recommendation, 0, 3)
+	caveats := []string{
+		"所有金额、比率和压力指标都以 Finance Engine 的 deterministic metric records 为准。",
+	}
+	metricRefs := bundle.Refs()
+	groundingRefs := prefixedRefs("metric", metricRefs)
 
-	if metrics.SavingsRate < 0.15 {
+	if metrics.SavingsRate < 0.15 || refMetric(bundle.Records, "liquidity_buffer_months").Float64Value < 3 {
 		riskFlags = append(riskFlags, analysis.RiskFlag{
 			Code:        "cashflow_pressure",
 			Severity:    "medium",
 			Detail:      "储蓄率偏低，现金流缓冲较弱。",
 			EvidenceIDs: evidenceIDs,
+			MetricRefs:  []string{"savings_rate", "liquidity_buffer_months"},
+			MemoryRefs:  append([]string{}, memoryIDs...),
+			Caveats:     caveats,
 		})
-		recommendations = append(recommendations, skills.SkillItem{
-			Title:       "优先修复月度结余",
-			Detail:      "先控制可变支出，确保结余可以覆盖后续债务或投资决策。",
-			Severity:    "medium",
-			EvidenceIDs: evidenceIDs,
+		recommendations = append(recommendations, analysis.Recommendation{
+			ID:            string(input.Block.ID) + ":cashflow-adjustment",
+			Type:          analysis.RecommendationTypeCashflowAdjustment,
+			Title:         "优先修复月度结余",
+			Detail:        "先控制可变支出并修复现金流缓冲，确保结余能覆盖后续债务或投资决策。",
+			RiskLevel:     taskspec.RiskLevelMedium,
+			GroundingRefs: []string{"metric:savings_rate", "metric:liquidity_buffer_months"},
+			MetricRefs:    []string{"savings_rate", "liquidity_buffer_months", "monthly_net_income_cents"},
+			EvidenceRefs:  evidenceIDsToString(evidenceIDs),
+			MemoryRefs:    append([]string{}, memoryIDs...),
+			Caveats:       caveats,
 		})
 	}
 	if metrics.DuplicateSubscriptionCount > 0 || hasMemoryKeyword(input.RelevantMemories, "subscription") {
-		recommendations = append(recommendations, skills.SkillItem{
-			Title:       "梳理经常性订阅",
-			Detail:      "订阅信号说明现金流里存在可优化项，先清理低使用率订阅。",
-			Severity:    "low",
-			EvidenceIDs: evidenceIDs,
+		recommendations = append(recommendations, analysis.Recommendation{
+			ID:            string(input.Block.ID) + ":expense-reduction",
+			Type:          analysis.RecommendationTypeExpenseReduction,
+			Title:         "梳理经常性订阅",
+			Detail:        "订阅负担和重复订阅信号说明现金流存在可优化项，先清理低使用率订阅。",
+			RiskLevel:     taskspec.RiskLevelLow,
+			GroundingRefs: []string{"metric:duplicate_subscription_count", "metric:subscription_burden_ratio"},
+			MetricRefs:    []string{"duplicate_subscription_count", "subscription_burden_ratio", "recurring_expense_signal"},
+			EvidenceRefs:  evidenceIDsToString(evidenceIDs),
+			MemoryRefs:    append([]string{}, memoryIDs...),
+			Caveats:       caveats,
 		})
 	}
 	if metrics.LateNightSpendingFrequency >= 0.2 || hasMemoryKeyword(input.RelevantMemories, "late-night") {
@@ -79,6 +103,9 @@ func (r DeterministicCashflowReasoner) Analyze(_ context.Context, input Cashflow
 			Severity:    "medium",
 			Detail:      "深夜消费波动偏高，建议把这部分支出单独复核。",
 			EvidenceIDs: evidenceIDs,
+			MetricRefs:  []string{"late_night_spending_frequency"},
+			MemoryRefs:  append([]string{}, memoryIDs...),
+			Caveats:     caveats,
 		})
 	}
 	summary := fmt.Sprintf("现金流块结论：当前月度结余 %d 分，储蓄率 %.2f。", metrics.MonthlyNetIncomeCents, metrics.SavingsRate)
@@ -90,16 +117,26 @@ func (r DeterministicCashflowReasoner) Analyze(_ context.Context, input Cashflow
 		Summary:              summary,
 		KeyFindings:          keyFindings,
 		DeterministicMetrics: metrics,
+		MetricRecords:        append([]finance.MetricRecord{}, bundle.Records...),
 		EvidenceIDs:          evidenceIDs,
 		MemoryIDsUsed:        memoryIDs,
-		MetricRefs:           allowedCashflowMetricRefs(),
+		MetricRefs:           metricRefs,
+		GroundingRefs:        groundingRefs,
 		RiskFlags:            riskFlags,
 		Recommendations:      recommendations,
-		Caveats: []string{
-			"所有金额与比率以 deterministic metrics 为准，模型层只负责洞察组织与解释。",
-		},
-		Confidence: confidenceFromEvidence(input.RelevantEvidence),
+		Caveats:              caveats,
+		ApprovalRequired:     recommendationsRequireApproval(recommendations),
+		ApprovalReason:       approvalReasonFromRecommendations(recommendations),
+		PolicyRuleRefs:       collectRecommendationPolicyRefs(recommendations),
+		Confidence:           confidenceFromEvidence(input.RelevantEvidence),
 	}, nil
+}
+
+func (r DeterministicCashflowReasoner) engine() finance.Engine {
+	if r.Engine != nil {
+		return r.Engine
+	}
+	return finance.DeterministicEngine{}
 }
 
 type ProviderBackedCashflowReasoner struct {
@@ -192,6 +229,12 @@ func allowedCashflowMetricRefs() []string {
 		"monthly_outflow_cents",
 		"monthly_net_income_cents",
 		"savings_rate",
+		"savings_rate_quality_score",
+		"debt_pressure_score",
+		"emergency_fund_coverage_months",
+		"liquidity_buffer_months",
+		"subscription_burden_ratio",
+		"recurring_expense_signal",
 		"duplicate_subscription_count",
 		"late_night_spending_frequency",
 	}
@@ -203,10 +246,15 @@ func cashflowCandidateFromFallback(result analysis.CashflowBlockResult) analysis
 		KeyFindings:             append([]string{}, result.KeyFindings...),
 		RiskFlags:               append([]analysis.RiskFlag{}, result.RiskFlags...),
 		MetricRefs:              append([]string{}, result.MetricRefs...),
+		GroundingRefs:           append([]string{}, result.GroundingRefs...),
 		EvidenceRefs:            evidenceIDsToString(result.EvidenceIDs),
+		MemoryRefs:              append([]string{}, result.MemoryIDsUsed...),
 		Confidence:              result.Confidence,
 		Caveats:                 append([]string{}, result.Caveats...),
-		GroundedRecommendations: skillItemsToSuggestions(result.Recommendations),
+		GroundedRecommendations: append([]analysis.Recommendation{}, result.Recommendations...),
+		ApprovalRequired:        result.ApprovalRequired,
+		ApprovalReason:          result.ApprovalReason,
+		PolicyRuleRefs:          append([]string{}, result.PolicyRuleRefs...),
 	}
 }
 
@@ -215,37 +263,16 @@ func mergeCashflowCandidate(base analysis.CashflowBlockResult, candidate analysi
 	base.KeyFindings = append([]string{}, candidate.KeyFindings...)
 	base.RiskFlags = append([]analysis.RiskFlag{}, candidate.RiskFlags...)
 	base.MetricRefs = append([]string{}, candidate.MetricRefs...)
+	base.GroundingRefs = append([]string{}, candidate.GroundingRefs...)
 	base.EvidenceIDs = stringRefsToEvidenceIDs(candidate.EvidenceRefs)
-	base.Recommendations = suggestionsToSkillItems(candidate.GroundedRecommendations)
+	base.MemoryIDsUsed = append([]string{}, candidate.MemoryRefs...)
+	base.Recommendations = append([]analysis.Recommendation{}, candidate.GroundedRecommendations...)
 	base.Confidence = candidate.Confidence
 	base.Caveats = append([]string{}, candidate.Caveats...)
+	base.ApprovalRequired = candidate.ApprovalRequired
+	base.ApprovalReason = candidate.ApprovalReason
+	base.PolicyRuleRefs = append([]string{}, candidate.PolicyRuleRefs...)
 	return base
-}
-
-func skillItemsToSuggestions(items []skills.SkillItem) []analysis.CashflowStructuredSuggestion {
-	result := make([]analysis.CashflowStructuredSuggestion, 0, len(items))
-	for _, item := range items {
-		result = append(result, analysis.CashflowStructuredSuggestion{
-			Title:        item.Title,
-			Detail:       item.Detail,
-			Severity:     item.Severity,
-			EvidenceRefs: evidenceIDsToString(item.EvidenceIDs),
-		})
-	}
-	return result
-}
-
-func suggestionsToSkillItems(items []analysis.CashflowStructuredSuggestion) []skills.SkillItem {
-	result := make([]skills.SkillItem, 0, len(items))
-	for _, item := range items {
-		result = append(result, skills.SkillItem{
-			Title:       item.Title,
-			Detail:      item.Detail,
-			Severity:    item.Severity,
-			EvidenceIDs: stringRefsToEvidenceIDs(item.EvidenceRefs),
-		})
-	}
-	return result
 }
 
 func evidenceIDsToString(ids []observation.EvidenceID) []string {

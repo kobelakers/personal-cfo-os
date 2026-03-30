@@ -8,6 +8,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
@@ -291,6 +292,7 @@ func buildSystemStepBus(deps fixtureDeps, eventLog *observability.EventLog, agen
 	reportService := reporting.Service{
 		MonthlyReviewAggregator: reporting.MonthlyReviewAggregator{
 			TaxSignals: tools.ComputeTaxSignalTool{},
+			Engine:     finance.DeterministicEngine{},
 			Now:        deps.LedgerAdapter.Now,
 		},
 		DebtDecisionAggregator: reporting.DebtDecisionAggregator{
@@ -338,10 +340,10 @@ func buildSystemStepBus(deps fixtureDeps, eventLog *observability.EventLog, agen
 			Planner:   &planning.DeterministicPlanner{Now: deps.LedgerAdapter.Now},
 		},
 		agents.MemoryStewardHandler{Service: memoryService},
-		agents.CashflowAgentHandler{MetricsTool: tools.ComputeCashflowMetricsTool{}},
-		agents.DebtAgentHandler{MetricsTool: tools.ComputeDebtDecisionMetricsTool{}},
-		agents.TaxAgentHandler{MetricsTool: tools.ComputeTaxSignalTool{}},
-		agents.PortfolioAgentHandler{MetricsTool: tools.ComputePortfolioImpactMetricsTool{}},
+		agents.CashflowAgentHandler{Engine: finance.DeterministicEngine{}},
+		agents.DebtAgentHandler{Engine: finance.DeterministicEngine{}},
+		agents.TaxAgentHandler{Engine: finance.DeterministicEngine{}},
+		agents.PortfolioAgentHandler{Engine: finance.DeterministicEngine{}},
 		agents.TaskGenerationAgentHandler{},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},

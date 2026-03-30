@@ -53,8 +53,11 @@ func ValidateCashflowStructuredCandidate(candidate analysis.CashflowStructuredCa
 		if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Detail) == "" {
 			diagnostics = append(diagnostics, "recommendation title/detail is required")
 		}
-		if item.Severity == "" {
-			diagnostics = append(diagnostics, "recommendation severity is required")
+		if item.Type == "" {
+			diagnostics = append(diagnostics, "recommendation type is required")
+		}
+		if item.RiskLevel == "" {
+			diagnostics = append(diagnostics, "recommendation risk_level is required")
 		}
 		for _, ref := range item.EvidenceRefs {
 			if _, ok := allowedEvidence[ref]; !ok {

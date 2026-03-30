@@ -12,6 +12,7 @@ func ToObservabilityRecords(entries []AuditEvent) []observability.PolicyDecision
 			Resource:      entry.Resource,
 			Outcome:       entry.Outcome,
 			Reason:        entry.Reason,
+			PolicyRuleRefs: append([]string{}, entry.PolicyRuleRefs...),
 			OccurredAt:    entry.OccurredAt,
 			CorrelationID: entry.CorrelationID,
 		})

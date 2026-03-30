@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
@@ -9,7 +10,6 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
-	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
@@ -18,6 +18,9 @@ type Pipeline struct {
 	CoverageChecker        EvidenceCoverageChecker
 	DeterministicValidator DeterministicValidator
 	BusinessValidator      BusinessValidator
+	GroundingValidator     GroundingValidator
+	NumericValidator       NumericValidator
+	TrustBusinessValidator TrustBusinessValidator
 	SuccessChecker         SuccessCriteriaChecker
 	Oracle                 TrajectoryOracle
 	Now                    func() time.Time
@@ -299,7 +302,7 @@ func (p Pipeline) verify(
 		}, nil
 	}
 
-	finalResults, err := p.verifyFinal(ctx, spec, currentState, evidence, finalVerificationContext, output, monthlyReview)
+	finalResults, err := p.verifyFinal(ctx, spec, currentState, evidence, memories, finalVerificationContext, output, monthlyReview)
 	if err != nil {
 		return PipelineResult{}, err
 	}
@@ -423,6 +426,7 @@ func (p Pipeline) verifyFinal(
 	spec taskspec.TaskSpec,
 	currentState state.FinancialWorldState,
 	evidence []observation.EvidenceRecord,
+	memories []memory.MemoryRecord,
 	finalVerificationContext contextview.BlockVerificationContext,
 	output any,
 	monthlyReview bool,
@@ -464,6 +468,11 @@ func (p Pipeline) verifyFinal(
 			return nil, err
 		}
 		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		trustResults, err := p.verifyTrust(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, trustResults...)
 		return finalResults, nil
 	case taskspec.UserIntentTaxOptimization:
 		deterministicResult, err := TaxOptimizationDeterministicValidator{}.Validate(ctx, spec, currentState, evidence, output)
@@ -476,6 +485,11 @@ func (p Pipeline) verifyFinal(
 			return nil, err
 		}
 		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		trustResults, err := p.verifyTrust(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, trustResults...)
 		return finalResults, nil
 	case taskspec.UserIntentPortfolioRebalance:
 		deterministicResult, err := PortfolioRebalanceDeterministicValidator{}.Validate(ctx, spec, currentState, evidence, output)
@@ -488,6 +502,11 @@ func (p Pipeline) verifyFinal(
 			return nil, err
 		}
 		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		trustResults, err := p.verifyTrust(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, trustResults...)
 		return finalResults, nil
 	}
 
@@ -496,6 +515,11 @@ func (p Pipeline) verifyFinal(
 		return nil, err
 	}
 	finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+	trustResults, err := p.verifyTrust(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+	if err != nil {
+		return nil, err
+	}
+	finalResults = append(finalResults, trustResults...)
 	return finalResults, nil
 }
 
@@ -508,7 +532,7 @@ func (p Pipeline) verifyLifeEventFinal(
 	finalVerificationContext contextview.BlockVerificationContext,
 	output any,
 ) ([]VerificationResult, error) {
-	report, ok := output.(reporting.LifeEventAssessmentReport)
+	report, ok := lifeEventAssessmentOutputFrom(output)
 	finalResults := make([]VerificationResult, 0, 4)
 
 	contextResult := VerificationResult{
@@ -617,9 +641,60 @@ func (p Pipeline) verifyLifeEventFinal(
 	return finalResults, nil
 }
 
+type lifeEventAssessmentOutput struct {
+	EventSummary     string
+	GeneratedTaskIDs []string
+}
+
+func lifeEventAssessmentOutputFrom(output any) (lifeEventAssessmentOutput, bool) {
+	value := reflect.ValueOf(output)
+	for value.IsValid() && value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return lifeEventAssessmentOutput{}, false
+		}
+		value = value.Elem()
+	}
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return lifeEventAssessmentOutput{}, false
+	}
+	eventSummaryField := value.FieldByName("EventSummary")
+	generatedTaskIDsField := value.FieldByName("GeneratedTaskIDs")
+	if !eventSummaryField.IsValid() || !generatedTaskIDsField.IsValid() {
+		return lifeEventAssessmentOutput{}, false
+	}
+	if eventSummaryField.Kind() != reflect.String || generatedTaskIDsField.Kind() != reflect.Slice {
+		return lifeEventAssessmentOutput{}, false
+	}
+	ids := make([]string, 0, generatedTaskIDsField.Len())
+	for i := 0; i < generatedTaskIDsField.Len(); i++ {
+		item := generatedTaskIDsField.Index(i)
+		if item.Kind() != reflect.String {
+			return lifeEventAssessmentOutput{}, false
+		}
+		ids = append(ids, item.String())
+	}
+	return lifeEventAssessmentOutput{
+		EventSummary:     eventSummaryField.String(),
+		GeneratedTaskIDs: ids,
+	}, true
+}
+
 func NeedsReplan(results []VerificationResult) bool {
 	for _, result := range results {
 		if result.Status == VerificationStatusFail || result.Status == VerificationStatusNeedsReplan {
+			return true
+		}
+	}
+	return false
+}
+
+func HasTrustFailure(results []VerificationResult) bool {
+	for _, result := range results {
+		if result.Status != VerificationStatusFail {
+			continue
+		}
+		switch result.Category {
+		case ValidationCategoryGrounding, ValidationCategoryNumeric, ValidationCategoryBusiness:
 			return true
 		}
 	}
@@ -732,6 +807,27 @@ func (p Pipeline) businessValidator(monthlyReview bool) BusinessValidator {
 	return DebtDecisionBusinessValidator{}
 }
 
+func (p Pipeline) groundingValidator() GroundingValidator {
+	if p.GroundingValidator != nil {
+		return p.GroundingValidator
+	}
+	return FinancialGroundingValidator{}
+}
+
+func (p Pipeline) numericValidator() NumericValidator {
+	if p.NumericValidator != nil {
+		return p.NumericValidator
+	}
+	return FinancialNumericConsistencyValidator{}
+}
+
+func (p Pipeline) trustBusinessValidator() TrustBusinessValidator {
+	if p.TrustBusinessValidator != nil {
+		return p.TrustBusinessValidator
+	}
+	return TrustBusinessRuleValidator{}
+}
+
 func (p Pipeline) successChecker() SuccessCriteriaChecker {
 	if p.SuccessChecker != nil {
 		return p.SuccessChecker
@@ -744,6 +840,40 @@ func (p Pipeline) oracle() TrajectoryOracle {
 		return p.Oracle
 	}
 	return BaselineTrajectoryOracle{}
+}
+
+func (p Pipeline) verifyTrust(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	currentState state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	memories []memory.MemoryRecord,
+	finalVerificationContext contextview.BlockVerificationContext,
+	output any,
+) ([]VerificationResult, error) {
+	results := make([]VerificationResult, 0, 3)
+	groundingResults, err := p.groundingValidator().Validate(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range groundingResults {
+		results = append(results, withScope(result, VerificationScopeFinal, "", ""))
+	}
+	numericResults, err := p.numericValidator().Validate(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range numericResults {
+		results = append(results, withScope(result, VerificationScopeFinal, "", ""))
+	}
+	businessResults, err := p.trustBusinessValidator().Validate(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range businessResults {
+		results = append(results, withScope(result, VerificationScopeFinal, "", ""))
+	}
+	return results, nil
 }
 
 func (p Pipeline) now() time.Time {

@@ -106,9 +106,10 @@ func (m mockMonthlyReviewChatModel) generate(request model.ModelRequest) (model.
   ],
   "grounded_recommendations": [
     {
+      "type": "expense_reduction",
       "title": "继续清理低使用率订阅",
       "detail": %q,
-      "severity": "low",
+      "risk_level": "low",
       "evidence_refs": [%q]
     }
   ],

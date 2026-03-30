@@ -37,12 +37,14 @@ func validCashflowCandidate() analysis.CashflowStructuredCandidate {
 	return analysis.CashflowStructuredCandidate{
 		Summary:     "本月净结余为 644900 分，储蓄率 0.81，整体可控。",
 		KeyFindings: []string{"重复订阅 2 个，值得继续清理。", "深夜消费频率 0.12，建议继续观察。"},
-		GroundedRecommendations: []analysis.CashflowStructuredSuggestion{
+		GroundedRecommendations: []analysis.Recommendation{
 			{
-				Title:        "优先清理 2 个重复订阅",
-				Detail:       "当前净结余 644900 分，先优化订阅类可变支出。",
-				Severity:     "low",
-				EvidenceRefs: []string{"evidence-1"},
+				Type:          analysis.RecommendationTypeExpenseReduction,
+				Title:         "优先清理 2 个重复订阅",
+				Detail:        "当前净结余 644900 分，先优化订阅类可变支出。",
+				RiskLevel:     "low",
+				GroundingRefs: []string{"metric:duplicate_subscription_count"},
+				EvidenceRefs:  []string{"evidence-1"},
 			},
 		},
 		RiskFlags: []analysis.RiskFlag{

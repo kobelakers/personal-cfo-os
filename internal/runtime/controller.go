@@ -19,7 +19,7 @@ func (DefaultWorkflowController) HandleFailure(current WorkflowExecutionState, c
 		return WorkflowStateReplanning, RecoveryStrategyReplan, nil
 	case FailureCategoryPolicy:
 		return WorkflowStateWaitingApproval, RecoveryStrategyWaitForApproval, nil
-	case FailureCategoryDeniedByOp, FailureCategoryProtocol, FailureCategoryUnrecoverable:
+	case FailureCategoryTrustValidation, FailureCategoryGovernanceDenied, FailureCategoryDeniedByOp, FailureCategoryProtocol, FailureCategoryUnrecoverable:
 		return WorkflowStateFailed, RecoveryStrategyAbort, nil
 	default:
 		return "", "", fmt.Errorf("unsupported failure category %q", category)

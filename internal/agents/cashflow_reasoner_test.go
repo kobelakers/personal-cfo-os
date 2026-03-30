@@ -39,7 +39,7 @@ func TestProviderBackedCashflowReasonerHappyPath(t *testing.T) {
 						Content: `{
 							"summary":"模型确认本月现金流整体健康，但订阅和夜间消费仍需要继续跟踪。",
 							"key_findings":["净结余为正。","重复订阅仍是主要可优化项。"],
-							"grounded_recommendations":[{"title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"grounded_recommendations":[{"type":"expense_reduction","title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","risk_level":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"建议继续跟踪波动支出。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"metric_refs":["monthly_net_income_cents","savings_rate","duplicate_subscription_count"],
 							"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
@@ -103,7 +103,7 @@ func TestProviderBackedCashflowReasonerFallsBackOnGroundingFailure(t *testing.T)
 						Content: `{
 							"summary":"这是一条未通过 grounding 的结果。",
 							"key_findings":["模型引用了未选中的证据。"],
-							"grounded_recommendations":[{"title":"错误建议","detail":"引用了不在 selected evidence 中的证据。","severity":"low","evidence_refs":["evidence-not-selected"]}],
+							"grounded_recommendations":[{"type":"expense_reduction","title":"错误建议","detail":"引用了不在 selected evidence 中的证据。","risk_level":"low","evidence_refs":["evidence-not-selected"]}],
 							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"引用了无效证据。","evidence_ids":["evidence-not-selected"]}],
 							"metric_refs":["monthly_net_income_cents"],
 							"evidence_refs":["evidence-not-selected"],
@@ -162,7 +162,7 @@ func TestProviderBackedCashflowReasonerRepairSuccessRecordsRepairTrace(t *testin
 							Content: `{
 								"summary":"本月现金流整体稳定，数字引用与 deterministic metrics 保持一致。",
 								"key_findings":["月度净结余为 644900 分。","储蓄率 0.81，当前缓冲仍然充足。"],
-								"grounded_recommendations":[{"title":"优先清理 2 个重复订阅","detail":"重复订阅 2 个，先清理低使用率项目。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+								"grounded_recommendations":[{"type":"expense_reduction","title":"优先清理 2 个重复订阅","detail":"重复订阅 2 个，先清理低使用率项目。","risk_level":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
 								"risk_flags":[{"code":"late_night_spending","severity":"low","detail":"深夜消费频率 0.12，建议继续观察。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
 								"metric_refs":["monthly_net_income_cents","savings_rate","duplicate_subscription_count","late_night_spending_frequency"],
 								"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
@@ -266,7 +266,7 @@ func TestProviderBackedCashflowReasonerFallsBackOnUnsupportedNumericClaim(t *tes
 						Content: `{
 							"summary":"本月净结余为 700000 分，现金流依然可控。",
 							"key_findings":["重复订阅仍是主要可优化项。"],
-							"grounded_recommendations":[{"title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"grounded_recommendations":[{"type":"expense_reduction","title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","risk_level":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"建议继续跟踪波动支出。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"metric_refs":["monthly_net_income_cents"],
 							"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],
@@ -311,7 +311,7 @@ func TestProviderBackedCashflowReasonerFallsBackOnMetricSpecificNumericMismatch(
 						Content: `{
 							"summary":"本月流入 644900 分，整体可控。",
 							"key_findings":["储蓄率 0.81，当前缓冲仍然充足。"],
-							"grounded_recommendations":[{"title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","severity":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
+							"grounded_recommendations":[{"type":"expense_reduction","title":"先清理低使用率订阅","detail":"selected evidence 已经包含订阅信号。","risk_level":"low","evidence_refs":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"risk_flags":[{"code":"cashflow_monitoring","severity":"low","detail":"建议继续跟踪波动支出。","evidence_ids":["evidence-transaction-batch-user-1-20260329080000"]}],
 							"metric_refs":["monthly_inflow_cents","savings_rate"],
 							"evidence_refs":["evidence-transaction-batch-user-1-20260329080000"],

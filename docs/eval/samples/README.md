@@ -36,3 +36,24 @@ OPENAI_FAST_MODEL=... \
 OPENAI_EMBEDDING_MODEL=... \
 ./scripts/run_monthly_review_5c.sh live /tmp/monthly-review-5c /tmp/monthly-review-5c/memory.db
 ```
+
+## Phase 5D
+
+Stable mock-generated artifacts for trustworthy finance reasoning:
+
+- `monthly_review_5d_report.json`
+- `monthly_review_5d_trace.json`
+- `debt_vs_invest_5d_waiting_approval.json`
+- `debt_vs_invest_5d_waiting_approval_trace.json`
+
+Regenerate Monthly Review:
+
+```bash
+./scripts/run_monthly_review_5d.sh mock
+```
+
+Regenerate the deterministic Debt vs Invest approval sample:
+
+```bash
+go run ./cmd/eval --phase 5d --workflow debt_vs_invest --provider-mode mock --memory-db ./var/memory-5d.db --artifact-out ./docs/eval/samples/debt_vs_invest_5d_waiting_approval.json
+```

@@ -1,0 +1,1404 @@
+{
+  "workflow_id": "workflow-debt-vs-invest-20260330080000",
+  "trace_id": "workflow-debt-vs-invest-20260330080000",
+  "timeline": [
+    {
+      "state": "planning",
+      "event": "checkpoint_created",
+      "summary": "decision evidence collected",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "state": "acting",
+      "event": "checkpoint_created",
+      "summary": "decision state updated",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "state": "verifying",
+      "event": "checkpoint_created",
+      "summary": "debt decision waiting approval",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "state": "waiting_approval",
+      "event": "approval_required",
+      "summary": "debt_vs_invest_recommendation",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "d614edf62355f696",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "state": "planning",
+      "resume_state": "planning",
+      "state_version": 0,
+      "summary": "decision evidence collected",
+      "captured_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "f4932fd9e8dbfccc",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "state": "acting",
+      "resume_state": "acting",
+      "state_version": 1,
+      "summary": "decision state updated",
+      "captured_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "cf5778de043d90ad",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "state": "verifying",
+      "resume_state": "verifying",
+      "state_version": 1,
+      "summary": "debt decision waiting approval",
+      "captured_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "agent_executions": [
+    {
+      "dispatch_id": "2d87b8b193db678a",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "workflow-debt-vs-invest-20260330080000",
+      "request_message_id": "3d25cdb979141dec",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "2d87b8b193db678a",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "workflow-debt-vs-invest-20260330080000",
+      "request_message_id": "3d25cdb979141dec",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "2d87b8b193db678a",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "result_kind": "memory_sync_result",
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "workflow-debt-vs-invest-20260330080000",
+      "request_message_id": "3d25cdb979141dec",
+      "result_message_id": "ca53c823e4a4e4b6",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "0f6b1e4b0874bfe6",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "ca53c823e4a4e4b6",
+      "request_message_id": "693547295276f3eb",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "0f6b1e4b0874bfe6",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "ca53c823e4a4e4b6",
+      "request_message_id": "693547295276f3eb",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "0f6b1e4b0874bfe6",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "result_kind": "plan_result",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "ca53c823e4a4e4b6",
+      "request_message_id": "693547295276f3eb",
+      "result_message_id": "1ee45a7ec4c13944",
+      "workflow_event_types": [
+        "plan_created"
+      ],
+      "result_summary": "generated 2 execution blocks",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "6b6e0f7642459b01",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "debt-tradeoff",
+      "block_kind": "debt_tradeoff_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "1ee45a7ec4c13944",
+      "request_message_id": "279323b2316f85cd",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "6b6e0f7642459b01",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "debt-tradeoff",
+      "block_kind": "debt_tradeoff_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "1ee45a7ec4c13944",
+      "request_message_id": "279323b2316f85cd",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "6b6e0f7642459b01",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "result_kind": "debt_analysis_result",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "debt-tradeoff",
+      "block_kind": "debt_tradeoff_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "1ee45a7ec4c13944",
+      "request_message_id": "279323b2316f85cd",
+      "result_message_id": "d34a9090b350b25d",
+      "result_summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1275e8c7ff849844",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-liquidity",
+      "block_kind": "cashflow_liquidity_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "portfolio_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "d34a9090b350b25d",
+      "request_message_id": "519a963347858cb9",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1275e8c7ff849844",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-liquidity",
+      "block_kind": "cashflow_liquidity_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "portfolio_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "d34a9090b350b25d",
+      "request_message_id": "519a963347858cb9",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1275e8c7ff849844",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "result_kind": "cashflow_analysis_result",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-liquidity",
+      "block_kind": "cashflow_liquidity_block",
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "portfolio_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "d34a9090b350b25d",
+      "request_message_id": "519a963347858cb9",
+      "result_message_id": "b0ef9828f1c07c1d",
+      "result_summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "61e189bf7d50576e",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "b0ef9828f1c07c1d",
+      "request_message_id": "eda911b673abc7be",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "61e189bf7d50576e",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "b0ef9828f1c07c1d",
+      "request_message_id": "eda911b673abc7be",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "61e189bf7d50576e",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "result_kind": "report_draft_result",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "b0ef9828f1c07c1d",
+      "request_message_id": "eda911b673abc7be",
+      "result_message_id": "665969ea916dbd7b",
+      "result_summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "3ddcbca3152d97d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "665969ea916dbd7b",
+      "request_message_id": "2716a79ef26c5749",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "3ddcbca3152d97d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "665969ea916dbd7b",
+      "request_message_id": "2716a79ef26c5749",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "3ddcbca3152d97d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "result_kind": "verification_result",
+      "plan_id": "workflow-debt-vs-invest-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "debt-tradeoff",
+        "cashflow-liquidity"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "665969ea916dbd7b",
+      "request_message_id": "2716a79ef26c5749",
+      "result_message_id": "715fe0f52ce662f0",
+      "result_summary": "verification produced 9 results",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "49448094772154d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "715fe0f52ce662f0",
+      "request_message_id": "ab305d3bbc07b2b9",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "49448094772154d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "715fe0f52ce662f0",
+      "request_message_id": "ab305d3bbc07b2b9",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "49448094772154d7",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "result_kind": "governance_evaluation_result",
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "causation_id": "715fe0f52ce662f0",
+      "request_message_id": "ab305d3bbc07b2b9",
+      "result_message_id": "7956a8a2d5df2a15",
+      "workflow_event_types": [
+        "approval_required"
+      ],
+      "result_summary": "approval=require_approval disclosure=allow",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "events": [
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "checkpoint",
+      "message": "decision evidence collected",
+      "details": {
+        "checkpoint_id": "d614edf62355f696",
+        "state": "planning"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "checkpoint",
+      "message": "decision state updated",
+      "details": {
+        "checkpoint_id": "f4932fd9e8dbfccc",
+        "state": "acting"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "2d87b8b193db678a",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "2d87b8b193db678a",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "2d87b8b193db678a",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": "memory_sync_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "0f6b1e4b0874bfe6",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "0f6b1e4b0874bfe6",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "0f6b1e4b0874bfe6",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": "plan_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "6b6e0f7642459b01",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "6b6e0f7642459b01",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "6b6e0f7642459b01",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": "debt_analysis_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "1275e8c7ff849844",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "1275e8c7ff849844",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "1275e8c7ff849844",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": "cashflow_analysis_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "61e189bf7d50576e",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "61e189bf7d50576e",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "61e189bf7d50576e",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": "report_draft_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "3ddcbca3152d97d7",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "3ddcbca3152d97d7",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "3ddcbca3152d97d7",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": "verification_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "49448094772154d7",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "49448094772154d7",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "49448094772154d7",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": "governance_evaluation_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "checkpoint",
+      "message": "debt decision waiting approval",
+      "details": {
+        "checkpoint_id": "cf5778de043d90ad",
+        "state": "verifying"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000",
+      "category": "approval",
+      "message": "debt_vs_invest_recommendation",
+      "details": {
+        "approval_id": "workflow-debt-vs-invest-20260330080000-approval",
+        "next_state": "waiting_approval"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "memory_access": [
+    {
+      "id": "workflow-debt-vs-invest-20260330080000-memory-debt-comparison-write-1774857600000000000",
+      "memory_id": "workflow-debt-vs-invest-20260330080000-memory-debt-comparison",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "workflow-debt-vs-invest-20260330080000-memory-debt-comparison-retrieve_semantic-1774810895049499000",
+      "memory_id": "workflow-debt-vs-invest-20260330080000-memory-debt-comparison",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "accessor": "hybrid_retriever",
+      "purpose": "debt paydown versus investing decision, liquidity, risk tradeoffs",
+      "action": "retrieve_semantic",
+      "reason": "semantic scorer token affinity",
+      "score": 0.5246,
+      "accessed_at": "2026-03-29T19:01:35.049499Z"
+    }
+  ],
+  "embedding_calls": [
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:01:35.049089Z",
+      "completed_at": "2026-03-29T19:01:35.049094Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:01:35.049476Z",
+      "completed_at": "2026-03-29T19:01:35.049478Z"
+    }
+  ],
+  "embedding_usage": [
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 22,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:01:35.049094Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "trace:workflow-debt-vs-invest-20260330080000:task-debt-vs-invest-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 9,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:01:35.049478Z"
+    }
+  ],
+  "policy_decisions": [
+    {
+      "id": "workflow-debt-vs-invest-20260330080000-action",
+      "actor": "governance_agent",
+      "action": "debt_vs_invest_recommendation",
+      "resource": "task-debt-vs-invest-20260330",
+      "outcome": "require_approval",
+      "reason": "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+      "policy_rule_refs": [
+        "approval.invest_more.low_liquidity_or_high_debt",
+        "approval.low_liquidity_aggressive_invest"
+      ],
+      "occurred_at": "2026-03-29T19:01:35.05032Z",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000"
+    }
+  ],
+  "finance_metrics": [
+    {
+      "ref": "average_apr",
+      "domain": "debt_decision",
+      "name": "average_apr",
+      "value_type": "float64",
+      "float64_value": 0.0798,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "cash_buffer_impact",
+      "domain": "debt_decision",
+      "name": "cash_buffer_impact",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "one-month surplus relative to monthly outflow"
+    },
+    {
+      "ref": "debt_burden_ratio",
+      "domain": "debt_decision",
+      "name": "debt_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "debt_payoff_pressure",
+      "domain": "debt_decision",
+      "name": "debt_payoff_pressure",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "debt_pressure_score",
+      "domain": "cashflow",
+      "name": "debt_pressure_score",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "duplicate_subscription_count",
+      "domain": "cashflow",
+      "name": "duplicate_subscription_count",
+      "value_type": "int64",
+      "int64_value": 2,
+      "unit": "count",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "effective_tradeoff_score",
+      "domain": "debt_decision",
+      "name": "effective_tradeoff_score",
+      "value_type": "float64",
+      "float64_value": 0.6808000000000001,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "investable surplus signal minus debt payoff pressure"
+    },
+    {
+      "ref": "emergency_fund_coverage_months",
+      "domain": "cashflow",
+      "name": "emergency_fund_coverage_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from portfolio emergency fund coverage"
+    },
+    {
+      "ref": "investable_surplus_cents",
+      "domain": "debt_decision",
+      "name": "investable_surplus_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max(monthly net income, 0)"
+    },
+    {
+      "ref": "late_night_spending_frequency",
+      "domain": "cashflow",
+      "name": "late_night_spending_frequency",
+      "value_type": "float64",
+      "float64_value": 0.3333,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "liquidity_after_paydown",
+      "domain": "debt_decision",
+      "name": "liquidity_after_paydown",
+      "value_type": "float64",
+      "float64_value": 0.29000000000000004,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "emergency fund months after allocating one month surplus to debt paydown"
+    },
+    {
+      "ref": "liquidity_buffer_months",
+      "domain": "cashflow",
+      "name": "liquidity_buffer_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "current emergency fund coverage reused as liquidity buffer metric"
+    },
+    {
+      "ref": "max_allocation_drift",
+      "domain": "debt_decision",
+      "name": "max_allocation_drift",
+      "value_type": "float64",
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max absolute allocation drift"
+    },
+    {
+      "ref": "minimum_payment_pressure",
+      "domain": "debt_decision",
+      "name": "minimum_payment_pressure",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "monthly_inflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_inflow_cents",
+      "value_type": "int64",
+      "int64_value": 800000,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "monthly_net_income_cents",
+      "domain": "cashflow",
+      "name": "monthly_net_income_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "monthly inflow minus outflow"
+    },
+    {
+      "ref": "monthly_outflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_outflow_cents",
+      "value_type": "int64",
+      "int64_value": 155100,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "overall_risk",
+      "domain": "debt_decision",
+      "name": "overall_risk",
+      "value_type": "string",
+      "string_value": "medium",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer risk state"
+    },
+    {
+      "ref": "recurring_expense_signal",
+      "domain": "cashflow",
+      "name": "recurring_expense_signal",
+      "value_type": "float64",
+      "float64_value": 0.7891682785299806,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "fixed expenses relative to monthly outflow"
+    },
+    {
+      "ref": "savings_rate",
+      "domain": "cashflow",
+      "name": "savings_rate",
+      "value_type": "float64",
+      "float64_value": 0.8061,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "savings_rate_quality_score",
+      "domain": "cashflow",
+      "name": "savings_rate_quality_score",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "normalized against 20% savings target"
+    },
+    {
+      "ref": "subscription_burden_ratio",
+      "domain": "cashflow",
+      "name": "subscription_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "duplicate subscriptions relative to recurring subscription set"
+    }
+  ],
+  "grounding_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_grounding_validator",
+      "message": "finance recommendation grounding checks passed",
+      "recommended_replan_action": "repair unsupported refs or add required grounding/caveats before publishing the recommendation",
+      "severity": "low",
+      "category": "grounding",
+      "evidence_coverage": {
+        "task_id": "task-debt-vs-invest-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:01:35.050261Z"
+    }
+  ],
+  "numeric_validation_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_numeric_consistency_validator",
+      "message": "numeric consistency checks passed",
+      "recommended_replan_action": "remove unsupported numeric claims or align the recommendation text with deterministic metric records",
+      "severity": "low",
+      "category": "numeric",
+      "evidence_coverage": {
+        "task_id": "task-debt-vs-invest-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:01:35.05029Z"
+    }
+  ],
+  "business_rule_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_business_rule_validator",
+      "message": "financial business-rule checks passed",
+      "recommended_replan_action": "repair recommendation risk/caveat/approval semantics to satisfy finance business rules",
+      "severity": "low",
+      "category": "business",
+      "evidence_coverage": {
+        "task_id": "task-debt-vs-invest-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:01:35.050302Z"
+    }
+  ],
+  "policy_rule_hits": [
+    {
+      "decision_id": "workflow-debt-vs-invest-20260330080000-action",
+      "rule_ref": "approval.invest_more.low_liquidity_or_high_debt",
+      "outcome": "require_approval",
+      "reason": "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+      "occurred_at": "2026-03-29T19:01:35.05032Z",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000"
+    },
+    {
+      "decision_id": "workflow-debt-vs-invest-20260330080000-action",
+      "rule_ref": "approval.low_liquidity_aggressive_invest",
+      "outcome": "require_approval",
+      "reason": "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+      "occurred_at": "2026-03-29T19:01:35.05032Z",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000"
+    }
+  ],
+  "approval_triggers": [
+    {
+      "action": "debt_vs_invest_recommendation",
+      "resource": "task-debt-vs-invest-20260330",
+      "outcome": "require_approval",
+      "reason": "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+      "policy_rule_refs": [
+        "approval.invest_more.low_liquidity_or_high_debt",
+        "approval.low_liquidity_aggressive_invest"
+      ],
+      "occurred_at": "2026-03-29T19:01:35.05032Z",
+      "correlation_id": "workflow-debt-vs-invest-20260330080000"
+    }
+  ],
+  "prompt_renders": [
+    {
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "model_profile": "cashflow_fast",
+      "selected_state_blocks": [
+        "cashflow_state",
+        "portfolio_state",
+        "risk_state"
+      ],
+      "selected_memory_ids": [
+        "workflow-debt-vs-invest-20260330080000-memory-debt-comparison"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-portfolio-snapshot-user-1-20260330080000"
+      ],
+      "applied_policy": "context_then_grounded_metrics",
+      "render_decisions": [
+        "applied_policy=context_then_grounded_metrics",
+        "section_order=context-\u003egrounded_metrics-\u003eevidence-\u003ememory"
+      ],
+      "estimated_input_tokens": 651,
+      "rendered_at": "2026-03-29T19:01:35.049756Z"
+    }
+  ],
+  "llm_calls": [
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-fast-model",
+      "profile": "cashflow_fast",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "latency_ms": 20,
+      "started_at": "2026-03-29T19:01:35.049764Z",
+      "completed_at": "2026-03-29T19:01:35.049772Z"
+    }
+  ],
+  "usage": [
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-fast-model",
+      "profile": "cashflow_fast",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "prompt_tokens": 650,
+      "completion_tokens": 277,
+      "total_tokens": 927,
+      "estimated_cost_usd": 0.000927,
+      "recorded_at": "2026-03-29T19:01:35.049773Z"
+    }
+  ],
+  "structured_outputs": [
+    {
+      "schema_name": "CashflowAnalysisSchema",
+      "trace_id": "workflow-debt-vs-invest-20260330080000",
+      "workflow_id": "workflow-debt-vs-invest-20260330080000",
+      "task_id": "task-debt-vs-invest-20260330",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "parse_attempts": 1,
+      "repair_attempts": 0,
+      "fallback_used": false,
+      "recorded_at": "2026-03-29T19:01:35.049903Z"
+    }
+  ],
+  "generated_at": "2026-03-29T19:01:35.050332Z"
+}

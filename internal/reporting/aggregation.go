@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
 	"github.com/kobelakers/personal-cfo-os/internal/skills"
@@ -16,6 +17,7 @@ import (
 
 type MonthlyReviewAggregator struct {
 	TaxSignals tools.ComputeTaxSignalTool
+	Engine     finance.Engine
 	Now        func() time.Time
 }
 
@@ -57,27 +59,39 @@ func (a MonthlyReviewAggregator) Aggregate(spec taskspec.TaskSpec, workflowID st
 	}
 
 	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
-	riskItems := append(riskFlagsToSkillItems(cashflow.RiskFlags), riskFlagsToSkillItems(debt.RiskFlags)...)
-	optimizationSuggestions := append(append([]skills.SkillItem{}, cashflow.Recommendations...), debt.Recommendations...)
-	todoItems := deriveTodoItems(optimizationSuggestions)
+	riskFlags := append(append([]analysis.RiskFlag{}, cashflow.RiskFlags...), debt.RiskFlags...)
+	recommendations := append(append([]analysis.Recommendation{}, cashflow.Recommendations...), debt.Recommendations...)
+	riskItems := riskFlagsToSkillItems(riskFlags)
+	optimizationSuggestions := recommendationsToSkillItems(recommendations)
+	todoItems := deriveTodoItems(recommendations)
 	summaryParts := make([]string, 0, len(ordered))
 	for _, item := range ordered {
 		summaryParts = append(summaryParts, item.Summary())
 	}
-	taxSignals := a.TaxSignals.Compute(input.CurrentState)
+	engine := a.engine()
+	taxSignals := taxMetricsMap(engine.Tax(input.CurrentState, input.Evidence, a.now()).Metrics)
+	metricRecords := appendMetricRecords(cashflow.MetricRecords, debt.MetricRecords)
+	overallRiskApproval := input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical"
 	return MonthlyReviewReport{
 		TaskID:                  spec.ID,
 		WorkflowID:              workflowID,
 		Summary:                 strings.Join(summaryParts, " "),
 		CashflowMetrics:         cashflowMetricsMap(cashflow.DeterministicMetrics),
 		TaxSignals:              taxSignals,
+		MetricRecords:           metricRecords,
 		RiskItems:               riskItems,
+		RiskFlags:               riskFlags,
 		OptimizationSuggestions: optimizationSuggestions,
+		Recommendations:         recommendations,
 		TodoItems:               todoItems,
 		SourceBlockIDs:          sourceBlockIDs,
 		SourceMemoryIDs:         sourceMemoryIDs,
 		SourceEvidenceIDs:       sourceEvidenceIDs,
-		ApprovalRequired:        input.CurrentState.RiskState.OverallRisk == "high",
+		GroundingRefs:           appendGroundingRefs(cashflow.GroundingRefs, debt.GroundingRefs),
+		Caveats:                 appendCaveats(cashflow.Caveats, debt.Caveats),
+		ApprovalRequired:        overallRiskApproval || cashflow.ApprovalRequired || debt.ApprovalRequired,
+		ApprovalReason:          firstNonEmpty(cashflow.ApprovalReason, debt.ApprovalReason, overallRiskApprovalReason(overallRiskApproval)),
+		PolicyRuleRefs:          appendPolicyRuleRefs(cashflow.PolicyRuleRefs, debt.PolicyRuleRefs),
 		Confidence:              averageConfidence(ordered),
 		GeneratedAt:             a.now(),
 	}, nil
@@ -107,23 +121,32 @@ func (a DebtDecisionAggregator) Aggregate(spec taskspec.TaskSpec, workflowID str
 	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
 	reasons := append([]string{}, cashflow.KeyFindings...)
 	reasons = append(reasons, debt.KeyFindings...)
-	actions := append(append([]skills.SkillItem{}, cashflow.Recommendations...), debt.Recommendations...)
+	recommendations := append(append([]analysis.Recommendation{}, cashflow.Recommendations...), debt.Recommendations...)
+	actions := recommendationsToSkillItems(recommendations)
 	conclusionParts := make([]string, 0, len(ordered))
 	for _, item := range ordered {
 		conclusionParts = append(conclusionParts, item.Summary())
 	}
+	overallRiskApproval := input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical"
 	return DebtDecisionReport{
 		TaskID:            spec.ID,
 		WorkflowID:        workflowID,
 		Conclusion:        strings.Join(conclusionParts, " "),
 		Reasons:           reasons,
 		Actions:           actions,
+		Recommendations:   recommendations,
+		RiskFlags:         append(append([]analysis.RiskFlag{}, cashflow.RiskFlags...), debt.RiskFlags...),
 		Metrics:           debtDecisionMetricsMap(cashflow.DeterministicMetrics, debt.DeterministicMetrics),
+		MetricRecords:     appendMetricRecords(cashflow.MetricRecords, debt.MetricRecords),
 		EvidenceIDs:       sourceEvidenceIDs,
 		SourceBlockIDs:    sourceBlockIDs,
 		SourceMemoryIDs:   sourceMemoryIDs,
 		SourceEvidenceIDs: sourceEvidenceIDs,
-		ApprovalRequired:  input.CurrentState.RiskState.OverallRisk == "high",
+		GroundingRefs:     appendGroundingRefs(cashflow.GroundingRefs, debt.GroundingRefs),
+		Caveats:           appendCaveats(cashflow.Caveats, debt.Caveats),
+		ApprovalRequired:  overallRiskApproval || cashflow.ApprovalRequired || debt.ApprovalRequired,
+		ApprovalReason:    firstNonEmpty(cashflow.ApprovalReason, debt.ApprovalReason, overallRiskApprovalReason(overallRiskApproval)),
+		PolicyRuleRefs:    appendPolicyRuleRefs(cashflow.PolicyRuleRefs, debt.PolicyRuleRefs),
 		Confidence:        averageConfidence(ordered),
 		GeneratedAt:       a.now(),
 	}, nil
@@ -189,12 +212,18 @@ func (a TaxOptimizationAggregator) Aggregate(spec taskspec.TaskSpec, workflowID 
 		WorkflowID:           workflowID,
 		Summary:              result.Summary,
 		DeterministicMetrics: taxMetricsMap(result.DeterministicMetrics),
-		RecommendedActions:   append([]skills.SkillItem{}, result.Recommendations...),
+		RecommendedActions:   recommendationsToSkillItems(result.Recommendations),
+		Recommendations:      append([]analysis.Recommendation{}, result.Recommendations...),
+		MetricRecords:        append([]finance.MetricRecord{}, result.MetricRecords...),
 		SourceBlockIDs:       sourceBlockIDs,
 		SourceMemoryIDs:      sourceMemoryIDs,
 		SourceEvidenceIDs:    sourceEvidenceIDs,
 		RiskFlags:            append([]analysis.RiskFlag{}, result.RiskFlags...),
-		ApprovalRequired:     input.CurrentState.RiskState.OverallRisk == "high",
+		GroundingRefs:        append([]string{}, result.GroundingRefs...),
+		Caveats:              append([]string{}, result.Caveats...),
+		ApprovalRequired:     result.ApprovalRequired || input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical",
+		ApprovalReason:       firstNonEmpty(result.ApprovalReason, overallRiskApprovalReason(input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical")),
+		PolicyRuleRefs:       append([]string{}, result.PolicyRuleRefs...),
 		Confidence:           result.Confidence,
 		GeneratedAt:          a.now(),
 	}, nil
@@ -215,12 +244,18 @@ func (a PortfolioRebalanceAggregator) Aggregate(spec taskspec.TaskSpec, workflow
 		WorkflowID:           workflowID,
 		Summary:              result.Summary,
 		DeterministicMetrics: portfolioMetricsMap(result.DeterministicMetrics),
-		RecommendedActions:   append([]skills.SkillItem{}, result.Recommendations...),
+		RecommendedActions:   recommendationsToSkillItems(result.Recommendations),
+		Recommendations:      append([]analysis.Recommendation{}, result.Recommendations...),
+		MetricRecords:        append([]finance.MetricRecord{}, result.MetricRecords...),
 		SourceBlockIDs:       sourceBlockIDs,
 		SourceMemoryIDs:      sourceMemoryIDs,
 		SourceEvidenceIDs:    sourceEvidenceIDs,
 		RiskFlags:            append([]analysis.RiskFlag{}, result.RiskFlags...),
-		ApprovalRequired:     input.CurrentState.RiskState.OverallRisk == "high",
+		GroundingRefs:        append([]string{}, result.GroundingRefs...),
+		Caveats:              append([]string{}, result.Caveats...),
+		ApprovalRequired:     result.ApprovalRequired || input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical",
+		ApprovalReason:       firstNonEmpty(result.ApprovalReason, overallRiskApprovalReason(input.CurrentState.RiskState.OverallRisk == "high" || input.CurrentState.RiskState.OverallRisk == "critical")),
+		PolicyRuleRefs:       append([]string{}, result.PolicyRuleRefs...),
 		Confidence:           result.Confidence,
 		GeneratedAt:          a.now(),
 	}, nil
@@ -287,14 +322,25 @@ func riskFlagsToSkillItems(flags []analysis.RiskFlag) []skills.SkillItem {
 	return result
 }
 
-func deriveTodoItems(items []skills.SkillItem) []skills.SkillItem {
+func recommendationsToSkillItems(items []analysis.Recommendation) []skills.SkillItem {
 	result := make([]skills.SkillItem, 0, len(items))
 	for _, item := range items {
 		result = append(result, skills.SkillItem{
-			Title:       item.Title,
-			Detail:      item.Detail,
-			Severity:    item.Severity,
-			EvidenceIDs: item.EvidenceIDs,
+			Title:    item.Title,
+			Detail:   item.Detail,
+			Severity: string(item.RiskLevel),
+		})
+	}
+	return result
+}
+
+func deriveTodoItems(items []analysis.Recommendation) []skills.SkillItem {
+	result := make([]skills.SkillItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, skills.SkillItem{
+			Title:    item.Title,
+			Detail:   item.Detail,
+			Severity: string(item.RiskLevel),
 		})
 	}
 	return result
@@ -341,6 +387,75 @@ func portfolioMetricsMap(metrics analysis.PortfolioDeterministicMetrics) map[str
 		"max_allocation_drift":          metrics.MaxAllocationDrift,
 		"cash_allocation":               metrics.CashAllocation,
 	}
+}
+
+func appendMetricRecords(groups ...[]finance.MetricRecord) []finance.MetricRecord {
+	seen := make(map[string]struct{})
+	result := make([]finance.MetricRecord, 0)
+	for _, group := range groups {
+		for _, record := range group {
+			if record.Ref == "" {
+				continue
+			}
+			if _, ok := seen[record.Ref]; ok {
+				continue
+			}
+			seen[record.Ref] = struct{}{}
+			result = append(result, record)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Ref < result[j].Ref })
+	return result
+}
+
+func appendGroundingRefs(groups ...[]string) []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for _, group := range groups {
+		for _, item := range group {
+			if item == "" {
+				continue
+			}
+			if _, ok := seen[item]; ok {
+				continue
+			}
+			seen[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func appendPolicyRuleRefs(groups ...[]string) []string {
+	return appendGroundingRefs(groups...)
+}
+
+func appendCaveats(groups ...[]string) []string {
+	return appendGroundingRefs(groups...)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func overallRiskApprovalReason(active bool) string {
+	if !active {
+		return ""
+	}
+	return "当前总体风险已处于高位，需要治理审批后再发布最终建议"
+}
+
+func (a MonthlyReviewAggregator) engine() finance.Engine {
+	if a.Engine != nil {
+		return a.Engine
+	}
+	return finance.DeterministicEngine{}
 }
 
 func averageConfidence(results []analysis.BlockResultEnvelope) float64 {

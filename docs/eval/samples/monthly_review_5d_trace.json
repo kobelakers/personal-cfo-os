@@ -1,0 +1,1772 @@
+{
+  "workflow_id": "workflow-monthly-review-20260330080000",
+  "trace_id": "workflow-monthly-review-20260330080000",
+  "timeline": [
+    {
+      "state": "planning",
+      "event": "checkpoint_created",
+      "summary": "observation completed",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "state": "acting",
+      "event": "checkpoint_created",
+      "summary": "state updated from evidence patch",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "state": "acting",
+      "event": "checkpoint_created",
+      "summary": "system agent draft completed",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "66298492d20109e4",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "state": "planning",
+      "resume_state": "planning",
+      "state_version": 0,
+      "summary": "observation completed",
+      "captured_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "daf84e685624428c",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "state": "acting",
+      "resume_state": "acting",
+      "state_version": 1,
+      "summary": "state updated from evidence patch",
+      "captured_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "4ccf91d2d81ef8b0",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "state": "acting",
+      "resume_state": "verifying",
+      "state_version": 1,
+      "summary": "system agent draft completed",
+      "captured_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "agent_executions": [
+    {
+      "dispatch_id": "0eb944629c15b1ad",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "workflow-monthly-review-20260330080000",
+      "request_message_id": "3b3b7ae26b609e77",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "0eb944629c15b1ad",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "workflow-monthly-review-20260330080000",
+      "request_message_id": "3b3b7ae26b609e77",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "0eb944629c15b1ad",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "memory_steward",
+      "request_kind": "memory_sync_request",
+      "result_kind": "memory_sync_result",
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "workflow-monthly-review-20260330080000",
+      "request_message_id": "3b3b7ae26b609e77",
+      "result_message_id": "f27081b65f890284",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "5ff70822c2a7a431",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "f27081b65f890284",
+      "request_message_id": "cbc33657f2a9aa54",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "5ff70822c2a7a431",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "f27081b65f890284",
+      "request_message_id": "cbc33657f2a9aa54",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "5ff70822c2a7a431",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "planner_agent",
+      "request_kind": "plan_request",
+      "result_kind": "plan_result",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "f27081b65f890284",
+      "request_message_id": "cbc33657f2a9aa54",
+      "result_message_id": "505711db60f1a955",
+      "workflow_event_types": [
+        "plan_created"
+      ],
+      "result_summary": "generated 2 execution blocks",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "dbd9e47d8ef6eb78",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-review",
+      "block_kind": "cashflow_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "behavior_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "505711db60f1a955",
+      "request_message_id": "42fb3f3fd82a9c06",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "dbd9e47d8ef6eb78",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-review",
+      "block_kind": "cashflow_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "behavior_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "505711db60f1a955",
+      "request_message_id": "42fb3f3fd82a9c06",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "dbd9e47d8ef6eb78",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "cashflow_agent",
+      "request_kind": "cashflow_analysis_request",
+      "result_kind": "cashflow_analysis_result",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "cashflow-review",
+      "block_kind": "cashflow_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "behavior_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "505711db60f1a955",
+      "request_message_id": "42fb3f3fd82a9c06",
+      "result_message_id": "c11c11faec3cde83",
+      "result_summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1276b9b0afb50848",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "debt-review",
+      "block_kind": "debt_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "c11c11faec3cde83",
+      "request_message_id": "572e398b8701e856",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1276b9b0afb50848",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "debt-review",
+      "block_kind": "debt_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "c11c11faec3cde83",
+      "request_message_id": "572e398b8701e856",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "1276b9b0afb50848",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "debt_agent",
+      "request_kind": "debt_analysis_request",
+      "result_kind": "debt_analysis_result",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "block_id": "debt-review",
+      "block_kind": "debt_review_block",
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "c11c11faec3cde83",
+      "request_message_id": "572e398b8701e856",
+      "result_message_id": "d62960f7adbdc5fa",
+      "result_summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fec30982387ca9f9",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "d62960f7adbdc5fa",
+      "request_message_id": "73e016bb126765ae",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fec30982387ca9f9",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "d62960f7adbdc5fa",
+      "request_message_id": "73e016bb126765ae",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fec30982387ca9f9",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_draft_request",
+      "result_kind": "report_draft_result",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "d62960f7adbdc5fa",
+      "request_message_id": "73e016bb126765ae",
+      "result_message_id": "41bfe8bce51946fc",
+      "result_summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "943ba9dd6c3ea425",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "41bfe8bce51946fc",
+      "request_message_id": "2a6e5632d7119d0b",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "943ba9dd6c3ea425",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "41bfe8bce51946fc",
+      "request_message_id": "2a6e5632d7119d0b",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "943ba9dd6c3ea425",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "verification_agent",
+      "request_kind": "verification_request",
+      "result_kind": "verification_result",
+      "plan_id": "workflow-monthly-review-20260330080000-plan-20260330080000",
+      "plan_block_ids": [
+        "cashflow-review",
+        "debt-review"
+      ],
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "41bfe8bce51946fc",
+      "request_message_id": "2a6e5632d7119d0b",
+      "result_message_id": "38a5e14cda0047eb",
+      "result_summary": "verification produced 10 results",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fc183e08f6d3b26a",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "38a5e14cda0047eb",
+      "request_message_id": "ba09364fe444664a",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fc183e08f6d3b26a",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "38a5e14cda0047eb",
+      "request_message_id": "ba09364fe444664a",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "fc183e08f6d3b26a",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "governance_agent",
+      "request_kind": "governance_evaluation_request",
+      "result_kind": "governance_evaluation_result",
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "38a5e14cda0047eb",
+      "request_message_id": "ba09364fe444664a",
+      "result_message_id": "e6f04d7716f88fe7",
+      "result_summary": "approval=allow disclosure=allow",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "10b8e377e4b20530",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_finalize_request",
+      "lifecycle": "agent_dispatched",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "e6f04d7716f88fe7",
+      "request_message_id": "4f55e9881c8d8134",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "10b8e377e4b20530",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_finalize_request",
+      "lifecycle": "agent_handler_started",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "e6f04d7716f88fe7",
+      "request_message_id": "4f55e9881c8d8134",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "dispatch_id": "10b8e377e4b20530",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "recipient": "report_agent",
+      "request_kind": "report_finalize_request",
+      "result_kind": "report_finalize_result",
+      "lifecycle": "agent_handler_completed",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "causation_id": "e6f04d7716f88fe7",
+      "request_message_id": "4f55e9881c8d8134",
+      "result_message_id": "89ef50499b5d25d8",
+      "workflow_event_types": [
+        "report_ready"
+      ],
+      "result_summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "events": [
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "checkpoint",
+      "message": "observation completed",
+      "details": {
+        "checkpoint_id": "66298492d20109e4",
+        "state": "planning"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "checkpoint",
+      "message": "state updated from evidence patch",
+      "details": {
+        "checkpoint_id": "daf84e685624428c",
+        "state": "acting"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "0eb944629c15b1ad",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "0eb944629c15b1ad",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "0eb944629c15b1ad",
+        "recipient": "memory_steward",
+        "request_kind": "memory_sync_request",
+        "result_kind": "memory_sync_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "5ff70822c2a7a431",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "5ff70822c2a7a431",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "5ff70822c2a7a431",
+        "recipient": "planner_agent",
+        "request_kind": "plan_request",
+        "result_kind": "plan_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "dbd9e47d8ef6eb78",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "dbd9e47d8ef6eb78",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "dbd9e47d8ef6eb78",
+        "recipient": "cashflow_agent",
+        "request_kind": "cashflow_analysis_request",
+        "result_kind": "cashflow_analysis_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "1276b9b0afb50848",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "1276b9b0afb50848",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "1276b9b0afb50848",
+        "recipient": "debt_agent",
+        "request_kind": "debt_analysis_request",
+        "result_kind": "debt_analysis_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "fec30982387ca9f9",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "fec30982387ca9f9",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "fec30982387ca9f9",
+        "recipient": "report_agent",
+        "request_kind": "report_draft_request",
+        "result_kind": "report_draft_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "checkpoint",
+      "message": "system agent draft completed",
+      "details": {
+        "checkpoint_id": "4ccf91d2d81ef8b0",
+        "state": "acting"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "943ba9dd6c3ea425",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "943ba9dd6c3ea425",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "943ba9dd6c3ea425",
+        "recipient": "verification_agent",
+        "request_kind": "verification_request",
+        "result_kind": "verification_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "fc183e08f6d3b26a",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "fc183e08f6d3b26a",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "fc183e08f6d3b26a",
+        "recipient": "governance_agent",
+        "request_kind": "governance_evaluation_request",
+        "result_kind": "governance_evaluation_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_dispatched",
+      "details": {
+        "dispatch_id": "10b8e377e4b20530",
+        "recipient": "report_agent",
+        "request_kind": "report_finalize_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_started",
+      "details": {
+        "dispatch_id": "10b8e377e4b20530",
+        "recipient": "report_agent",
+        "request_kind": "report_finalize_request",
+        "result_kind": ""
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "correlation_id": "workflow-monthly-review-20260330080000",
+      "category": "agent",
+      "message": "agent_handler_completed",
+      "details": {
+        "dispatch_id": "10b8e377e4b20530",
+        "recipient": "report_agent",
+        "request_kind": "report_finalize_request",
+        "result_kind": "report_finalize_result"
+      },
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "memory_access": [
+    {
+      "id": "workflow-monthly-review-20260330080000-memory-subscriptions-write-1774857600000000000",
+      "memory_id": "workflow-monthly-review-20260330080000-memory-subscriptions",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "workflow-monthly-review-20260330080000-memory-late-night-write-1774857600000000000",
+      "memory_id": "workflow-monthly-review-20260330080000-memory-late-night",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "workflow-monthly-review-20260330080000-memory-debt-pressure-write-1774857600000000000",
+      "memory_id": "workflow-monthly-review-20260330080000-memory-debt-pressure",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "workflow-monthly-review-20260330080000-memory-tax-signal-write-1774857600000000000",
+      "memory_id": "workflow-monthly-review-20260330080000-memory-tax-signal",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "id": "workflow-monthly-review-20260330080000-memory-procedure-write-1774857600000000000",
+      "memory_id": "workflow-monthly-review-20260330080000-memory-procedure",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "accessor": "memory_steward",
+      "purpose": "persist memory record",
+      "action": "write",
+      "accessed_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "memory_queries": [
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:planning",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "planner_agent",
+      "context_view": "planning",
+      "text": "请帮我做一份月度财务复盘",
+      "lexical_terms": [
+        "cashflow",
+        "liability",
+        "portfolio",
+        "tax",
+        "behavior",
+        "subscriptions",
+        "debt",
+        "liquidity"
+      ],
+      "semantic_hint": "monthly financial review planning, prior risk signals, prior recommendations, decision emphasis",
+      "top_k": 4,
+      "retrieval_policy": "monthly_review_planning",
+      "freshness_policy": "monthly_review_default",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:cashflow",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "cashflow_agent",
+      "context_view": "execution",
+      "text": "请帮我做一份月度财务复盘",
+      "lexical_terms": [
+        "cashflow",
+        "liability",
+        "portfolio",
+        "tax",
+        "behavior",
+        "subscriptions",
+        "recurring",
+        "late-night",
+        "spending",
+        "debt",
+        "payment",
+        "deadline",
+        "subscription"
+      ],
+      "semantic_hint": "monthly cashflow review, spending anomalies, recurring subscriptions, cashflow stability, recommendation framing",
+      "top_k": 4,
+      "retrieval_policy": "monthly_review_cashflow",
+      "freshness_policy": "monthly_review_default",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "memory_retrievals": [
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:planning",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "planner_agent",
+      "retrieval_policy": "monthly_review_planning",
+      "freshness_policy": "monthly_review_default",
+      "fusion_summary": "lexical+semantic via reciprocal rank fusion",
+      "results": [
+        {
+          "memory_id": "",
+          "score": 0,
+          "reason": "",
+          "rejected": true,
+          "rejection_rule": "empty_hit",
+          "rejection_reason": "retrieval returned no candidates",
+          "selected": false,
+          "memory": {
+            "id": "",
+            "kind": "",
+            "summary": "",
+            "facts": null,
+            "source": {},
+            "confidence": {
+              "score": 0,
+              "rationale": ""
+            },
+            "created_at": "0001-01-01T00:00:00Z",
+            "updated_at": "0001-01-01T00:00:00Z"
+          }
+        }
+      ],
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:cashflow",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "cashflow_agent",
+      "retrieval_policy": "monthly_review_cashflow",
+      "freshness_policy": "monthly_review_default",
+      "fusion_summary": "lexical+semantic via reciprocal rank fusion",
+      "results": [
+        {
+          "memory_id": "",
+          "score": 0,
+          "reason": "",
+          "rejected": true,
+          "rejection_rule": "empty_hit",
+          "rejection_reason": "retrieval returned no candidates",
+          "selected": false,
+          "memory": {
+            "id": "",
+            "kind": "",
+            "summary": "",
+            "facts": null,
+            "source": {},
+            "confidence": {
+              "score": 0,
+              "rationale": ""
+            },
+            "created_at": "0001-01-01T00:00:00Z",
+            "updated_at": "0001-01-01T00:00:00Z"
+          }
+        }
+      ],
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "memory_selections": [
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:planning",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "planner_agent",
+      "reason": "selected memories injected into downstream context",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    },
+    {
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:cashflow",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "consumer": "cashflow_agent",
+      "reason": "selected memories injected into downstream context",
+      "occurred_at": "2026-03-30T08:00:00Z"
+    }
+  ],
+  "embedding_calls": [
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "planner_agent",
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:planning",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.787168Z",
+      "completed_at": "2026-03-29T19:00:53.787171Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "cashflow_agent",
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:cashflow",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.787217Z",
+      "completed_at": "2026-03-29T19:00:53.787219Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.787273Z",
+      "completed_at": "2026-03-29T19:00:53.787275Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.78761Z",
+      "completed_at": "2026-03-29T19:00:53.787612Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.787909Z",
+      "completed_at": "2026-03-29T19:00:53.787911Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.788197Z",
+      "completed_at": "2026-03-29T19:00:53.788199Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "latency_ms": 5,
+      "started_at": "2026-03-29T19:00:53.788548Z",
+      "completed_at": "2026-03-29T19:00:53.788552Z"
+    }
+  ],
+  "embedding_usage": [
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "planner_agent",
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:planning",
+      "input_tokens": 12,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.787171Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "cashflow_agent",
+      "query_id": "workflow-monthly-review-20260330080000:task-monthly-review-20260330:cashflow",
+      "input_tokens": 12,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.787219Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 15,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.787275Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 17,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.787612Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 20,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.787911Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 23,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.788199Z"
+    },
+    {
+      "provider": "static-keyword",
+      "model": "mock-embedding-model",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "trace:workflow-monthly-review-20260330080000:task-monthly-review-20260330:memory_steward",
+      "actor": "memory_steward",
+      "input_tokens": 22,
+      "estimated_cost_usd": 0,
+      "recorded_at": "2026-03-29T19:00:53.788552Z"
+    }
+  ],
+  "policy_decisions": [
+    {
+      "id": "workflow-monthly-review-20260330080000-action",
+      "actor": "governance_agent",
+      "action": "monthly_review_report",
+      "resource": "task-monthly-review-20260330",
+      "outcome": "allow",
+      "reason": "action allowed by default",
+      "occurred_at": "2026-03-29T19:00:53.790408Z",
+      "correlation_id": "workflow-monthly-review-20260330080000"
+    }
+  ],
+  "finance_metrics": [
+    {
+      "ref": "average_apr",
+      "domain": "debt_decision",
+      "name": "average_apr",
+      "value_type": "float64",
+      "float64_value": 0.0798,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "cash_buffer_impact",
+      "domain": "debt_decision",
+      "name": "cash_buffer_impact",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "one-month surplus relative to monthly outflow"
+    },
+    {
+      "ref": "debt_burden_ratio",
+      "domain": "debt_decision",
+      "name": "debt_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "debt_payoff_pressure",
+      "domain": "debt_decision",
+      "name": "debt_payoff_pressure",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "debt_pressure_score",
+      "domain": "cashflow",
+      "name": "debt_pressure_score",
+      "value_type": "float64",
+      "float64_value": 0.3192,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "derived from debt burden, minimum payment pressure, and APR"
+    },
+    {
+      "ref": "duplicate_subscription_count",
+      "domain": "cashflow",
+      "name": "duplicate_subscription_count",
+      "value_type": "int64",
+      "int64_value": 2,
+      "unit": "count",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "effective_tradeoff_score",
+      "domain": "debt_decision",
+      "name": "effective_tradeoff_score",
+      "value_type": "float64",
+      "float64_value": 0.6808000000000001,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "investable surplus signal minus debt payoff pressure"
+    },
+    {
+      "ref": "emergency_fund_coverage_months",
+      "domain": "cashflow",
+      "name": "emergency_fund_coverage_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from portfolio emergency fund coverage"
+    },
+    {
+      "ref": "investable_surplus_cents",
+      "domain": "debt_decision",
+      "name": "investable_surplus_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max(monthly net income, 0)"
+    },
+    {
+      "ref": "late_night_spending_frequency",
+      "domain": "cashflow",
+      "name": "late_night_spending_frequency",
+      "value_type": "float64",
+      "float64_value": 0.3333,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer behavior state"
+    },
+    {
+      "ref": "liquidity_after_paydown",
+      "domain": "debt_decision",
+      "name": "liquidity_after_paydown",
+      "value_type": "float64",
+      "float64_value": 0.29000000000000004,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "emergency fund months after allocating one month surplus to debt paydown"
+    },
+    {
+      "ref": "liquidity_buffer_months",
+      "domain": "cashflow",
+      "name": "liquidity_buffer_months",
+      "value_type": "float64",
+      "float64_value": 1.29,
+      "unit": "months",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "current emergency fund coverage reused as liquidity buffer metric"
+    },
+    {
+      "ref": "max_allocation_drift",
+      "domain": "debt_decision",
+      "name": "max_allocation_drift",
+      "value_type": "float64",
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "max absolute allocation drift"
+    },
+    {
+      "ref": "minimum_payment_pressure",
+      "domain": "debt_decision",
+      "name": "minimum_payment_pressure",
+      "value_type": "float64",
+      "float64_value": 0.0338,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer liability state"
+    },
+    {
+      "ref": "monthly_inflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_inflow_cents",
+      "value_type": "int64",
+      "int64_value": 800000,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "monthly_net_income_cents",
+      "domain": "cashflow",
+      "name": "monthly_net_income_cents",
+      "value_type": "int64",
+      "int64_value": 644900,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "monthly inflow minus outflow"
+    },
+    {
+      "ref": "monthly_outflow_cents",
+      "domain": "cashflow",
+      "name": "monthly_outflow_cents",
+      "value_type": "int64",
+      "int64_value": 155100,
+      "unit": "cents",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "overall_risk",
+      "domain": "debt_decision",
+      "name": "overall_risk",
+      "value_type": "string",
+      "string_value": "medium",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "derivation": "copied from reducer risk state"
+    },
+    {
+      "ref": "recurring_expense_signal",
+      "domain": "cashflow",
+      "name": "recurring_expense_signal",
+      "value_type": "float64",
+      "float64_value": 0.7891682785299806,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "fixed expenses relative to monthly outflow"
+    },
+    {
+      "ref": "savings_rate",
+      "domain": "cashflow",
+      "name": "savings_rate",
+      "value_type": "float64",
+      "float64_value": 0.8061,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "copied from reducer cashflow state"
+    },
+    {
+      "ref": "savings_rate_quality_score",
+      "domain": "cashflow",
+      "name": "savings_rate_quality_score",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "score",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "normalized against 20% savings target"
+    },
+    {
+      "ref": "subscription_burden_ratio",
+      "domain": "cashflow",
+      "name": "subscription_burden_ratio",
+      "value_type": "float64",
+      "float64_value": 1,
+      "unit": "ratio",
+      "as_of": "2026-03-30T08:00:00Z",
+      "source_refs": [
+        "user-1",
+        "doc-payslip"
+      ],
+      "evidence_refs": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "derivation": "duplicate subscriptions relative to recurring subscription set"
+    }
+  ],
+  "grounding_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_grounding_validator",
+      "message": "finance recommendation grounding checks passed",
+      "recommended_replan_action": "repair unsupported refs or add required grounding/caveats before publishing the recommendation",
+      "severity": "low",
+      "category": "grounding",
+      "evidence_coverage": {
+        "task_id": "task-monthly-review-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:00:53.790373Z"
+    }
+  ],
+  "numeric_validation_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_numeric_consistency_validator",
+      "message": "numeric consistency checks passed",
+      "recommended_replan_action": "remove unsupported numeric claims or align the recommendation text with deterministic metric records",
+      "severity": "low",
+      "category": "numeric",
+      "evidence_coverage": {
+        "task_id": "task-monthly-review-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:00:53.79039Z"
+    }
+  ],
+  "business_rule_verdicts": [
+    {
+      "status": "pass",
+      "scope": "final",
+      "validator": "financial_business_rule_validator",
+      "message": "financial business-rule checks passed",
+      "recommended_replan_action": "repair recommendation risk/caveat/approval semantics to satisfy finance business rules",
+      "severity": "low",
+      "category": "business",
+      "evidence_coverage": {
+        "task_id": "task-monthly-review-20260330",
+        "coverage_ratio": 1,
+        "items": null
+      },
+      "checked_at": "2026-03-29T19:00:53.790394Z"
+    }
+  ],
+  "prompt_renders": [
+    {
+      "prompt_id": "planner.monthly_review.v1",
+      "prompt_version": "v1",
+      "model_profile": "planner_reasoning",
+      "selected_state_blocks": [
+        "cashflow_state",
+        "liability_state",
+        "risk_state",
+        "workflow_state"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-subscription-signal-user-1-20260330080000",
+        "evidence-late-night-signal-user-1-20260330080000",
+        "evidence-debt-snapshot-user-1-20260330080000"
+      ],
+      "selected_skill_names": [
+        "monthly_review"
+      ],
+      "applied_policy": "context_then_candidate_catalog",
+      "render_decisions": [
+        "applied_policy=context_then_candidate_catalog",
+        "section_order=context-\u003ecandidate_blocks-\u003ecandidate_steps"
+      ],
+      "estimated_input_tokens": 720,
+      "rendered_at": "2026-03-29T19:00:53.788941Z"
+    },
+    {
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "model_profile": "cashflow_fast",
+      "selected_state_blocks": [
+        "cashflow_state",
+        "behavior_state",
+        "risk_state"
+      ],
+      "selected_evidence_ids": [
+        "evidence-transaction-batch-user-1-20260330080000",
+        "evidence-document-doc-payslip"
+      ],
+      "applied_policy": "context_then_grounded_metrics",
+      "render_decisions": [
+        "applied_policy=context_then_grounded_metrics",
+        "section_order=context-\u003egrounded_metrics-\u003eevidence-\u003ememory"
+      ],
+      "estimated_input_tokens": 564,
+      "rendered_at": "2026-03-29T19:00:53.78906Z"
+    }
+  ],
+  "llm_calls": [
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-reasoning-model",
+      "profile": "planner_reasoning",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "agent": "planner_agent",
+      "prompt_id": "planner.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "latency_ms": 20,
+      "started_at": "2026-03-29T19:00:53.788953Z",
+      "completed_at": "2026-03-29T19:00:53.788959Z"
+    },
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-fast-model",
+      "profile": "cashflow_fast",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "latency_ms": 20,
+      "started_at": "2026-03-29T19:00:53.78906Z",
+      "completed_at": "2026-03-29T19:00:53.789069Z"
+    }
+  ],
+  "usage": [
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-reasoning-model",
+      "profile": "planner_reasoning",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "agent": "planner_agent",
+      "prompt_id": "planner.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "prompt_tokens": 718,
+      "completion_tokens": 96,
+      "total_tokens": 814,
+      "estimated_cost_usd": 0.000814,
+      "recorded_at": "2026-03-29T19:00:53.78896Z"
+    },
+    {
+      "provider": "mock-openai-compatible",
+      "model": "mock-fast-model",
+      "profile": "cashflow_fast",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "prompt_tokens": 564,
+      "completion_tokens": 237,
+      "total_tokens": 801,
+      "estimated_cost_usd": 0.000801,
+      "recorded_at": "2026-03-29T19:00:53.789069Z"
+    }
+  ],
+  "structured_outputs": [
+    {
+      "schema_name": "PlannerPlanSchema",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "agent": "planner_agent",
+      "prompt_id": "planner.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "parse_attempts": 1,
+      "repair_attempts": 0,
+      "fallback_used": false,
+      "recorded_at": "2026-03-29T19:00:53.788972Z"
+    },
+    {
+      "schema_name": "CashflowAnalysisSchema",
+      "trace_id": "workflow-monthly-review-20260330080000",
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "task_id": "task-monthly-review-20260330",
+      "agent": "cashflow_agent",
+      "prompt_id": "cashflow.monthly_review.v1",
+      "prompt_version": "v1",
+      "generation_phase": "initial",
+      "attempt_index": 1,
+      "parse_attempts": 1,
+      "repair_attempts": 0,
+      "fallback_used": false,
+      "recorded_at": "2026-03-29T19:00:53.78937Z"
+    }
+  ],
+  "generated_at": "2026-03-29T19:00:53.790444Z"
+}

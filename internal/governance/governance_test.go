@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
+	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
 func TestPolicySchemaRoundTrip(t *testing.T) {
@@ -123,7 +125,14 @@ func TestApprovalServiceEvaluatesActionAndReport(t *testing.T) {
 		},
 		RiskState: state.RiskState{OverallRisk: "high"},
 	}
-	evaluation, err := service.EvaluateAction(current, "workflow-1", "monthly_review_report", "task-1", "governance_agent", []string{"analyst"}, false)
+	evaluation, err := service.EvaluateAction(ApprovalEvaluationInput{
+		CurrentState: current,
+		WorkflowID:   "workflow-1",
+		Action:       "monthly_review_report",
+		Resource:     "task-1",
+		Actor:        "governance_agent",
+		ActorRoles:   []string{"analyst"},
+	})
 	if err != nil {
 		t.Fatalf("evaluate action: %v", err)
 	}
@@ -137,5 +146,99 @@ func TestApprovalServiceEvaluatesActionAndReport(t *testing.T) {
 	}
 	if reportEval.Decision.Outcome != PolicyDecisionRedact {
 		t.Fatalf("expected redact decision for pii report")
+	}
+}
+
+func TestApprovalServiceRequiresApprovalForAggressiveInvestRecommendation(t *testing.T) {
+	service := ApprovalService{
+		Classifier:   DefaultRiskClassifier{},
+		Decider:      ApprovalDecider{PolicyEngine: StaticPolicyEngine{}},
+		PolicyEngine: StaticPolicyEngine{},
+		ApprovalPolicy: ApprovalPolicy{
+			Name:          "trustworthy-finance-5d",
+			MinRiskLevel:  ActionRiskHigh,
+			RequiredRoles: []string{"operator"},
+			AutoApprove:   false,
+		},
+		ReportPolicy: ReportDisclosurePolicy{Audience: "operator", AllowPII: false},
+	}
+
+	evaluation, err := service.EvaluateAction(ApprovalEvaluationInput{
+		CurrentState: state.FinancialWorldState{
+			PortfolioState: state.PortfolioState{EmergencyFundMonths: 1.5},
+			LiabilityState: state.LiabilityState{DebtBurdenRatio: 0.4, MinimumPaymentPressure: 0.22},
+			RiskState:      state.RiskState{OverallRisk: "high"},
+		},
+		WorkflowID: "workflow-debt-1",
+		Action:     "debt_vs_invest_recommendation",
+		Resource:   "task-debt-1",
+		Actor:      "governance_agent",
+		ActorRoles: []string{"analyst"},
+		Recommendations: []analysis.Recommendation{
+			{
+				ID:               "rec-invest-more",
+				Type:             analysis.RecommendationTypeInvestMore,
+				Title:            "继续投资",
+				RiskLevel:        taskspec.RiskLevelHigh,
+				ApprovalRequired: true,
+				ApprovalReason:   "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+				Caveats:          []string{"紧急备用金不足时，需要先获得人工审批。"},
+				PolicyRuleRefs:   []string{"approval.invest_more.low_liquidity_or_high_debt"},
+			},
+		},
+		ApprovalRequired: true,
+		ApprovalReason:   "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+		DisclosureReady:  true,
+	})
+	if err != nil {
+		t.Fatalf("evaluate action: %v", err)
+	}
+	if evaluation.Decision == nil || evaluation.Decision.Outcome != PolicyDecisionRequireApproval {
+		t.Fatalf("expected require approval, got %+v", evaluation)
+	}
+	if len(evaluation.Decision.PolicyRuleRefs) == 0 || evaluation.Decision.PolicyRuleRefs[0] == "" {
+		t.Fatalf("expected policy rule refs on approval decision, got %+v", evaluation.Decision)
+	}
+}
+
+func TestApprovalServiceDeniesSensitiveRecommendationWithoutDisclosure(t *testing.T) {
+	service := ApprovalService{
+		Classifier:   DefaultRiskClassifier{},
+		Decider:      ApprovalDecider{PolicyEngine: StaticPolicyEngine{}},
+		PolicyEngine: StaticPolicyEngine{},
+		ApprovalPolicy: ApprovalPolicy{
+			Name:          "trustworthy-finance-5d",
+			MinRiskLevel:  ActionRiskHigh,
+			RequiredRoles: []string{"operator"},
+			AutoApprove:   false,
+		},
+		ReportPolicy: ReportDisclosurePolicy{Audience: "operator", AllowPII: false},
+	}
+
+	evaluation, err := service.EvaluateAction(ApprovalEvaluationInput{
+		CurrentState: state.FinancialWorldState{RiskState: state.RiskState{OverallRisk: "high"}},
+		WorkflowID:   "workflow-tax-1",
+		Action:       "tax_follow_up",
+		Resource:     "task-tax-1",
+		Actor:        "governance_agent",
+		ActorRoles:   []string{"analyst"},
+		Recommendations: []analysis.Recommendation{
+			{
+				ID:        "rec-tax-action",
+				Type:      analysis.RecommendationTypeTaxAction,
+				Title:     "调整预扣",
+				RiskLevel: taskspec.RiskLevelHigh,
+			},
+		},
+		DisclosureReady: false,
+	})
+	if err != nil {
+		t.Fatalf("evaluate action: %v", err)
+	}
+	if evaluation.Decision == nil || evaluation.Decision.Outcome != PolicyDecisionDeny {
+		t.Fatalf("expected deny, got %+v", evaluation)
+	}
+	if len(evaluation.Decision.PolicyRuleRefs) == 0 {
+		t.Fatalf("expected denial policy rule refs, got %+v", evaluation.Decision)
 	}
 }

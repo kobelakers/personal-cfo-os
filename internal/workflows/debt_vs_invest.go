@@ -3,11 +3,13 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/agents"
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
+	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
@@ -144,6 +146,28 @@ func (w DebtVsInvestWorkflow) Run(
 	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
 	runtimeState := runtimepkg.WorkflowStateCompleted
+	if verification.HasTrustFailure(verificationStep.Result.Results) {
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryTrustValidation, "trust validation failed for debt decision report")
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		runtimeState = nextState
+		return DebtDecisionRunResult{
+			WorkflowID:     workflowID,
+			Intake:         intake,
+			TaskSpec:       spec,
+			Plan:           planStep.Plan,
+			Evidence:       observed.Evidence,
+			BlockResults:   blockResults,
+			UpdatedState:   observed.UpdatedState,
+			DraftPayload:   reportDraftStep.Draft,
+			Report:         report,
+			CoverageReport: verificationStep.Result.CoverageReport,
+			Verification:   verificationStep.Result.Results,
+			Oracle:         verificationStep.Result.OracleVerdict,
+			RuntimeState:   runtimeState,
+		}, nil
+	}
 	shouldReplan := verification.NeedsReplan(verificationStep.Result.Results)
 	if shouldReplan {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "decision verification failed; workflow should replan")
@@ -159,6 +183,7 @@ func (w DebtVsInvestWorkflow) Run(
 			Evidence:       observed.Evidence,
 			BlockResults:   blockResults,
 			UpdatedState:   observed.UpdatedState,
+			DraftPayload:   reportDraftStep.Draft,
 			Report:         report,
 			CoverageReport: verificationStep.Result.CoverageReport,
 			Verification:   verificationStep.Result.Results,
@@ -176,6 +201,9 @@ func (w DebtVsInvestWorkflow) Run(
 	var artifacts []WorkflowArtifact
 	var approvalDecision *governance.PolicyDecision
 	var approvalAudit *governance.AuditEvent
+	var checkpoint *runtimepkg.CheckpointRecord
+	var resumeToken *runtimepkg.ResumeToken
+	var pendingApproval *runtimepkg.HumanApprovalPending
 	if governanceStep.Approval.Decision != nil {
 		approvalDecision = governanceStep.Approval.Decision
 	}
@@ -185,20 +213,28 @@ func (w DebtVsInvestWorkflow) Run(
 
 	switch {
 	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionRequireApproval:
-		nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.HumanApprovalPending{
+		pending := runtimepkg.HumanApprovalPending{
 			ApprovalID:      workflowID + "-approval",
 			WorkflowID:      workflowID,
 			RequestedAction: "debt_vs_invest_recommendation",
 			RequiredRoles:   approvalRoles(governanceStep.Approval),
 			RequestedAt:     now,
-		})
+		}
+		cp, token, err := workflowRuntime.Checkpoint(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.WorkflowStateVerifying, observed.UpdatedState.Version.Sequence, "debt decision waiting approval")
+		if err != nil {
+			return DebtDecisionRunResult{}, err
+		}
+		nextState, err := workflowRuntime.PauseForApproval(execCtx, runtimepkg.WorkflowStateVerifying, pending)
 		if err != nil {
 			return DebtDecisionRunResult{}, err
 		}
 		runtimeState = nextState
 		report.ApprovalRequired = true
+		checkpoint = &cp
+		resumeToken = &token
+		pendingApproval = &pending
 	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
-		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied debt decision publication")
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryGovernanceDenied, "governance denied debt decision publication")
 		if err != nil {
 			return DebtDecisionRunResult{}, err
 		}
@@ -219,22 +255,27 @@ func (w DebtVsInvestWorkflow) Run(
 	}
 
 	return DebtDecisionRunResult{
-		WorkflowID:       workflowID,
-		Intake:           intake,
-		TaskSpec:         spec,
-		Plan:             planStep.Plan,
-		Evidence:         observed.Evidence,
-		BlockResults:     blockResults,
-		UpdatedState:     observed.UpdatedState,
-		Report:           report,
-		Artifacts:        artifacts,
-		CoverageReport:   verificationStep.Result.CoverageReport,
-		Verification:     verificationStep.Result.Results,
-		Oracle:           verificationStep.Result.OracleVerdict,
-		RiskAssessment:   governanceStep.Approval.RiskAssessment,
-		ApprovalDecision: approvalDecision,
-		ApprovalAudit:    approvalAudit,
-		RuntimeState:     runtimeState,
+		WorkflowID:         workflowID,
+		Intake:             intake,
+		TaskSpec:           spec,
+		Plan:               planStep.Plan,
+		Evidence:           observed.Evidence,
+		BlockResults:       blockResults,
+		UpdatedState:       observed.UpdatedState,
+		DraftPayload:       reportDraftStep.Draft,
+		DisclosureDecision: governanceStep.Disclosure.Decision,
+		Report:             report,
+		Artifacts:          artifacts,
+		CoverageReport:     verificationStep.Result.CoverageReport,
+		Verification:       verificationStep.Result.Results,
+		Oracle:             verificationStep.Result.OracleVerdict,
+		RiskAssessment:     governanceStep.Approval.RiskAssessment,
+		ApprovalDecision:   approvalDecision,
+		ApprovalAudit:      approvalAudit,
+		Checkpoint:         checkpoint,
+		ResumeToken:        resumeToken,
+		PendingApproval:    pendingApproval,
+		RuntimeState:       runtimeState,
 	}, nil
 }
 
@@ -247,4 +288,66 @@ func (w DebtVsInvestWorkflow) now() time.Time {
 		return w.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func (w DebtVsInvestWorkflow) ResumeAfterApproval(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	activation runtimepkg.FollowUpActivationContext,
+	current state.FinancialWorldState,
+	checkpoint runtimepkg.CheckpointRecord,
+	token runtimepkg.ResumeToken,
+	draft reporting.ReportPayload,
+	disclosure governance.PolicyDecision,
+) (DebtDecisionRunResult, error) {
+	finalized, artifacts, err := resumeFollowUpFinalize(
+		ctx,
+		w.systemSteps(),
+		runtimepkg.ResolveWorkflowRuntime(w.Runtime, checkpoint.WorkflowID, w.Now),
+		checkpoint.WorkflowID,
+		"debt_vs_invest_workflow_resume",
+		spec,
+		activation,
+		current,
+		checkpoint,
+		token,
+		runtimepkg.CheckpointPayloadEnvelope{
+			Kind: runtimepkg.CheckpointPayloadKindFollowUpFinalizeResume,
+			FollowUpFinalizeResume: &runtimepkg.FollowUpFinalizeResumePayload{
+				GraphID:                 firstNonEmptyString(activation.ParentGraphID, checkpoint.WorkflowID),
+				TaskID:                  spec.ID,
+				WorkflowID:              checkpoint.WorkflowID,
+				ArtifactKind:            reporting.ArtifactKindDebtDecisionReport,
+				DraftReport:             draft,
+				DisclosureDecision:      disclosure,
+				PendingStateSnapshotRef: firstNonEmptyString(current.Version.SnapshotID, checkpoint.ID),
+			},
+		},
+	)
+	if err != nil {
+		return DebtDecisionRunResult{}, err
+	}
+	report, err := debtDecisionReportFromPayload(finalized)
+	if err != nil {
+		return DebtDecisionRunResult{}, err
+	}
+	return DebtDecisionRunResult{
+		WorkflowID:         checkpoint.WorkflowID,
+		TaskSpec:           spec,
+		UpdatedState:       current,
+		DraftPayload:       draft,
+		DisclosureDecision: disclosure,
+		Report:             report,
+		Artifacts:          artifacts,
+		RuntimeState:       runtimepkg.WorkflowStateCompleted,
+	}, nil
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

@@ -4,10 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/governance"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/runtime"
+	"github.com/kobelakers/personal-cfo-os/internal/verification"
 )
 
 func TestWorkflowTraceDumpBuildsUnifiedStructuredOutput(t *testing.T) {
@@ -129,5 +131,61 @@ func TestWorkflowTraceDumpPreservesFollowUpCapabilityExplanation(t *testing.T) {
 	}
 	if capabilityEvent.Details["required_capability"] == "" || capabilityEvent.Details["missing_capability_reason"] == "" {
 		t.Fatalf("expected queued_pending_capability explanation in trace dump, got %+v", capabilityEvent)
+	}
+}
+
+func TestWorkflowTraceDumpWithTrustIncludesFinanceAndApprovalEvidence(t *testing.T) {
+	now := time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC)
+	policyRecords := governance.ToObservabilityRecords([]governance.AuditEvent{
+		{
+			ID:             "audit-approval-1",
+			Actor:          "governance_agent",
+			Action:         "debt_vs_invest_recommendation",
+			Resource:       "task-1",
+			Outcome:        "require_approval",
+			Reason:         "低流动性或高债务压力下的 invest_more 建议需要治理审批",
+			PolicyRuleRefs: []string{"approval.invest_more.low_liquidity_or_high_debt"},
+			OccurredAt:     now,
+			CorrelationID:  "trace-5d-1",
+		},
+	})
+	verificationResult := verification.VerificationResult{
+		Status:    verification.VerificationStatusPass,
+		Validator: "financial_grounding_validator",
+		Category:  verification.ValidationCategoryGrounding,
+		CheckedAt: now,
+	}
+
+	dump := observability.BuildWorkflowTraceDumpWithTrust(
+		"workflow-5d-1",
+		"trace-5d-1",
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		policyRecords,
+		nil,
+		nil,
+		nil,
+		nil,
+		observability.TrustTraceBundle{
+			FinanceMetrics: []finance.MetricRecord{
+				{Ref: "debt_payoff_pressure", Domain: "debt_decision", Name: "debt_payoff_pressure"},
+			},
+			GroundingVerdicts:         []verification.VerificationResult{verificationResult},
+			NumericValidationVerdicts: []verification.VerificationResult{{Category: verification.ValidationCategoryNumeric, CheckedAt: now}},
+			BusinessRuleVerdicts:      []verification.VerificationResult{{Category: verification.ValidationCategoryBusiness, CheckedAt: now}},
+			PolicyRuleHits:            observability.PolicyRuleHitsFromDecisions(policyRecords),
+			ApprovalTriggers:          observability.ApprovalTriggersFromDecisions(policyRecords),
+		},
+	)
+	if len(dump.FinanceMetrics) != 1 || len(dump.GroundingVerdicts) != 1 || len(dump.PolicyRuleHits) != 1 || len(dump.ApprovalTriggers) != 1 {
+		t.Fatalf("expected trust trace fields to be populated, got %+v", dump)
 	}
 }

@@ -3,79 +3,89 @@ package analysis
 import (
 	"fmt"
 
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
+	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
 type RiskFlag struct {
-	Code        string                   `json:"code"`
-	Severity    string                   `json:"severity"`
-	Detail      string                   `json:"detail"`
-	EvidenceIDs []observation.EvidenceID `json:"evidence_ids,omitempty"`
+	Code           string                   `json:"code"`
+	Severity       string                   `json:"severity"`
+	Detail         string                   `json:"detail"`
+	EvidenceIDs    []observation.EvidenceID `json:"evidence_ids,omitempty"`
+	MetricRefs     []string                 `json:"metric_refs,omitempty"`
+	MemoryRefs     []string                 `json:"memory_refs,omitempty"`
+	Caveats        []string                 `json:"caveats,omitempty"`
+	PolicyRuleRefs []string                 `json:"policy_rule_refs,omitempty"`
 }
 
-type CashflowDeterministicMetrics struct {
-	MonthlyInflowCents         int64   `json:"monthly_inflow_cents"`
-	MonthlyOutflowCents        int64   `json:"monthly_outflow_cents"`
-	MonthlyNetIncomeCents      int64   `json:"monthly_net_income_cents"`
-	SavingsRate                float64 `json:"savings_rate"`
-	DuplicateSubscriptionCount int     `json:"duplicate_subscription_count"`
-	LateNightSpendingFrequency float64 `json:"late_night_spending_frequency"`
+type RecommendationType string
+
+const (
+	RecommendationTypeCashflowAdjustment RecommendationType = "cashflow_adjustment"
+	RecommendationTypeExpenseReduction   RecommendationType = "expense_reduction"
+	RecommendationTypeDebtPaydown        RecommendationType = "debt_paydown"
+	RecommendationTypeDebtRestructure    RecommendationType = "debt_restructure"
+	RecommendationTypeInvestMore         RecommendationType = "invest_more"
+	RecommendationTypePortfolioRebalance RecommendationType = "portfolio_rebalance"
+	RecommendationTypeTaxAction          RecommendationType = "tax_action"
+)
+
+type Recommendation struct {
+	ID               string             `json:"id,omitempty"`
+	Type             RecommendationType `json:"type"`
+	Title            string             `json:"title"`
+	Detail           string             `json:"detail"`
+	RiskLevel        taskspec.RiskLevel `json:"risk_level"`
+	GroundingRefs    []string           `json:"grounding_refs,omitempty"`
+	MetricRefs       []string           `json:"metric_refs,omitempty"`
+	EvidenceRefs     []string           `json:"evidence_refs,omitempty"`
+	MemoryRefs       []string           `json:"memory_refs,omitempty"`
+	Caveats          []string           `json:"caveats,omitempty"`
+	ApprovalRequired bool               `json:"approval_required,omitempty"`
+	ApprovalReason   string             `json:"approval_reason,omitempty"`
+	PolicyRuleRefs   []string           `json:"policy_rule_refs,omitempty"`
+	Metadata         map[string]string  `json:"metadata,omitempty"`
 }
 
-type DebtDeterministicMetrics struct {
-	DebtBurdenRatio        float64 `json:"debt_burden_ratio"`
-	MinimumPaymentPressure float64 `json:"minimum_payment_pressure"`
-	AverageAPR             float64 `json:"average_apr"`
-	MonthlyNetIncomeCents  int64   `json:"monthly_net_income_cents"`
-	MaxAllocationDrift     float64 `json:"max_allocation_drift"`
-	OverallRisk            string  `json:"overall_risk"`
-}
-
-type TaxDeterministicMetrics struct {
-	EffectiveTaxRate               float64 `json:"effective_tax_rate"`
-	TaxAdvantagedContributionCents int64   `json:"tax_advantaged_contribution_cents"`
-	ChildcareTaxSignal             bool    `json:"childcare_tax_signal"`
-	UpcomingDeadlineCount          int     `json:"upcoming_deadline_count"`
-}
-
-type PortfolioDeterministicMetrics struct {
-	TotalInvestableAssetsCents int64   `json:"total_investable_assets_cents"`
-	EmergencyFundMonths        float64 `json:"emergency_fund_months"`
-	MaxAllocationDrift         float64 `json:"max_allocation_drift"`
-	CashAllocation             float64 `json:"cash_allocation"`
-}
+type CashflowDeterministicMetrics = finance.CashflowDeterministicMetrics
+type DebtDeterministicMetrics = finance.DebtDeterministicMetrics
+type TaxDeterministicMetrics = finance.TaxDeterministicMetrics
+type PortfolioDeterministicMetrics = finance.PortfolioDeterministicMetrics
 
 type CashflowBlockResult struct {
 	BlockID              string                       `json:"block_id"`
 	Summary              string                       `json:"summary"`
 	KeyFindings          []string                     `json:"key_findings,omitempty"`
 	DeterministicMetrics CashflowDeterministicMetrics `json:"deterministic_metrics"`
+	MetricRecords        []finance.MetricRecord       `json:"metric_records,omitempty"`
 	EvidenceIDs          []observation.EvidenceID     `json:"evidence_ids,omitempty"`
 	MemoryIDsUsed        []string                     `json:"memory_ids_used,omitempty"`
 	MetricRefs           []string                     `json:"metric_refs,omitempty"`
+	GroundingRefs        []string                     `json:"grounding_refs,omitempty"`
 	RiskFlags            []RiskFlag                   `json:"risk_flags,omitempty"`
-	Recommendations      []skills.SkillItem           `json:"recommendations,omitempty"`
+	Recommendations      []Recommendation             `json:"recommendations,omitempty"`
 	Caveats              []string                     `json:"caveats,omitempty"`
+	ApprovalRequired     bool                         `json:"approval_required,omitempty"`
+	ApprovalReason       string                       `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                     `json:"policy_rule_refs,omitempty"`
 	Confidence           float64                      `json:"confidence"`
 }
 
-type CashflowStructuredSuggestion struct {
-	Title        string   `json:"title"`
-	Detail       string   `json:"detail"`
-	Severity     string   `json:"severity"`
-	EvidenceRefs []string `json:"evidence_refs,omitempty"`
-}
-
 type CashflowStructuredCandidate struct {
-	Summary                 string                         `json:"summary"`
-	KeyFindings             []string                       `json:"key_findings,omitempty"`
-	GroundedRecommendations []CashflowStructuredSuggestion `json:"grounded_recommendations,omitempty"`
-	RiskFlags               []RiskFlag                     `json:"risk_flags,omitempty"`
-	MetricRefs              []string                       `json:"metric_refs,omitempty"`
-	EvidenceRefs            []string                       `json:"evidence_refs,omitempty"`
-	Confidence              float64                        `json:"confidence"`
-	Caveats                 []string                       `json:"caveats,omitempty"`
+	Summary                 string           `json:"summary"`
+	KeyFindings             []string         `json:"key_findings,omitempty"`
+	GroundedRecommendations []Recommendation `json:"grounded_recommendations,omitempty"`
+	RiskFlags               []RiskFlag       `json:"risk_flags,omitempty"`
+	MetricRefs              []string         `json:"metric_refs,omitempty"`
+	GroundingRefs           []string         `json:"grounding_refs,omitempty"`
+	EvidenceRefs            []string         `json:"evidence_refs,omitempty"`
+	MemoryRefs              []string         `json:"memory_refs,omitempty"`
+	Confidence              float64          `json:"confidence"`
+	Caveats                 []string         `json:"caveats,omitempty"`
+	ApprovalRequired        bool             `json:"approval_required,omitempty"`
+	ApprovalReason          string           `json:"approval_reason,omitempty"`
+	PolicyRuleRefs          []string         `json:"policy_rule_refs,omitempty"`
 }
 
 type DebtBlockResult struct {
@@ -83,10 +93,17 @@ type DebtBlockResult struct {
 	Summary              string                   `json:"summary"`
 	KeyFindings          []string                 `json:"key_findings,omitempty"`
 	DeterministicMetrics DebtDeterministicMetrics `json:"deterministic_metrics"`
+	MetricRecords        []finance.MetricRecord   `json:"metric_records,omitempty"`
 	EvidenceIDs          []observation.EvidenceID `json:"evidence_ids,omitempty"`
 	MemoryIDsUsed        []string                 `json:"memory_ids_used,omitempty"`
+	MetricRefs           []string                 `json:"metric_refs,omitempty"`
+	GroundingRefs        []string                 `json:"grounding_refs,omitempty"`
 	RiskFlags            []RiskFlag               `json:"risk_flags,omitempty"`
-	Recommendations      []skills.SkillItem       `json:"recommendations,omitempty"`
+	Recommendations      []Recommendation         `json:"recommendations,omitempty"`
+	Caveats              []string                 `json:"caveats,omitempty"`
+	ApprovalRequired     bool                     `json:"approval_required,omitempty"`
+	ApprovalReason       string                   `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                 `json:"policy_rule_refs,omitempty"`
 	Confidence           float64                  `json:"confidence"`
 }
 
@@ -95,10 +112,17 @@ type TaxBlockResult struct {
 	Summary              string                   `json:"summary"`
 	KeyFindings          []string                 `json:"key_findings,omitempty"`
 	DeterministicMetrics TaxDeterministicMetrics  `json:"deterministic_metrics"`
+	MetricRecords        []finance.MetricRecord   `json:"metric_records,omitempty"`
 	EvidenceIDs          []observation.EvidenceID `json:"evidence_ids,omitempty"`
 	MemoryIDsUsed        []string                 `json:"memory_ids_used,omitempty"`
+	MetricRefs           []string                 `json:"metric_refs,omitempty"`
+	GroundingRefs        []string                 `json:"grounding_refs,omitempty"`
 	RiskFlags            []RiskFlag               `json:"risk_flags,omitempty"`
-	Recommendations      []skills.SkillItem       `json:"recommendations,omitempty"`
+	Recommendations      []Recommendation         `json:"recommendations,omitempty"`
+	Caveats              []string                 `json:"caveats,omitempty"`
+	ApprovalRequired     bool                     `json:"approval_required,omitempty"`
+	ApprovalReason       string                   `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                 `json:"policy_rule_refs,omitempty"`
 	Confidence           float64                  `json:"confidence"`
 }
 
@@ -107,10 +131,17 @@ type PortfolioBlockResult struct {
 	Summary              string                        `json:"summary"`
 	KeyFindings          []string                      `json:"key_findings,omitempty"`
 	DeterministicMetrics PortfolioDeterministicMetrics `json:"deterministic_metrics"`
+	MetricRecords        []finance.MetricRecord        `json:"metric_records,omitempty"`
 	EvidenceIDs          []observation.EvidenceID      `json:"evidence_ids,omitempty"`
 	MemoryIDsUsed        []string                      `json:"memory_ids_used,omitempty"`
+	MetricRefs           []string                      `json:"metric_refs,omitempty"`
+	GroundingRefs        []string                      `json:"grounding_refs,omitempty"`
 	RiskFlags            []RiskFlag                    `json:"risk_flags,omitempty"`
-	Recommendations      []skills.SkillItem            `json:"recommendations,omitempty"`
+	Recommendations      []Recommendation              `json:"recommendations,omitempty"`
+	Caveats              []string                      `json:"caveats,omitempty"`
+	ApprovalRequired     bool                          `json:"approval_required,omitempty"`
+	ApprovalReason       string                        `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                      `json:"policy_rule_refs,omitempty"`
 	Confidence           float64                       `json:"confidence"`
 }
 

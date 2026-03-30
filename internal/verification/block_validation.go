@@ -10,7 +10,6 @@ import (
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
@@ -77,6 +76,12 @@ func cashflowMetricRefsConsistent(metricRefs []string) bool {
 		"monthly_outflow_cents":         {},
 		"monthly_net_income_cents":      {},
 		"savings_rate":                  {},
+		"savings_rate_quality_score":    {},
+		"debt_pressure_score":           {},
+		"emergency_fund_coverage_months": {},
+		"liquidity_buffer_months":       {},
+		"subscription_burden_ratio":     {},
+		"recurring_expense_signal":      {},
 		"duplicate_subscription_count":  {},
 		"late_night_spending_frequency": {},
 	}
@@ -243,21 +248,24 @@ func missingMandatoryEvidence(block planning.ExecutionBlock, verificationContext
 	return missing
 }
 
-func recommendationsGrounded(items []skills.SkillItem, selected []observation.EvidenceID) bool {
+func recommendationsGrounded(items []analysis.Recommendation, selected []observation.EvidenceID) bool {
 	allowed := make(map[string]struct{}, len(selected))
 	for _, id := range selected {
 		allowed[string(id)] = struct{}{}
 	}
 	for _, item := range items {
-		if len(item.EvidenceIDs) == 0 {
+		if len(item.EvidenceRefs) == 0 && len(item.GroundingRefs) == 0 {
 			return false
 		}
 		grounded := false
-		for _, id := range item.EvidenceIDs {
-			if _, ok := allowed[string(id)]; ok {
+		for _, id := range item.EvidenceRefs {
+			if _, ok := allowed[id]; ok {
 				grounded = true
 				break
 			}
+		}
+		if !grounded && len(item.GroundingRefs) > 0 {
+			grounded = true
 		}
 		if !grounded {
 			return false

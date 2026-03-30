@@ -14,7 +14,7 @@ Personal CFO OS is a 2026-style personal finance agent system. It is intentional
 
 ## What Now Runs End-to-End
 
-The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, and a first real memory substrate:
+The repository now runs a real governed finance workflow backbone with system-agent execution, a first real domain-agent path, a first proactive life-event loop, a first capability-backed follow-up execution path, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, and a first trustworthy finance reasoning substrate:
 
 1. raw ledger and document fixtures are ingested by observation adapters
 2. adapters emit typed `EvidenceRecord` values
@@ -35,6 +35,7 @@ The repository now runs a real governed finance workflow backbone with system-ag
 17. prompts are now versioned system objects under `internal/prompt`, structured output is validated/repaired/fallbacked under `internal/structured`, and token-aware context budgeting now materially changes model inputs
 18. `cmd/eval` plus `scripts/run_monthly_review_5b.sh` can now produce a trace dump and report artifact for the Phase 5B Monthly Review golden path in either mock or env-gated live mode
 19. `cmd/eval --phase 5c` plus `scripts/run_monthly_review_5c.sh` now reopen the same injected `memory.db`, retrieve durable memories through lexical + semantic + fusion + rejection, and show that prior monthly-review memories can change planner/cashflow output in a later session
+20. `internal/finance` now acts as the current live path's numeric truth source, shared typed recommendations carry risk/grounding/approval semantics, deterministic validators harden recommendation trust, and governance can move high-risk finance actions into `waiting_approval`
 
 ## Phase 5C Real Memory Substrate
 
@@ -55,9 +56,45 @@ Phase 5C upgrades memory from a shaped interface to a load-bearing substrate for
   - `supersedes`: same memory kind, different record id, same summary semantics, newer update time
 - cross-session influence is now part of the Monthly Review proof: the second run against the same `memory.db` can alter planner rationale, recommendation framing, or report provenance because prior durable memories were selected into context
 
+## Phase 5D Trustworthy Finance Reasoning
+
+Phase 5D adds a trust layer on top of the existing intelligence + memory backbone:
+
+- `internal/finance` is now the formal numeric truth source for the current live path; key finance numbers are emitted as typed metric bundles plus `metric_records`
+- shared typed recommendations now carry:
+  - `recommendation_type`
+  - `risk_level`
+  - `metric/evidence/memory/grounding refs`
+  - `caveats`
+  - `approval_required`
+  - `approval_reason`
+  - `policy_rule_refs`
+- verification is no longer only schema-oriented; the live path now runs:
+  - grounding validation
+  - numeric consistency validation
+  - business-rule validation
+- GovernanceAgent now consumes typed recommendation/risk/disclosure state and uses fixed runtime transitions:
+  - grounding/numeric/business validator fail -> `failed`
+  - governance `RequireApproval` -> `waiting_approval`
+  - governance `Deny` -> `failed(governance_denied)`
+  - operator approve after `waiting_approval` -> resume continuation
+- the canonical 5D approval proof is deterministic and fixture-driven:
+  - `Debt vs Invest`
+  - low emergency fund or high debt pressure
+  - aggressive `invest_more`
+  - GovernanceAgent -> `waiting_approval`
+- Monthly Review final reports now carry grounded recommendations, risk fields, caveats/disclosures, approval fields, and provenance refs instead of only freeform summary text
+- trust trace now includes:
+  - finance metric records
+  - grounding verdicts
+  - numeric verdicts
+  - business-rule verdicts
+  - policy rule hits
+  - approval triggers
+
 ## Current Positioning
 
-The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate**.
+The codebase is no longer just an **agent-ready substrate**. It is now best described as a **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate**.
 
 - The current strength is still system-layer-first: observation, state, memory, context, runtime, verification, governance, and observability remain the center of gravity.
 - `PlannerAgent / MemorySteward / ReportAgent / VerificationAgent / GovernanceAgent` now enter the Monthly Review and Debt vs Invest main paths through real typed envelope dispatch.
@@ -74,7 +111,9 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 - replay queries now read durable `ReplayStore` records rather than in-memory helper timelines
 - only `PlannerAgent` and `CashflowAgent` enter the real provider-backed intelligence path in this phase, and only inside Monthly Review
 - only Monthly Review currently proves durable-memory influence; this is not yet a claim about every workflow or every agent
+- Monthly Review is now the strongest trustworthy-finance path, while Debt vs Invest carries the canonical deterministic approval proof for 5D
 - provider-backed intelligence is now a load-bearing substrate layer rather than workflow-local string prompts: prompts are versioned, render policy is real code rather than dead metadata, context is token-aware at MVP scope, outputs are schema-validated/repaired/fallbacked, and traces include provider/prompt/token/cost/fallback evidence
+- deterministic finance truth now lives in Finance Engine metric bundles rather than in scattered helper logic or model text
 - behavior-domain execution is still intentionally deferred so the implementation does not collapse into a fake “many agents chatting” story.
 
 ## Phase 3A / 3B / 4A / 4B / 5A / 5B Highlights
@@ -132,6 +171,7 @@ go run ./cmd/api --db ./var/runtime.db
 go run ./cmd/worker --db ./var/runtime.db --once
 ./scripts/run_monthly_review_5b.sh mock
 ./scripts/run_monthly_review_5c.sh mock
+./scripts/run_monthly_review_5d.sh mock
 ```
 
 ### Phase 5B Monthly Review Golden Path
@@ -211,6 +251,34 @@ The checked-in 5C trace sample now includes both accepted and rejected memory ev
 - low-confidence rejection
 - selected memories that still influence planner/cashflow output after rejection is applied
 
+### Phase 5D Trustworthy Finance Reasoning
+
+Monthly Review positive path:
+
+```bash
+./scripts/run_monthly_review_5d.sh mock
+```
+
+Debt vs Invest deterministic approval proof:
+
+```bash
+go run ./cmd/eval --phase 5d --workflow debt_vs_invest --provider-mode mock --memory-db ./var/memory-5d.db --artifact-out ./docs/eval/samples/debt_vs_invest_5d_waiting_approval.json
+```
+
+Mock sample outputs checked into the repo:
+
+- `docs/eval/samples/monthly_review_5d_report.json`
+- `docs/eval/samples/monthly_review_5d_trace.json`
+- `docs/eval/samples/debt_vs_invest_5d_waiting_approval.json`
+- `docs/eval/samples/debt_vs_invest_5d_waiting_approval_trace.json`
+
+Phase 5D now proves:
+
+- Finance Engine is the current live path's numeric truth source
+- grounded recommendations / risk / caveat / approval fields are visible in Monthly Review artifacts
+- Debt vs Invest can enter `waiting_approval` deterministically
+- trust validators and governance decisions are visible in workflow trace
+
 The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 
 ## What Is Still Stubbed
@@ -218,6 +286,7 @@ The `web/` directory is intentionally minimal in this phase. Install dependencie
 - agentic document parsing is still a deterministic stub behind a formal adapter boundary
 - durable memory now exists for Monthly Review through a local SQLite memory seam, but it is still local-first rather than a stronger remote memory substrate
 - semantic retrieval is now real on the Monthly Review path through a true embedding provider seam, but it still uses local brute-force vector scoring rather than ANN / pgvector
+- finance reasoning is now hardened on the current live path, but this is still not a full finance engine, market simulator, or tax-law system
 - runtime is still a local Temporal-aligned implementation, not a live Temporal cluster
 - durable runtime uses a local SQLite seam and metadata/file refs, not Postgres + object storage yet
 - system agents are currently local synchronous handlers behind a local bus, not remote or durable inbox/outbox actors yet

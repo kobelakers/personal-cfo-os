@@ -12,7 +12,7 @@ func (RetryPlanner) StrategyFor(category FailureCategory) (RecoveryStrategy, err
 		return RecoveryStrategyReplan, nil
 	case FailureCategoryPolicy:
 		return RecoveryStrategyWaitForApproval, nil
-	case FailureCategoryDeniedByOp, FailureCategoryProtocol, FailureCategoryUnrecoverable:
+	case FailureCategoryTrustValidation, FailureCategoryGovernanceDenied, FailureCategoryDeniedByOp, FailureCategoryProtocol, FailureCategoryUnrecoverable:
 		return RecoveryStrategyAbort, nil
 	default:
 		return "", fmt.Errorf("unsupported failure category %q", category)

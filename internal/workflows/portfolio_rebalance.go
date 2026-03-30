@@ -137,6 +137,26 @@ func (w PortfolioRebalanceWorkflow) RunTask(
 		return PortfolioRebalanceRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "portfolio rebalance verification failed")
 	}
 	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
+	if verification.HasTrustFailure(verificationStep.Result.Results) {
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryTrustValidation, "portfolio rebalance trust validation failed")
+		if err != nil {
+			return PortfolioRebalanceRunResult{}, err
+		}
+		return PortfolioRebalanceRunResult{
+			WorkflowID:     workflowID,
+			TaskSpec:       spec,
+			Plan:           planStep.Plan,
+			Evidence:       observed.Evidence,
+			BlockResults:   blockResults,
+			UpdatedState:   observed.UpdatedState,
+			DraftPayload:   reportDraftStep.Draft,
+			Report:         report,
+			CoverageReport: verificationStep.Result.CoverageReport,
+			Verification:   verificationStep.Result.Results,
+			Oracle:         verificationStep.Result.OracleVerdict,
+			RuntimeState:   nextState,
+		}, nil
+	}
 	if verification.NeedsReplan(verificationStep.Result.Results) {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "portfolio rebalance verification failed; workflow should replan")
 		if err != nil {
@@ -201,7 +221,7 @@ func (w PortfolioRebalanceWorkflow) RunTask(
 		pendingApproval = &pending
 		runtimeState = nextState
 	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
-		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied portfolio rebalance publication")
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryGovernanceDenied, "governance denied portfolio rebalance publication")
 		if err != nil {
 			return PortfolioRebalanceRunResult{}, err
 		}

@@ -148,6 +148,29 @@ func (w MonthlyReviewWorkflow) Run(
 	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
 
 	runtimeState := runtimepkg.WorkflowStateCompleted
+	if verification.HasTrustFailure(verificationStep.Result.Results) {
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryTrustValidation, "trust validation failed for monthly review report")
+		if err != nil {
+			return MonthlyReviewRunResult{}, err
+		}
+		runtimeState = nextState
+		return MonthlyReviewRunResult{
+			WorkflowID:        workflowID,
+			Intake:            intake,
+			TaskSpec:          spec,
+			Plan:              planStep.Plan,
+			Evidence:          observed.Evidence,
+			BlockResults:      blockResults,
+			UpdatedState:      observed.UpdatedState,
+			Report:            report,
+			Artifacts:         nil,
+			GeneratedMemories: memoryStep.Result.GeneratedIDs,
+			CoverageReport:    verificationStep.Result.CoverageReport,
+			Verification:      verificationStep.Result.Results,
+			Oracle:            verificationStep.Result.OracleVerdict,
+			RuntimeState:      runtimeState,
+		}, nil
+	}
 	shouldReplan := verification.NeedsReplan(verificationStep.Result.Results)
 	if shouldReplan {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "verification failed; workflow should replan")
@@ -204,7 +227,7 @@ func (w MonthlyReviewWorkflow) Run(
 		runtimeState = nextState
 		report.ApprovalRequired = true
 	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
-		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied report publication")
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryGovernanceDenied, "governance denied report publication")
 		if err != nil {
 			return MonthlyReviewRunResult{}, err
 		}

@@ -423,7 +423,21 @@ func (a GovernanceAgentHandler) Handle(_ AgentHandlerContext, envelope protocol.
 			Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "governance evaluation request payload is required"},
 		}
 	}
-	approval, err := a.Service.EvaluateAction(payload.CurrentState, envelope.Metadata.CorrelationID, payload.RequestedAction, envelope.Task.ID, payload.Actor, payload.ActorRoles, payload.ForceApproval)
+	approval, err := a.Service.EvaluateAction(governance.ApprovalEvaluationInput{
+		CurrentState:     payload.CurrentState,
+		WorkflowID:       envelope.Metadata.CorrelationID,
+		Action:           payload.RequestedAction,
+		Resource:         envelope.Task.ID,
+		Actor:            payload.Actor,
+		ActorRoles:       payload.ActorRoles,
+		ForceApproval:    payload.ForceApproval,
+		Recommendations:  payload.Report.Recommendations(),
+		RiskFlags:        payload.Report.RiskFlags(),
+		ApprovalRequired: payload.Report.ApprovalRequired(),
+		ApprovalReason:   payload.Report.ApprovalReason(),
+		PolicyRuleRefs:   payload.Report.PolicyRuleRefs(),
+		DisclosureReady:  governance.DisclosureReady(payload.Report.Recommendations()),
+	})
 	if err != nil {
 		return AgentHandlerResult{}, &AgentExecutionError{
 			Recipient: RecipientGovernanceAgent,

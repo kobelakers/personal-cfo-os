@@ -3,7 +3,6 @@ package governance
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
@@ -25,41 +24,35 @@ func (StaticPolicyEngine) EvaluateAction(request ActionRequest, approval Approva
 		if err := toolPolicy.Validate(); err != nil {
 			return PolicyDecision{}, AuditEvent{}, err
 		}
-		if len(toolPolicy.AllowedRoles) > 0 && !hasIntersection(toolPolicy.AllowedRoles, request.ActorRoles) {
-			outcome = PolicyDecisionDeny
-			reason = "actor roles do not satisfy tool execution policy"
-		}
-		if compareRisk(request.RiskLevel, toolPolicy.RequiresApprovalAbove) >= 0 && outcome == PolicyDecisionAllow {
-			outcome = PolicyDecisionRequireApproval
-			reason = "tool execution policy requires approval"
-		}
 	}
+	ruleOutcome, ruleReason, ruleRefs := approvalRulesForAction(request, toolPolicy)
+	outcome = ruleOutcome
+	reason = ruleReason
 	if compareRisk(request.RiskLevel, approval.MinRiskLevel) >= 0 && !approval.AutoApprove && outcome == PolicyDecisionAllow {
 		outcome = PolicyDecisionRequireApproval
 		reason = "approval policy requires human review"
-	}
-	if strings.Contains(request.Action, "single_stock") && compareRisk(request.RiskLevel, ActionRiskHigh) >= 0 && outcome == PolicyDecisionAllow {
-		outcome = PolicyDecisionRequireApproval
-		reason = "single-stock high-risk actions cannot auto-execute"
+		ruleRefs = append(ruleRefs, PolicyRuleApprovalHighRisk)
 	}
 
 	now := time.Now().UTC()
 	decision := PolicyDecision{
-		Outcome:       outcome,
-		Reason:        reason,
-		AppliedPolicy: approval.Name,
-		EvaluatedAt:   now,
-		AuditRef:      request.CorrelationID,
+		Outcome:        outcome,
+		Reason:         reason,
+		AppliedPolicy:  approval.Name,
+		PolicyRuleRefs: uniqueStrings(append(append([]string{}, request.PolicyRuleRefs...), ruleRefs...)),
+		EvaluatedAt:    now,
+		AuditRef:       request.CorrelationID,
 	}
 	audit := AuditEvent{
-		ID:            request.CorrelationID + "-action",
-		Actor:         request.Actor,
-		Action:        request.Action,
-		Resource:      request.Resource,
-		Outcome:       string(outcome),
-		Reason:        reason,
-		OccurredAt:    now,
-		CorrelationID: request.CorrelationID,
+		ID:             request.CorrelationID + "-action",
+		Actor:          request.Actor,
+		Action:         request.Action,
+		Resource:       request.Resource,
+		Outcome:        string(outcome),
+		Reason:         reason,
+		PolicyRuleRefs: decision.PolicyRuleRefs,
+		OccurredAt:     now,
+		CorrelationID:  request.CorrelationID,
 	}
 	return decision, audit, nil
 }
@@ -89,21 +82,23 @@ func (StaticPolicyEngine) EvaluateMemoryWrite(record memory.MemoryRecord, policy
 
 	now := time.Now().UTC()
 	decision := PolicyDecision{
-		Outcome:       outcome,
-		Reason:        reason,
-		AppliedPolicy: "memory_write_policy",
-		EvaluatedAt:   now,
-		AuditRef:      correlationID,
+		Outcome:        outcome,
+		Reason:         reason,
+		AppliedPolicy:  "memory_write_policy",
+		PolicyRuleRefs: nil,
+		EvaluatedAt:    now,
+		AuditRef:       correlationID,
 	}
 	audit := AuditEvent{
-		ID:            correlationID + "-memory",
-		Actor:         record.Source.Actor,
-		Action:        "memory_write",
-		Resource:      record.ID,
-		Outcome:       string(outcome),
-		Reason:        reason,
-		OccurredAt:    now,
-		CorrelationID: correlationID,
+		ID:             correlationID + "-memory",
+		Actor:          record.Source.Actor,
+		Action:         "memory_write",
+		Resource:       record.ID,
+		Outcome:        string(outcome),
+		Reason:         reason,
+		PolicyRuleRefs: nil,
+		OccurredAt:     now,
+		CorrelationID:  correlationID,
 	}
 	return decision, audit, nil
 }
@@ -123,21 +118,23 @@ func (StaticPolicyEngine) EvaluateReport(request ReportRequest, policy ReportDis
 	}
 	now := time.Now().UTC()
 	decision := PolicyDecision{
-		Outcome:       outcome,
-		Reason:        reason,
-		AppliedPolicy: "report_disclosure_policy",
-		EvaluatedAt:   now,
-		AuditRef:      request.CorrelationID,
+		Outcome:        outcome,
+		Reason:         reason,
+		AppliedPolicy:  "report_disclosure_policy",
+		PolicyRuleRefs: nil,
+		EvaluatedAt:    now,
+		AuditRef:       request.CorrelationID,
 	}
 	audit := AuditEvent{
-		ID:            request.CorrelationID + "-report",
-		Actor:         request.Actor,
-		Action:        "report_disclosure",
-		Resource:      request.Audience,
-		Outcome:       string(outcome),
-		Reason:        reason,
-		OccurredAt:    now,
-		CorrelationID: request.CorrelationID,
+		ID:             request.CorrelationID + "-report",
+		Actor:          request.Actor,
+		Action:         "report_disclosure",
+		Resource:       request.Audience,
+		Outcome:        string(outcome),
+		Reason:         reason,
+		PolicyRuleRefs: nil,
+		OccurredAt:     now,
+		CorrelationID:  request.CorrelationID,
 	}
 	return decision, audit, nil
 }

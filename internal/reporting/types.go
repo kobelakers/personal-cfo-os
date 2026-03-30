@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
+	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/skills"
 )
@@ -51,36 +52,50 @@ type ArtifactConsumer interface {
 }
 
 type MonthlyReviewReport struct {
-	TaskID                  string                   `json:"task_id"`
-	WorkflowID              string                   `json:"workflow_id"`
-	Summary                 string                   `json:"summary"`
-	CashflowMetrics         map[string]any           `json:"cashflow_metrics"`
-	TaxSignals              map[string]any           `json:"tax_signals"`
-	RiskItems               []skills.SkillItem       `json:"risk_items"`
-	OptimizationSuggestions []skills.SkillItem       `json:"optimization_suggestions"`
-	TodoItems               []skills.SkillItem       `json:"todo_items"`
-	SourceBlockIDs          []string                 `json:"source_block_ids,omitempty"`
-	SourceMemoryIDs         []string                 `json:"source_memory_ids,omitempty"`
-	SourceEvidenceIDs       []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
-	ApprovalRequired        bool                     `json:"approval_required"`
-	Confidence              float64                  `json:"confidence"`
-	GeneratedAt             time.Time                `json:"generated_at"`
+	TaskID                  string                    `json:"task_id"`
+	WorkflowID              string                    `json:"workflow_id"`
+	Summary                 string                    `json:"summary"`
+	CashflowMetrics         map[string]any            `json:"cashflow_metrics"`
+	TaxSignals              map[string]any            `json:"tax_signals"`
+	MetricRecords           []finance.MetricRecord    `json:"metric_records,omitempty"`
+	RiskItems               []skills.SkillItem        `json:"risk_items"`
+	RiskFlags               []analysis.RiskFlag       `json:"risk_flags,omitempty"`
+	OptimizationSuggestions []skills.SkillItem        `json:"optimization_suggestions"`
+	Recommendations         []analysis.Recommendation `json:"recommendations,omitempty"`
+	TodoItems               []skills.SkillItem        `json:"todo_items"`
+	SourceBlockIDs          []string                  `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs         []string                  `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs       []observation.EvidenceID  `json:"source_evidence_ids,omitempty"`
+	GroundingRefs           []string                  `json:"grounding_refs,omitempty"`
+	Caveats                 []string                  `json:"caveats,omitempty"`
+	ApprovalRequired        bool                      `json:"approval_required"`
+	ApprovalReason          string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs          []string                  `json:"policy_rule_refs,omitempty"`
+	Confidence              float64                   `json:"confidence"`
+	GeneratedAt             time.Time                 `json:"generated_at"`
 }
 
 type DebtDecisionReport struct {
-	TaskID            string                   `json:"task_id"`
-	WorkflowID        string                   `json:"workflow_id"`
-	Conclusion        string                   `json:"conclusion"`
-	Reasons           []string                 `json:"reasons"`
-	Actions           []skills.SkillItem       `json:"actions"`
-	Metrics           map[string]any           `json:"metrics"`
-	EvidenceIDs       []observation.EvidenceID `json:"evidence_ids"`
-	SourceBlockIDs    []string                 `json:"source_block_ids,omitempty"`
-	SourceMemoryIDs   []string                 `json:"source_memory_ids,omitempty"`
-	SourceEvidenceIDs []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
-	ApprovalRequired  bool                     `json:"approval_required"`
-	Confidence        float64                  `json:"confidence"`
-	GeneratedAt       time.Time                `json:"generated_at"`
+	TaskID            string                    `json:"task_id"`
+	WorkflowID        string                    `json:"workflow_id"`
+	Conclusion        string                    `json:"conclusion"`
+	Reasons           []string                  `json:"reasons"`
+	Actions           []skills.SkillItem        `json:"actions"`
+	Recommendations   []analysis.Recommendation `json:"recommendations,omitempty"`
+	RiskFlags         []analysis.RiskFlag       `json:"risk_flags,omitempty"`
+	Metrics           map[string]any            `json:"metrics"`
+	MetricRecords     []finance.MetricRecord    `json:"metric_records,omitempty"`
+	EvidenceIDs       []observation.EvidenceID  `json:"evidence_ids"`
+	SourceBlockIDs    []string                  `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs   []string                  `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs []observation.EvidenceID  `json:"source_evidence_ids,omitempty"`
+	GroundingRefs     []string                  `json:"grounding_refs,omitempty"`
+	Caveats           []string                  `json:"caveats,omitempty"`
+	ApprovalRequired  bool                      `json:"approval_required"`
+	ApprovalReason    string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs    []string                  `json:"policy_rule_refs,omitempty"`
+	Confidence        float64                   `json:"confidence"`
+	GeneratedAt       time.Time                 `json:"generated_at"`
 }
 
 type LifeEventAssessmentReport struct {
@@ -102,33 +117,45 @@ type LifeEventAssessmentReport struct {
 }
 
 type TaxOptimizationReport struct {
-	TaskID               string                   `json:"task_id"`
-	WorkflowID           string                   `json:"workflow_id"`
-	Summary              string                   `json:"summary"`
-	DeterministicMetrics map[string]any           `json:"deterministic_metrics"`
-	RecommendedActions   []skills.SkillItem       `json:"recommended_actions"`
-	SourceBlockIDs       []string                 `json:"source_block_ids,omitempty"`
-	SourceMemoryIDs      []string                 `json:"source_memory_ids,omitempty"`
-	SourceEvidenceIDs    []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
-	RiskFlags            []analysis.RiskFlag      `json:"risk_flags"`
-	ApprovalRequired     bool                     `json:"approval_required"`
-	Confidence           float64                  `json:"confidence"`
-	GeneratedAt          time.Time                `json:"generated_at"`
+	TaskID               string                    `json:"task_id"`
+	WorkflowID           string                    `json:"workflow_id"`
+	Summary              string                    `json:"summary"`
+	DeterministicMetrics map[string]any            `json:"deterministic_metrics"`
+	RecommendedActions   []skills.SkillItem        `json:"recommended_actions"`
+	Recommendations      []analysis.Recommendation `json:"recommendations,omitempty"`
+	MetricRecords        []finance.MetricRecord    `json:"metric_records,omitempty"`
+	SourceBlockIDs       []string                  `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs      []string                  `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs    []observation.EvidenceID  `json:"source_evidence_ids,omitempty"`
+	RiskFlags            []analysis.RiskFlag       `json:"risk_flags"`
+	GroundingRefs        []string                  `json:"grounding_refs,omitempty"`
+	Caveats              []string                  `json:"caveats,omitempty"`
+	ApprovalRequired     bool                      `json:"approval_required"`
+	ApprovalReason       string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                  `json:"policy_rule_refs,omitempty"`
+	Confidence           float64                   `json:"confidence"`
+	GeneratedAt          time.Time                 `json:"generated_at"`
 }
 
 type PortfolioRebalanceReport struct {
-	TaskID               string                   `json:"task_id"`
-	WorkflowID           string                   `json:"workflow_id"`
-	Summary              string                   `json:"summary"`
-	DeterministicMetrics map[string]any           `json:"deterministic_metrics"`
-	RecommendedActions   []skills.SkillItem       `json:"recommended_actions"`
-	SourceBlockIDs       []string                 `json:"source_block_ids,omitempty"`
-	SourceMemoryIDs      []string                 `json:"source_memory_ids,omitempty"`
-	SourceEvidenceIDs    []observation.EvidenceID `json:"source_evidence_ids,omitempty"`
-	RiskFlags            []analysis.RiskFlag      `json:"risk_flags"`
-	ApprovalRequired     bool                     `json:"approval_required"`
-	Confidence           float64                  `json:"confidence"`
-	GeneratedAt          time.Time                `json:"generated_at"`
+	TaskID               string                    `json:"task_id"`
+	WorkflowID           string                    `json:"workflow_id"`
+	Summary              string                    `json:"summary"`
+	DeterministicMetrics map[string]any            `json:"deterministic_metrics"`
+	RecommendedActions   []skills.SkillItem        `json:"recommended_actions"`
+	Recommendations      []analysis.Recommendation `json:"recommendations,omitempty"`
+	MetricRecords        []finance.MetricRecord    `json:"metric_records,omitempty"`
+	SourceBlockIDs       []string                  `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs      []string                  `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs    []observation.EvidenceID  `json:"source_evidence_ids,omitempty"`
+	RiskFlags            []analysis.RiskFlag       `json:"risk_flags"`
+	GroundingRefs        []string                  `json:"grounding_refs,omitempty"`
+	Caveats              []string                  `json:"caveats,omitempty"`
+	ApprovalRequired     bool                      `json:"approval_required"`
+	ApprovalReason       string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                  `json:"policy_rule_refs,omitempty"`
+	Confidence           float64                   `json:"confidence"`
+	GeneratedAt          time.Time                 `json:"generated_at"`
 }
 
 type ReportPayload struct {
@@ -225,6 +252,126 @@ func (p ReportPayload) WorkflowID() string {
 		return p.TaxOptimization.WorkflowID
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.WorkflowID
+	default:
+		return ""
+	}
+}
+
+func (p ReportPayload) Recommendations() []analysis.Recommendation {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]analysis.Recommendation{}, p.MonthlyReview.Recommendations...)
+	case p.DebtDecision != nil:
+		return append([]analysis.Recommendation{}, p.DebtDecision.Recommendations...)
+	case p.TaxOptimization != nil:
+		return append([]analysis.Recommendation{}, p.TaxOptimization.Recommendations...)
+	case p.PortfolioRebalance != nil:
+		return append([]analysis.Recommendation{}, p.PortfolioRebalance.Recommendations...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) RiskFlags() []analysis.RiskFlag {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]analysis.RiskFlag{}, p.MonthlyReview.RiskFlags...)
+	case p.DebtDecision != nil:
+		return append([]analysis.RiskFlag{}, p.DebtDecision.RiskFlags...)
+	case p.TaxOptimization != nil:
+		return append([]analysis.RiskFlag{}, p.TaxOptimization.RiskFlags...)
+	case p.PortfolioRebalance != nil:
+		return append([]analysis.RiskFlag{}, p.PortfolioRebalance.RiskFlags...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) MetricRecords() []finance.MetricRecord {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]finance.MetricRecord{}, p.MonthlyReview.MetricRecords...)
+	case p.DebtDecision != nil:
+		return append([]finance.MetricRecord{}, p.DebtDecision.MetricRecords...)
+	case p.TaxOptimization != nil:
+		return append([]finance.MetricRecord{}, p.TaxOptimization.MetricRecords...)
+	case p.PortfolioRebalance != nil:
+		return append([]finance.MetricRecord{}, p.PortfolioRebalance.MetricRecords...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) GroundingRefs() []string {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]string{}, p.MonthlyReview.GroundingRefs...)
+	case p.DebtDecision != nil:
+		return append([]string{}, p.DebtDecision.GroundingRefs...)
+	case p.TaxOptimization != nil:
+		return append([]string{}, p.TaxOptimization.GroundingRefs...)
+	case p.PortfolioRebalance != nil:
+		return append([]string{}, p.PortfolioRebalance.GroundingRefs...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) Caveats() []string {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]string{}, p.MonthlyReview.Caveats...)
+	case p.DebtDecision != nil:
+		return append([]string{}, p.DebtDecision.Caveats...)
+	case p.TaxOptimization != nil:
+		return append([]string{}, p.TaxOptimization.Caveats...)
+	case p.PortfolioRebalance != nil:
+		return append([]string{}, p.PortfolioRebalance.Caveats...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) PolicyRuleRefs() []string {
+	switch {
+	case p.MonthlyReview != nil:
+		return append([]string{}, p.MonthlyReview.PolicyRuleRefs...)
+	case p.DebtDecision != nil:
+		return append([]string{}, p.DebtDecision.PolicyRuleRefs...)
+	case p.TaxOptimization != nil:
+		return append([]string{}, p.TaxOptimization.PolicyRuleRefs...)
+	case p.PortfolioRebalance != nil:
+		return append([]string{}, p.PortfolioRebalance.PolicyRuleRefs...)
+	default:
+		return nil
+	}
+}
+
+func (p ReportPayload) ApprovalRequired() bool {
+	switch {
+	case p.MonthlyReview != nil:
+		return p.MonthlyReview.ApprovalRequired
+	case p.DebtDecision != nil:
+		return p.DebtDecision.ApprovalRequired
+	case p.TaxOptimization != nil:
+		return p.TaxOptimization.ApprovalRequired
+	case p.PortfolioRebalance != nil:
+		return p.PortfolioRebalance.ApprovalRequired
+	default:
+		return false
+	}
+}
+
+func (p ReportPayload) ApprovalReason() string {
+	switch {
+	case p.MonthlyReview != nil:
+		return p.MonthlyReview.ApprovalReason
+	case p.DebtDecision != nil:
+		return p.DebtDecision.ApprovalReason
+	case p.TaxOptimization != nil:
+		return p.TaxOptimization.ApprovalReason
+	case p.PortfolioRebalance != nil:
+		return p.PortfolioRebalance.ApprovalReason
 	default:
 		return ""
 	}

@@ -59,22 +59,27 @@ type MonthlyReviewRunResult struct {
 }
 
 type DebtDecisionRunResult struct {
-	WorkflowID       string                              `json:"workflow_id"`
-	Intake           taskspec.TaskIntakeResult           `json:"intake"`
-	TaskSpec         taskspec.TaskSpec                   `json:"task_spec"`
-	Plan             planning.ExecutionPlan              `json:"plan"`
-	Evidence         []observation.EvidenceRecord        `json:"evidence"`
-	BlockResults     []analysis.BlockResultEnvelope      `json:"block_results,omitempty"`
-	UpdatedState     state.FinancialWorldState           `json:"updated_state"`
-	Report           DebtDecisionReport                  `json:"report"`
-	Artifacts        []WorkflowArtifact                  `json:"artifacts"`
-	CoverageReport   verification.EvidenceCoverageReport `json:"coverage_report"`
-	Verification     []verification.VerificationResult   `json:"verification"`
-	Oracle           verification.OracleVerdict          `json:"oracle"`
-	RiskAssessment   governance.RiskAssessment           `json:"risk_assessment"`
-	ApprovalDecision *governance.PolicyDecision          `json:"approval_decision,omitempty"`
-	ApprovalAudit    *governance.AuditEvent              `json:"approval_audit,omitempty"`
-	RuntimeState     runtime.WorkflowExecutionState      `json:"runtime_state"`
+	WorkflowID         string                              `json:"workflow_id"`
+	Intake             taskspec.TaskIntakeResult           `json:"intake"`
+	TaskSpec           taskspec.TaskSpec                   `json:"task_spec"`
+	Plan               planning.ExecutionPlan              `json:"plan"`
+	Evidence           []observation.EvidenceRecord        `json:"evidence"`
+	BlockResults       []analysis.BlockResultEnvelope      `json:"block_results,omitempty"`
+	UpdatedState       state.FinancialWorldState           `json:"updated_state"`
+	DraftPayload       reporting.ReportPayload             `json:"draft_payload"`
+	DisclosureDecision governance.PolicyDecision           `json:"disclosure_decision"`
+	Report             DebtDecisionReport                  `json:"report"`
+	Artifacts          []WorkflowArtifact                  `json:"artifacts"`
+	CoverageReport     verification.EvidenceCoverageReport `json:"coverage_report"`
+	Verification       []verification.VerificationResult   `json:"verification"`
+	Oracle             verification.OracleVerdict          `json:"oracle"`
+	RiskAssessment     governance.RiskAssessment           `json:"risk_assessment"`
+	ApprovalDecision   *governance.PolicyDecision          `json:"approval_decision,omitempty"`
+	ApprovalAudit      *governance.AuditEvent              `json:"approval_audit,omitempty"`
+	Checkpoint         *runtime.CheckpointRecord           `json:"checkpoint,omitempty"`
+	ResumeToken        *runtime.ResumeToken                `json:"resume_token,omitempty"`
+	PendingApproval    *runtime.HumanApprovalPending       `json:"pending_approval,omitempty"`
+	RuntimeState       runtime.WorkflowExecutionState      `json:"runtime_state"`
 }
 
 type LifeEventTriggerRunResult struct {

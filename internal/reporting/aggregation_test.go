@@ -7,7 +7,6 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/analysis"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
 	"github.com/kobelakers/personal-cfo-os/internal/planning"
-	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
@@ -245,8 +244,8 @@ func sampleCashflowBlockResult() analysis.BlockResultEnvelope {
 			RiskFlags: []analysis.RiskFlag{
 				{Code: "subscription", Severity: "low", Detail: "有可清理订阅", EvidenceIDs: []observation.EvidenceID{"ev-tx"}},
 			},
-			Recommendations: []skills.SkillItem{
-				{Title: "清理订阅", Detail: "先清理低使用率订阅。", EvidenceIDs: []observation.EvidenceID{"ev-tx"}},
+			Recommendations: []analysis.Recommendation{
+				{Type: analysis.RecommendationTypeExpenseReduction, Title: "清理订阅", Detail: "先清理低使用率订阅。", RiskLevel: taskspec.RiskLevelLow, EvidenceRefs: []string{"ev-tx"}, GroundingRefs: []string{"metric:duplicate_subscription_count"}},
 			},
 			Confidence: 0.88,
 		},
@@ -274,8 +273,8 @@ func sampleDebtBlockResult() analysis.BlockResultEnvelope {
 			RiskFlags: []analysis.RiskFlag{
 				{Code: "debt_caveat", Severity: "low", Detail: "债务压力可控但需持续关注。", EvidenceIDs: []observation.EvidenceID{"ev-debt"}},
 			},
-			Recommendations: []skills.SkillItem{
-				{Title: "持续复核债务", Detail: "维持最低还款覆盖。", EvidenceIDs: []observation.EvidenceID{"ev-debt"}},
+			Recommendations: []analysis.Recommendation{
+				{Type: analysis.RecommendationTypeDebtPaydown, Title: "持续复核债务", Detail: "维持最低还款覆盖。", RiskLevel: taskspec.RiskLevelMedium, EvidenceRefs: []string{"ev-debt"}, GroundingRefs: []string{"metric:debt_burden_ratio"}},
 			},
 			Confidence: 0.9,
 		},
@@ -309,8 +308,8 @@ func samplePortfolioBlockResult() analysis.BlockResultEnvelope {
 			RiskFlags: []analysis.RiskFlag{
 				{Code: "liquidity_buffer", Severity: "high", Detail: "应急金偏低，再平衡前需保留流动性。", EvidenceIDs: []observation.EvidenceID{"ev-portfolio"}},
 			},
-			Recommendations: []skills.SkillItem{
-				{Title: "分步再平衡", Detail: "优先修正高漂移仓位，并保留现金缓冲。", EvidenceIDs: []observation.EvidenceID{"ev-portfolio"}},
+			Recommendations: []analysis.Recommendation{
+				{Type: analysis.RecommendationTypePortfolioRebalance, Title: "分步再平衡", Detail: "优先修正高漂移仓位，并保留现金缓冲。", RiskLevel: taskspec.RiskLevelMedium, EvidenceRefs: []string{"ev-portfolio"}, GroundingRefs: []string{"metric:max_allocation_drift"}},
 			},
 			Confidence: 0.9,
 		},

@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, and a first real memory substrate.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, and a trustworthy finance reasoning substrate on the current live path.
 
 ## Core Loop
 
@@ -12,12 +12,28 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 6. `PlannerAgent` assembles planning context, renders a versioned prompt with an applied render policy, performs provider-backed structured generation, validates/repairs/fallbacks the output, and still returns the same block-level `ExecutionPlan`; `plan.Blocks` remains the only execution truth source.
 7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent` or `DebtAgent`; `CashflowAgent` now has a real provider-backed structured reasoning path, while `DebtAgent` stays deterministic.
 8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
-9. `VerificationAgent` runs block-level validation first, including structured-output/grounding checks for the new intelligence path, and may short-circuit final report validation with structured replan diagnostics.
-10. `GovernanceAgent` evaluates approval and disclosure policy before finalize.
+9. `VerificationAgent` runs block-level validation first and now also executes grounding, numeric, and business-rule validators against the final report surface on the live path.
+10. `GovernanceAgent` evaluates typed recommendation/risk/disclosure state before finalize and can require approval or deny publication.
 11. Runtime semantics manage checkpoints, pause/resume, approval gates, retries, protocol failures, recovery, follow-up task graphs, capability activation, child workflow execution records, and committed state handoff.
 12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
 13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
-14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, memory query/hit/reject/select traces, embedding calls, and operator/runtime provenance chains.
+14. Observability and replay record workflow timeline, block plan, domain block execution order, selected context slices, prompt id/version, repair prompt identity, provider calls, token usage, estimated cost, structured-output repair/fallback, memory query/hit/reject/select traces, embedding calls, finance metric records, validator verdicts, policy rule hits, approval triggers, and operator/runtime provenance chains.
+
+## Trustworthy Finance Reasoning (Phase 5D)
+
+Phase 5D hardens the current live path without widening the system into a larger workflow or infra expansion:
+
+1. `internal/finance` is now the formal numeric truth source for Monthly Review and Debt vs Invest, with minimal deterministic bundles for Tax / Portfolio validator hooks.
+2. recommendations are carried as shared typed objects with risk, grounding refs, caveats, approval fields, and policy rule refs instead of only narrative prose.
+3. verification now includes three deterministic validator layers:
+   - grounding validator
+   - numeric consistency validator
+   - business-rule validator
+4. governance consumes the same typed recommendation contract and maps outcomes to runtime transitions:
+   - grounding/numeric/business failure -> `failed`
+   - `RequireApproval` -> `waiting_approval`
+   - `Deny` -> `failed(governance_denied)`
+5. the canonical approval proof is deterministic and fixture-driven on `Debt vs Invest`, where low emergency fund or high debt pressure plus aggressive `invest_more` escalates into `waiting_approval`.
 
 ## Real Memory Substrate (Phase 5C)
 
@@ -93,7 +109,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -113,6 +129,6 @@ The repository is now best described as **system-agent backbone + first real dom
 - `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
 - follow-up execution is now capability-backed for `tax_optimization` and `portfolio_rebalance`, but only at execution depth 1 and only through runtime allowlist policy
 - other generated intents can still remain `ready`, `dependency_blocked`, `deferred`, or `queued_pending_capability` without being auto-run
-- finance engine hardening, broader memory-native workflow rollout, stronger memory infra promotion, and full replay/eval-plane maturation remain explicitly out of scope for this phase
+- broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and full replay/eval-plane maturation remain explicitly out of scope for this phase
 
 The system is still intentionally local-first. Real Postgres, pgvector, MinIO, Temporal, and model providers are deferred, but only behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.

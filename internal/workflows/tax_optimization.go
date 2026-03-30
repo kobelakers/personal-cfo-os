@@ -137,6 +137,26 @@ func (w TaxOptimizationWorkflow) RunTask(
 		return TaxOptimizationRunResult{}, handleAgentFailure(workflowRuntime, execCtx, runtimepkg.WorkflowStateVerifying, err, "tax optimization verification failed")
 	}
 	meta = updateCausation(meta, verificationStep.Metadata.ResponseMetadata, observed.UpdatedState)
+	if verification.HasTrustFailure(verificationStep.Result.Results) {
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryTrustValidation, "tax optimization trust validation failed")
+		if err != nil {
+			return TaxOptimizationRunResult{}, err
+		}
+		return TaxOptimizationRunResult{
+			WorkflowID:     workflowID,
+			TaskSpec:       spec,
+			Plan:           planStep.Plan,
+			Evidence:       observed.Evidence,
+			BlockResults:   blockResults,
+			UpdatedState:   observed.UpdatedState,
+			DraftPayload:   reportDraftStep.Draft,
+			Report:         report,
+			CoverageReport: verificationStep.Result.CoverageReport,
+			Verification:   verificationStep.Result.Results,
+			Oracle:         verificationStep.Result.OracleVerdict,
+			RuntimeState:   nextState,
+		}, nil
+	}
 	if verification.NeedsReplan(verificationStep.Result.Results) {
 		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryValidation, "tax optimization verification failed; workflow should replan")
 		if err != nil {
@@ -201,7 +221,7 @@ func (w TaxOptimizationWorkflow) RunTask(
 		pendingApproval = &pending
 		runtimeState = nextState
 	case approvalDecision != nil && approvalDecision.Outcome == governance.PolicyDecisionDeny:
-		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryUnrecoverable, "governance denied tax optimization publication")
+		nextState, _, err := workflowRuntime.HandleFailure(execCtx, runtimepkg.WorkflowStateVerifying, runtimepkg.FailureCategoryGovernanceDenied, "governance denied tax optimization publication")
 		if err != nil {
 			return TaxOptimizationRunResult{}, err
 		}

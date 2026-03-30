@@ -21,13 +21,15 @@ const (
 type FailureCategory string
 
 const (
-	FailureCategoryTransient     FailureCategory = "transient"
-	FailureCategoryTimeout       FailureCategory = "timeout"
-	FailureCategoryValidation    FailureCategory = "validation"
-	FailureCategoryPolicy        FailureCategory = "policy"
-	FailureCategoryDeniedByOp    FailureCategory = "denied_by_operator"
-	FailureCategoryProtocol      FailureCategory = "protocol"
-	FailureCategoryUnrecoverable FailureCategory = "unrecoverable"
+	FailureCategoryTransient        FailureCategory = "transient"
+	FailureCategoryTimeout          FailureCategory = "timeout"
+	FailureCategoryValidation       FailureCategory = "validation"
+	FailureCategoryTrustValidation  FailureCategory = "trust_validation"
+	FailureCategoryPolicy           FailureCategory = "policy"
+	FailureCategoryGovernanceDenied FailureCategory = "governance_denied"
+	FailureCategoryDeniedByOp       FailureCategory = "denied_by_operator"
+	FailureCategoryProtocol         FailureCategory = "protocol"
+	FailureCategoryUnrecoverable    FailureCategory = "unrecoverable"
 )
 
 type RecoveryStrategy string
