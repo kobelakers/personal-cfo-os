@@ -28,8 +28,8 @@ func TestDefaultScenarioCorpusRunsDeterministically(t *testing.T) {
 	if !runResult.DeterministicOnly {
 		t.Fatalf("expected default corpus to remain deterministic-only")
 	}
-	if runResult.Score.ScenarioCount != 10 {
-		t.Fatalf("expected 10 canonical scenarios, got %d", runResult.Score.ScenarioCount)
+	if runResult.Score.ScenarioCount != 11 {
+		t.Fatalf("expected 11 canonical scenarios, got %d", runResult.Score.ScenarioCount)
 	}
 	if runResult.Score.FailedCount != 0 {
 		t.Fatalf("expected deterministic corpus to pass, got %+v", runResult)

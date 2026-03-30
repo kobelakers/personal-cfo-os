@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
+	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
@@ -55,49 +55,7 @@ func (s *ReplayQueryService) Compare(ctx context.Context, left observability.Rep
 	if err != nil {
 		return observability.ReplayComparison{}, err
 	}
-	diffs := make([]observability.ReplayComparisonDiff, 0)
-	appendListDiff := func(category string, field string, leftValues []string, rightValues []string, summary string) {
-		if slices.Equal(leftValues, rightValues) {
-			return
-		}
-		diffs = append(diffs, observability.ReplayComparisonDiff{
-			Category: category,
-			Field:    field,
-			Left:     append([]string{}, leftValues...),
-			Right:    append([]string{}, rightValues...),
-			Summary:  summary,
-		})
-	}
-	appendScalarDiff := func(category string, field string, leftValue string, rightValue string, summary string) {
-		if leftValue == rightValue {
-			return
-		}
-		diffs = append(diffs, observability.ReplayComparisonDiff{
-			Category: category,
-			Field:    field,
-			Left:     []string{leftValue},
-			Right:    []string{rightValue},
-			Summary:  summary,
-		})
-	}
-
-	appendScalarDiff("runtime", "final_state", leftView.Summary.FinalState, rightView.Summary.FinalState, "final runtime state changed")
-	appendListDiff("planning", "plan_summary", leftView.Summary.PlanSummary, rightView.Summary.PlanSummary, "planner block summary changed")
-	appendListDiff("memory", "memory_summary", leftView.Summary.MemorySummary, rightView.Summary.MemorySummary, "memory selection/rejection changed")
-	appendListDiff("validation", "validator_summary", leftView.Summary.ValidatorSummary, rightView.Summary.ValidatorSummary, "validator verdicts changed")
-	appendListDiff("governance", "governance_summary", leftView.Summary.GovernanceSummary, rightView.Summary.GovernanceSummary, "governance outcome changed")
-	appendListDiff("runtime", "child_workflow_summary", leftView.Summary.ChildWorkflowSummary, rightView.Summary.ChildWorkflowSummary, "child workflow execution changed")
-
-	summary := make([]string, 0, len(diffs))
-	for _, diff := range diffs {
-		summary = append(summary, diff.Summary)
-	}
-	return observability.ReplayComparison{
-		Left:    leftView.Scope,
-		Right:   rightView.Scope,
-		Diffs:   diffs,
-		Summary: summary,
-	}, nil
+	return observability.BuildReplayComparison(leftView, rightView), nil
 }
 
 func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (observability.ReplayView, error) {
@@ -138,7 +96,7 @@ func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (o
 	}
 	scope := ReplayProjectionScope{ScopeKind: ReplayScopeWorkflow, ScopeID: workflowID}
 	degradations := make([]observability.ReplayDegradation, 0)
-	if err := s.applyWorkflowProjection(&view, scope, &degradations); err != nil {
+	if err := s.applyWorkflowProjection(&view, scope, record.UpdatedAt, &degradations); err != nil {
 		return observability.ReplayView{}, err
 	}
 	if len(view.Provenance.Nodes) == 0 {
@@ -156,9 +114,7 @@ func (s *ReplayQueryService) byWorkflow(_ context.Context, workflowID string) (o
 			RelatedID:       record.WorkflowID,
 		})
 	}
-	if view.Summary.FinalState == "" {
-		view.Summary.FinalState = string(record.RuntimeState)
-	}
+	view.Summary.FinalState = string(record.RuntimeState)
 	view.Degraded = len(degradations) > 0
 	view.DegradationReasons = degradations
 	return view, nil
@@ -199,7 +155,7 @@ func (s *ReplayQueryService) byTaskGraph(ctx context.Context, graphID string) (o
 	}
 	scope := ReplayProjectionScope{ScopeKind: ReplayScopeTaskGraph, ScopeID: graphID}
 	degradations := make([]observability.ReplayDegradation, 0)
-	if err := s.applyTaskGraphProjection(&view, scope, &degradations); err != nil {
+	if err := s.applyTaskGraphProjection(&view, scope, freshestGraphTimestamp(graphView, nil), &degradations); err != nil {
 		return observability.ReplayView{}, err
 	}
 	if len(view.Provenance.Nodes) == 0 {
@@ -221,6 +177,7 @@ func (s *ReplayQueryService) byTaskGraph(ctx context.Context, graphID string) (o
 	if len(view.FailureAttributions) == 0 {
 		view.FailureAttributions = bestEffortGraphFailureAttributions(graphView)
 	}
+	view.Summary.FinalState = summarizeGraphState(graphView)
 	view.Degraded = len(degradations) > 0
 	view.DegradationReasons = degradations
 	return view, nil
@@ -303,7 +260,7 @@ func (s *ReplayQueryService) byApproval(ctx context.Context, approvalID string) 
 	return view, nil
 }
 
-func (s *ReplayQueryService) applyWorkflowProjection(view *observability.ReplayView, scope ReplayProjectionScope, degradations *[]observability.ReplayDegradation) error {
+func (s *ReplayQueryService) applyWorkflowProjection(view *observability.ReplayView, scope ReplayProjectionScope, authoritativeFreshness time.Time, degradations *[]observability.ReplayDegradation) error {
 	if s.projections == nil {
 		*degradations = append(*degradations, observability.ReplayDegradation{
 			Reason:  observability.ReplayDegradationProjectionMissing,
@@ -315,14 +272,17 @@ func (s *ReplayQueryService) applyWorkflowProjection(view *observability.ReplayV
 	if err != nil {
 		return err
 	}
+	projectionFound := false
 	if projection, ok, err := s.projections.LoadWorkflowProjection(scope.ScopeID); err != nil {
 		return err
 	} else if ok {
+		projectionFound = true
 		view.ProjectionStatus = string(projection.ProjectionStatus)
 		view.ProjectionVersion = projection.SchemaVersion
 		if err := applySummaryProjection(view, projection.SummaryJSON, projection.ExplanationJSON); err != nil {
 			return err
 		}
+		applyProjectionFreshnessDegradation(projection.ProjectionFreshness, authoritativeFreshness, degradations)
 	}
 	nodes, edges, err := s.projections.ListProvenance(scope)
 	if err != nil {
@@ -346,11 +306,17 @@ func (s *ReplayQueryService) applyWorkflowProjection(view *observability.ReplayV
 		})
 		return nil
 	}
+	if !projectionFound {
+		*degradations = append(*degradations, observability.ReplayDegradation{
+			Reason:  observability.ReplayDegradationProjectionMissing,
+			Message: "workflow replay projection rows are missing",
+		})
+	}
 	applyBuildDegradations(build, degradations)
 	return nil
 }
 
-func (s *ReplayQueryService) applyTaskGraphProjection(view *observability.ReplayView, scope ReplayProjectionScope, degradations *[]observability.ReplayDegradation) error {
+func (s *ReplayQueryService) applyTaskGraphProjection(view *observability.ReplayView, scope ReplayProjectionScope, authoritativeFreshness time.Time, degradations *[]observability.ReplayDegradation) error {
 	if s.projections == nil {
 		*degradations = append(*degradations, observability.ReplayDegradation{
 			Reason:  observability.ReplayDegradationProjectionMissing,
@@ -362,14 +328,17 @@ func (s *ReplayQueryService) applyTaskGraphProjection(view *observability.Replay
 	if err != nil {
 		return err
 	}
+	projectionFound := false
 	if projection, ok, err := s.projections.LoadTaskGraphProjection(scope.ScopeID); err != nil {
 		return err
 	} else if ok {
+		projectionFound = true
 		view.ProjectionStatus = string(projection.ProjectionStatus)
 		view.ProjectionVersion = projection.SchemaVersion
 		if err := applySummaryProjection(view, projection.SummaryJSON, projection.ExplanationJSON); err != nil {
 			return err
 		}
+		applyProjectionFreshnessDegradation(projection.ProjectionFreshness, authoritativeFreshness, degradations)
 	}
 	nodes, edges, err := s.projections.ListProvenance(scope)
 	if err != nil {
@@ -392,6 +361,12 @@ func (s *ReplayQueryService) applyTaskGraphProjection(view *observability.Replay
 			Message: "task-graph replay projection build metadata is missing",
 		})
 		return nil
+	}
+	if !projectionFound {
+		*degradations = append(*degradations, observability.ReplayDegradation{
+			Reason:  observability.ReplayDegradationProjectionMissing,
+			Message: "task-graph replay projection rows are missing",
+		})
 	}
 	applyBuildDegradations(build, degradations)
 	return nil
@@ -434,6 +409,18 @@ func applyBuildDegradations(build ReplayProjectionBuildRecord, degradations *[]o
 		*degradations = append(*degradations, observability.ReplayDegradation{
 			Reason:  observability.ReplayDegradationProjectionIncomplete,
 			Message: reason,
+		})
+	}
+}
+
+func applyProjectionFreshnessDegradation(projectionFreshness time.Time, authoritativeFreshness time.Time, degradations *[]observability.ReplayDegradation) {
+	if projectionFreshness.IsZero() || authoritativeFreshness.IsZero() {
+		return
+	}
+	if projectionFreshness.Before(authoritativeFreshness) {
+		*degradations = append(*degradations, observability.ReplayDegradation{
+			Reason:  observability.ReplayDegradationProjectionStale,
+			Message: "replay projection freshness is older than authoritative runtime truth",
 		})
 	}
 }
@@ -853,10 +840,10 @@ func bestEffortExecutionAttributions(records []TaskExecutionRecord) []observabil
 				item.WorkflowID,
 			},
 			Details: map[string]string{
-				"intent":             string(item.Intent),
-				"status":             string(item.Status),
-				"failure_category":   string(item.FailureCategory),
-				"failure_summary":    item.FailureSummary,
+				"intent":                 string(item.Intent),
+				"status":                 string(item.Status),
+				"failure_category":       string(item.FailureCategory),
+				"failure_summary":        item.FailureSummary,
 				"last_recovery_strategy": string(item.LastRecoveryStrategy),
 			},
 		})

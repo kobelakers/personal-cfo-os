@@ -49,7 +49,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_happy_path/artifacts/workflow-monthly-review-20260329080000-replay_bundle.json",
               "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.681145Z"
+              "created_at": "2026-03-30T06:11:02.024548Z"
             },
             {
               "id": "workflow-monthly-review-20260329080000-replay_summary",
@@ -58,7 +58,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_happy_path/artifacts/workflow-monthly-review-20260329080000-replay_summary.json",
               "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.681145Z"
+              "created_at": "2026-03-30T06:11:02.024548Z"
             }
           ]
         },
@@ -183,6 +183,9 @@
           "plan_summary": [
             "generated 2 execution blocks blocks=cashflow-review,debt-review"
           ],
+          "memory_summary": [
+            "rejection_rule=:empty_hit"
+          ],
           "validator_summary": [
             "grounding:financial_grounding_validator:pass",
             "numeric:financial_numeric_consistency_validator:pass",
@@ -195,7 +198,8 @@
         },
         "explanation": {
           "why_memory_decision": [
-            "selected memories injected into downstream context"
+            "selected memories injected into downstream context",
+            "memory rejected by empty_hit:  (retrieval returned no candidates)"
           ]
         },
         "degraded": false,
@@ -209,6 +213,9 @@
         "plan_summary": [
           "generated 2 execution blocks blocks=cashflow-review,debt-review"
         ],
+        "memory_summary": [
+          "rejection_rule=:empty_hit"
+        ],
         "validator_summary": [
           "grounding:financial_grounding_validator:pass",
           "numeric:financial_numeric_consistency_validator:pass",
@@ -218,7 +225,8 @@
           "monthly_review_report:allow"
         ],
         "explanation": [
-          "selected memories injected into downstream context"
+          "selected memories injected into downstream context",
+          "memory rejected by empty_hit:  (retrieval returned no candidates)"
         ]
       },
       "token_usage": 1615,
@@ -272,7 +280,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/artifacts/workflow-monthly-review-20260329080001-replay_bundle.json",
               "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.719938Z"
+              "created_at": "2026-03-30T06:11:02.050522Z"
             },
             {
               "id": "workflow-monthly-review-20260329080001-replay_summary",
@@ -281,7 +289,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/artifacts/workflow-monthly-review-20260329080001-replay_summary.json",
               "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.719938Z"
+              "created_at": "2026-03-30T06:11:02.050522Z"
             }
           ]
         },
@@ -529,9 +537,385 @@
           {
             "category": "memory",
             "field": "memory_summary",
+            "left": [
+              "rejection_rule=:empty_hit"
+            ],
             "right": [
               "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
               "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+            ],
+            "details": [
+              "added: selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure | selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night",
+              "removed: rejection_rule=:empty_hit",
+              "left_count=1",
+              "right_count=2"
+            ],
+            "summary": "memory selection/rejection changed"
+          }
+        ],
+        "summary": [
+          "memory selection/rejection changed"
+        ]
+      },
+      "token_usage": 1985,
+      "evidence_complete": true,
+      "child_workflow_count": 0,
+      "started_at": "2026-03-29T08:00:00Z",
+      "completed_at": "2026-03-29T08:00:00Z",
+      "duration_milliseconds": 0
+    },
+    {
+      "scenario_id": "monthly_review_memory_rejection_visibility",
+      "category": "monthly_review",
+      "description": "Monthly Review deterministic memory rejection scenario exposes selected and rejected memory reasons through replay/debug surfaces",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "scope": {
+        "kind": "workflow",
+        "id": "workflow-monthly-review-20260330080000"
+      },
+      "workflow_id": "workflow-monthly-review-20260330080000",
+      "replay": {
+        "query": {
+          "workflow_id": "workflow-monthly-review-20260330080000"
+        },
+        "scope": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260330080000"
+        },
+        "workflow": {
+          "workflow_id": "workflow-monthly-review-20260330080000",
+          "task_id": "task-monthly-review-20260330",
+          "intent": "monthly_review",
+          "runtime_state": "completed",
+          "root_correlation_id": "workflow-monthly-review-20260330080000",
+          "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+          "artifacts": [
+            {
+              "id": "workflow-monthly-review-20260330080000-replay_bundle",
+              "kind": "replay_bundle",
+              "workflow_id": "workflow-monthly-review-20260330080000",
+              "task_id": "task-monthly-review-20260330",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_memory_rejection_visibility/artifacts/workflow-monthly-review-20260330080000-replay_bundle.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T06:11:02.075176Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260330080000-replay_summary",
+              "kind": "replay_summary",
+              "workflow_id": "workflow-monthly-review-20260330080000",
+              "task_id": "task-monthly-review-20260330",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_memory_rejection_visibility/artifacts/workflow-monthly-review-20260330080000-replay_summary.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T06:11:02.075176Z"
+            },
+            {
+              "id": "workflow-monthly-review-20260330080000-monthly_review_report",
+              "kind": "monthly_review_report",
+              "workflow_id": "workflow-monthly-review-20260330080000",
+              "task_id": "task-monthly-review-20260330",
+              "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_memory_rejection_visibility/artifacts/workflow-monthly-review-20260330080000-monthly_review_report.json",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
+              "created_at": "2026-03-30T08:00:00Z"
+            }
+          ]
+        },
+        "provenance": {
+          "scope": {
+            "kind": "workflow",
+            "id": "workflow-monthly-review-20260330080000"
+          },
+          "nodes": [
+            {
+              "id": "artifact:workflow-monthly-review-20260330080000-monthly_review_report",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260330080000-monthly_review_report",
+              "label": "monthly_review_report",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260330080000-replay_bundle",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260330080000-replay_bundle",
+              "label": "replay_bundle",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "artifact:workflow-monthly-review-20260330080000-replay_summary",
+              "type": "artifact",
+              "ref_id": "workflow-monthly-review-20260330080000-replay_summary",
+              "label": "replay_summary",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            },
+            {
+              "id": "memory:memory-eval-low-confidence",
+              "type": "memory",
+              "ref_id": "memory-eval-low-confidence",
+              "label": "memory-eval-low-confidence"
+            },
+            {
+              "id": "memory:memory-eval-stale-episodic",
+              "type": "memory",
+              "ref_id": "memory-eval-stale-episodic",
+              "label": "memory-eval-stale-episodic"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "label": "workflow-monthly-review-20260329080000-memory-debt-pressure"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-late-night",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-late-night",
+              "label": "workflow-monthly-review-20260329080000-memory-late-night"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-procedure",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-procedure",
+              "label": "workflow-monthly-review-20260329080000-memory-procedure"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-subscriptions",
+              "label": "workflow-monthly-review-20260329080000-memory-subscriptions"
+            },
+            {
+              "id": "memory:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "type": "memory",
+              "ref_id": "workflow-monthly-review-20260329080000-memory-tax-signal",
+              "label": "workflow-monthly-review-20260329080000-memory-tax-signal"
+            },
+            {
+              "id": "policy_decision:workflow-monthly-review-20260330080000:0",
+              "type": "policy_decision",
+              "label": "monthly_review_report",
+              "summary": "action allowed by default"
+            },
+            {
+              "id": "task:task-monthly-review-20260330",
+              "type": "task",
+              "ref_id": "task-monthly-review-20260330",
+              "label": "task-monthly-review-20260330"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260330080000:business:0",
+              "type": "validator_verdict",
+              "label": "financial_business_rule_validator",
+              "summary": "financial business-rule checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260330080000:grounding:0",
+              "type": "validator_verdict",
+              "label": "financial_grounding_validator",
+              "summary": "finance recommendation grounding checks passed"
+            },
+            {
+              "id": "validator:workflow-monthly-review-20260330080000:numeric:0",
+              "type": "validator_verdict",
+              "label": "financial_numeric_consistency_validator",
+              "summary": "numeric consistency checks passed"
+            },
+            {
+              "id": "workflow:workflow-monthly-review-20260330080000",
+              "type": "workflow",
+              "ref_id": "workflow-monthly-review-20260330080000",
+              "label": "workflow-monthly-review-20260330080000",
+              "summary": "本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。 债务块结论：债务负担率 0.03，最低还款压力 0.03。"
+            }
+          ],
+          "edges": [
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260330080000:workflow-monthly-review-20260330080000-monthly_review_report",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260330080000-monthly_review_report",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260330080000:workflow-monthly-review-20260330080000-replay_bundle",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260330080000-replay_bundle",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-artifact:workflow-monthly-review-20260330080000:workflow-monthly-review-20260330080000-replay_summary",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "artifact:workflow-monthly-review-20260330080000-replay_summary",
+              "type": "produced_artifact"
+            },
+            {
+              "id": "workflow-memory-rejected:workflow-monthly-review-20260330080000:memory-eval-low-confidence",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:memory-eval-low-confidence",
+              "type": "rejected_memory"
+            },
+            {
+              "id": "workflow-memory-rejected:workflow-monthly-review-20260330080000:memory-eval-stale-episodic",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:memory-eval-stale-episodic",
+              "type": "rejected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260330080000:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260330080000:workflow-monthly-review-20260329080000-memory-late-night",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-late-night",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260330080000:workflow-monthly-review-20260329080000-memory-procedure",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-procedure",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260330080000:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-subscriptions",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-memory-selected:workflow-monthly-review-20260330080000:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "memory:workflow-monthly-review-20260329080000-memory-tax-signal",
+              "type": "selected_memory"
+            },
+            {
+              "id": "workflow-policy_decision:workflow-monthly-review-20260330080000:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "policy_decision:workflow-monthly-review-20260330080000:0",
+              "type": "blocked_by_policy"
+            },
+            {
+              "id": "workflow-task:workflow-monthly-review-20260330080000:task-monthly-review-20260330",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "task:task-monthly-review-20260330",
+              "type": "executed_as"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260330080000:business:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "validator:workflow-monthly-review-20260330080000:business:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260330080000:grounding:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "validator:workflow-monthly-review-20260330080000:grounding:0",
+              "type": "validated_by"
+            },
+            {
+              "id": "workflow-validator:workflow-monthly-review-20260330080000:numeric:0",
+              "from_node_id": "workflow:workflow-monthly-review-20260330080000",
+              "to_node_id": "validator:workflow-monthly-review-20260330080000:numeric:0",
+              "type": "validated_by"
+            }
+          ]
+        },
+        "summary": {
+          "goal_summary": "monthly_review",
+          "plan_summary": [
+            "generated 2 execution blocks blocks=cashflow-review,debt-review"
+          ],
+          "memory_summary": [
+            "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "rejected=memory-eval-low-confidence,memory-eval-stale-episodic",
+            "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "rejection_rule=memory-eval-low-confidence:low_confidence",
+            "rejection_rule=memory-eval-stale-episodic:stale_episodic"
+          ],
+          "validator_summary": [
+            "grounding:financial_grounding_validator:pass",
+            "numeric:financial_numeric_consistency_validator:pass",
+            "business:financial_business_rule_validator:pass"
+          ],
+          "governance_summary": [
+            "monthly_review_report:allow"
+          ],
+          "final_state": "completed"
+        },
+        "explanation": {
+          "why_memory_decision": [
+            "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "memory rejected: memory-eval-low-confidence,memory-eval-stale-episodic",
+            "selected memories injected into downstream context",
+            "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+            "memory rejected by low_confidence: memory-eval-low-confidence (confidence 0.42 below floor 0.70)",
+            "memory rejected by stale_episodic: memory-eval-stale-episodic (episodic memory age 3576h0m0s exceeds policy 2160h0m0s)"
+          ]
+        },
+        "degraded": false,
+        "projection_status": "complete",
+        "projection_version": 1
+      },
+      "debug_summary": {
+        "workflow_id": "workflow-monthly-review-20260330080000",
+        "final_runtime_state": "completed",
+        "goal": "monthly_review",
+        "plan_summary": [
+          "generated 2 execution blocks blocks=cashflow-review,debt-review"
+        ],
+        "memory_summary": [
+          "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "rejected=memory-eval-low-confidence,memory-eval-stale-episodic",
+          "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "rejection_rule=memory-eval-low-confidence:low_confidence",
+          "rejection_rule=memory-eval-stale-episodic:stale_episodic"
+        ],
+        "validator_summary": [
+          "grounding:financial_grounding_validator:pass",
+          "numeric:financial_numeric_consistency_validator:pass",
+          "business:financial_business_rule_validator:pass"
+        ],
+        "governance_summary": [
+          "monthly_review_report:allow"
+        ],
+        "explanation": [
+          "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "memory rejected: memory-eval-low-confidence,memory-eval-stale-episodic",
+          "selected memories injected into downstream context",
+          "memory selected: workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+          "memory rejected by low_confidence: memory-eval-low-confidence (confidence 0.42 below floor 0.70)",
+          "memory rejected by stale_episodic: memory-eval-stale-episodic (episodic memory age 3576h0m0s exceeds policy 2160h0m0s)"
+        ]
+      },
+      "comparison": {
+        "left": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260329080000"
+        },
+        "right": {
+          "kind": "workflow",
+          "id": "workflow-monthly-review-20260330080000"
+        },
+        "diffs": [
+          {
+            "category": "memory",
+            "field": "memory_summary",
+            "left": [
+              "rejection_rule=:empty_hit"
+            ],
+            "right": [
+              "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "rejected=memory-eval-low-confidence,memory-eval-stale-episodic",
+              "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+              "rejection_rule=memory-eval-low-confidence:low_confidence",
+              "rejection_rule=memory-eval-stale-episodic:stale_episodic"
+            ],
+            "details": [
+              "added: selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure | rejected=memory-eval-low-confidence,memory-eval-stale-episodic | selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure | rejection_rule=memory-eval-low-confidence:low_confidence | rejection_rule=memory-eval-stale-episodic:stale_episodic",
+              "removed: rejection_rule=:empty_hit",
+              "left_count=1",
+              "right_count=5"
             ],
             "summary": "memory selection/rejection changed"
           }
@@ -584,7 +968,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_trust_validator_failure/artifacts/workflow-monthly-review-20260329080000-replay_bundle.json",
               "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.740468Z"
+              "created_at": "2026-03-30T06:11:02.087901Z"
             },
             {
               "id": "workflow-monthly-review-20260329080000-replay_summary",
@@ -593,7 +977,7 @@
               "task_id": "task-monthly-review-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/monthly_review_trust_validator_failure/artifacts/workflow-monthly-review-20260329080000-replay_summary.json",
               "summary": "本月现金流整体为正，但重复订阅与夜间消费信号仍值得继续跟踪。 债务块结论：债务负担率 0.03，最低还款压力 0.03。",
-              "created_at": "2026-03-30T04:36:10.740468Z"
+              "created_at": "2026-03-30T06:11:02.087901Z"
             }
           ]
         },
@@ -701,6 +1085,9 @@
           "plan_summary": [
             "generated 2 execution blocks blocks=cashflow-review,debt-review"
           ],
+          "memory_summary": [
+            "rejection_rule=:empty_hit"
+          ],
           "validator_summary": [
             "grounding:forced_monthly_review_grounding_failure:fail",
             "numeric:financial_numeric_consistency_validator:pass",
@@ -711,7 +1098,8 @@
         "explanation": {
           "why_failed": "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review",
           "why_memory_decision": [
-            "selected memories injected into downstream context"
+            "selected memories injected into downstream context",
+            "memory rejected by empty_hit:  (retrieval returned no candidates)"
           ],
           "why_validation_failed": [
             "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review"
@@ -728,6 +1116,9 @@
         "plan_summary": [
           "generated 2 execution blocks blocks=cashflow-review,debt-review"
         ],
+        "memory_summary": [
+          "rejection_rule=:empty_hit"
+        ],
         "validator_summary": [
           "grounding:forced_monthly_review_grounding_failure:fail",
           "numeric:financial_numeric_consistency_validator:pass",
@@ -735,7 +1126,8 @@
         ],
         "explanation": [
           "forced_monthly_review_grounding_failure: deterministic eval grounding failure for monthly review",
-          "selected memories injected into downstream context"
+          "selected memories injected into downstream context",
+          "memory rejected by empty_hit:  (retrieval returned no candidates)"
         ]
       },
       "token_usage": 1615,
@@ -782,7 +1174,7 @@
               "task_id": "task-debt-vs-invest-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_bundle.json",
               "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
-              "created_at": "2026-03-30T04:36:10.757402Z"
+              "created_at": "2026-03-30T06:11:02.099276Z"
             },
             {
               "id": "workflow-debt-vs-invest-20260329080000-replay_summary",
@@ -791,7 +1183,7 @@
               "task_id": "task-debt-vs-invest-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/artifacts/workflow-debt-vs-invest-20260329080000-replay_summary.json",
               "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
-              "created_at": "2026-03-30T04:36:10.757402Z"
+              "created_at": "2026-03-30T06:11:02.099276Z"
             }
           ]
         },
@@ -996,7 +1388,7 @@
               "task_id": "task-debt-vs-invest-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_fail/artifacts/workflow-debt-vs-invest-20260329080000-replay_bundle.json",
               "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
-              "created_at": "2026-03-30T04:36:10.778563Z"
+              "created_at": "2026-03-30T06:11:02.111201Z"
             },
             {
               "id": "workflow-debt-vs-invest-20260329080000-replay_summary",
@@ -1005,7 +1397,7 @@
               "task_id": "task-debt-vs-invest-20260329",
               "location": "/tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_fail/artifacts/workflow-debt-vs-invest-20260329080000-replay_summary.json",
               "summary": "债务块结论：债务负担率 0.03，最低还款压力 0.03。 本月现金流整体为正，且检索到历史支出记忆，因此本轮更强调持续性的订阅清理与夜间消费复盘。",
-              "created_at": "2026-03-30T04:36:10.778563Z"
+              "created_at": "2026-03-30T06:11:02.111201Z"
             }
           ]
         },
@@ -2315,16 +2707,16 @@
     }
   ],
   "score": {
-    "scenario_count": 10,
-    "passed_count": 10,
+    "scenario_count": 11,
+    "passed_count": 11,
     "failed_count": 0,
-    "task_success_rate": 0.8,
-    "validator_pass_rate": 0.5,
+    "task_success_rate": 0.8181818181818182,
+    "validator_pass_rate": 0.45454545454545453,
     "policy_violation_rate": 0,
-    "approval_frequency": 0.1,
-    "retry_frequency": 0.1,
+    "approval_frequency": 0.09090909090909091,
+    "retry_frequency": 0.09090909090909091,
     "average_latency_milliseconds": 0,
-    "total_token_usage": 7069,
+    "total_token_usage": 9054,
     "evidence_completeness_rate": 1,
     "child_workflow_completion_rate": 1
   },
@@ -2334,6 +2726,7 @@
     "passed_scenarios": [
       "monthly_review_happy_path",
       "monthly_review_cross_session_memory_influence",
+      "monthly_review_memory_rejection_visibility",
       "monthly_review_trust_validator_failure",
       "debt_vs_invest_waiting_approval",
       "debt_vs_invest_fail",
@@ -2348,8 +2741,8 @@
     ],
     "summary_lines": [
       "corpus=phase6a-default deterministic_only=true",
-      "passed=10 failed=0",
-      "task_success_rate=0.80 validator_pass_rate=0.50 approval_frequency=0.10"
+      "passed=11 failed=0",
+      "task_success_rate=0.82 validator_pass_rate=0.45 approval_frequency=0.09"
     ]
   }
 }

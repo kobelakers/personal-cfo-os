@@ -34,7 +34,6 @@ type RuntimePlane struct {
 	Service         *runtime.Service
 	Operator        *runtime.OperatorService
 	Query           *runtime.QueryService
-	Replay          *observability.ReplayService
 	ReplayQuery     *runtime.ReplayQueryService
 	ReplayRebuilder *runtime.ReplayProjectionRebuilder
 	LifeEvent       workflows.LifeEventTriggerWorkflow
@@ -149,7 +148,6 @@ func OpenRuntimePlane(options RuntimePlaneOptions) (*RuntimePlane, error) {
 		Service:         service,
 		Operator:        runtime.NewOperatorService(service),
 		Query:           runtime.NewQueryService(service),
-		Replay:          observability.NewReplayService(runtime.NewObservabilityReplayStore(stores.Replay)),
 		ReplayQuery:     replayQuery,
 		ReplayRebuilder: replayRebuilder,
 		LifeEvent:       lifeEventWorkflow,

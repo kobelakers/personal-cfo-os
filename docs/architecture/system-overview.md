@@ -18,8 +18,8 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 12. Durable runtime stores persist task graphs, execution records, checkpoints, approvals, replay events, and artifact refs across process restarts through a local SQLite seam.
 13. Operator-facing service / API / worker layers query and control the runtime without pushing orchestration back into workflow files.
 14. Runtime durable truth is now augmented by versioned replay/debug projection rows plus artifact refs, so replay/debug can query the same durable plane without introducing a second explanation database.
-15. `ReplayQueryService` can answer workflow/task-graph/task/execution/approval why/how questions from authoritative runtime truth, normalized projections, and artifact refs, while degrading gracefully when projections are missing or stale.
-16. `cmd/eval` now runs a deterministic canonical regression corpus over the current backbone instead of only phase-specific runners, and golden replay/debug samples are produced from the same mock/runtime fixtures.
+15. `internal/runtime.ReplayQueryService` is now the canonical replay plane; it answers workflow/task-graph/task/execution/approval why/how questions from authoritative runtime truth, normalized projections, and artifact refs, while degrading gracefully when projections are missing or stale instead of falling back to a second replay system.
+16. `cmd/eval` now runs a deterministic canonical 11-scenario regression corpus over the current backbone instead of only phase-specific runners, and golden replay/debug samples are produced from the same mock/runtime fixtures, including explicit memory-rejection visibility coverage.
 
 ## Replay / Eval / Debug Plane (Phase 6A)
 

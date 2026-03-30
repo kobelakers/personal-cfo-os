@@ -229,6 +229,9 @@ func printComparison(stdout io.Writer, comparison observability.ReplayComparison
 		if len(diff.Right) > 0 {
 			fmt.Fprintf(stdout, "  right=%s\n", strings.Join(diff.Right, " | "))
 		}
+		for _, detail := range diff.Details {
+			fmt.Fprintf(stdout, "  detail=%s\n", detail)
+		}
 	}
 }
 

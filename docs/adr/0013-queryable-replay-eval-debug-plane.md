@@ -28,10 +28,13 @@ Phase 6A adds replay/eval/debug as a load-bearing layer with these boundaries:
 4. query semantics are explicit:
    - authoritative runtime truth missing -> hard failure
    - projection missing/stale/incomplete -> partial replay view with degradation reasons
+   - workflow-level freshness is hardened across `completed`, `failed`, `waiting_approval`, and approval-resume transitions
 5. provenance is upgraded from an ID bag to a directed graph
 6. `cmd/replay` becomes the first formal operator/developer replay CLI
 7. `cmd/eval` becomes a deterministic regression harness; phase runners remain as adapters rather than the main story
-8. canonical 6A regression corpus is deterministic/mock only; live provider paths remain smoke/manual evidence
+8. canonical replay is owned by `internal/runtime.ReplayQueryService`; the earlier observability-local replay stack is retained only as removed legacy context, not as a second active replay system
+9. canonical 6A regression corpus is deterministic/mock only; live provider paths remain smoke/manual evidence
+10. the deterministic corpus now includes an explicit memory-rejection visibility scenario so replay/debug regressions cover why memory was selected or rejected
 
 ## Consequences
 
@@ -41,6 +44,7 @@ Phase 6A adds replay/eval/debug as a load-bearing layer with these boundaries:
 - provenance is now machine-queryable rather than a human-only trace-reading exercise
 - eval becomes a regression safety net instead of a collection of phase-specific scripts
 - replay/debug stays aligned with the same runtime durable plane rather than inventing a second explanation store
+- memory rejection is now a checked-in regression surface rather than an implicit side effect of cross-session memory influence
 
 ### Negative / Deferred
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/app"
@@ -47,6 +48,19 @@ func DefaultScenarioCorpus() ScenarioCorpus {
 					RequiredComparisonCategories: []string{"memory"},
 				},
 				run: runMonthlyReviewCrossSessionMemoryInfluence,
+			},
+			{
+				ID:            "monthly_review_memory_rejection_visibility",
+				Category:      "monthly_review",
+				Description:   "Monthly Review deterministic memory rejection scenario exposes selected and rejected memory reasons through replay/debug surfaces",
+				Deterministic: true,
+				Expectation: ScenarioExpectation{
+					ExpectedFinalState:           "completed",
+					ExpectedScopeKind:            "workflow",
+					RequireComparison:            true,
+					RequiredComparisonCategories: []string{"memory"},
+				},
+				run: runMonthlyReviewMemoryRejectionVisibility,
 			},
 			{
 				ID:            "monthly_review_trust_validator_failure",
@@ -210,6 +224,103 @@ func runMonthlyReviewCrossSessionMemoryInfluence(ctx context.Context, runCtx Sce
 	)
 	if err != nil {
 		return scenarioRunOutput{}, err
+	}
+	return scenarioRunOutput{
+		RuntimeState:       second.Result.RuntimeState,
+		WorkflowID:         second.Result.WorkflowID,
+		Replay:             view,
+		DebugSummary:       observability.BuildDebugSummaryFromReplay(view),
+		Comparison:         &comparison,
+		TokenUsage:         traceTokenUsage(second.Trace),
+		EvidenceComplete:   second.Result.CoverageReport.CoverageRatio >= 1,
+		ChildWorkflowCount: len(view.Summary.ChildWorkflowSummary),
+	}, nil
+}
+
+func runMonthlyReviewMemoryRejectionVisibility(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
+	env1, err := openMockPhase5DEnvironment(runCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	first, err := env1.RunMonthlyReview(ctx, "user-1", "请帮我做一份月度财务复盘", state.FinancialWorldState{})
+	if err != nil {
+		_ = env1.Close()
+		return scenarioRunOutput{}, err
+	}
+	stale := memory.MemoryRecord{
+		ID:      "memory-eval-stale-episodic",
+		Kind:    memory.MemoryKindEpisodic,
+		Summary: "subscription subscription subscription cleanup reminder from a much older review",
+		Facts: []memory.MemoryFact{
+			{Key: "duplicate_subscription_count", Value: "2", EvidenceID: observation.EvidenceID("evidence-subscription")},
+		},
+		Source: memory.MemorySource{
+			EvidenceIDs: []observation.EvidenceID{observation.EvidenceID("evidence-subscription")},
+			TaskID:      "task-eval-stale",
+			WorkflowID:  "workflow-eval-stale",
+			TraceID:     "trace-eval-stale",
+			Actor:       "memory_steward",
+		},
+		Confidence: memory.MemoryConfidence{Score: 0.92, Rationale: "old deterministic eval memory"},
+		CreatedAt:  time.Date(2025, 11, 1, 8, 0, 0, 0, time.UTC),
+		UpdatedAt:  time.Date(2025, 11, 1, 8, 0, 0, 0, time.UTC),
+	}
+	lowConfidence := memory.MemoryRecord{
+		ID:      "memory-eval-low-confidence",
+		Kind:    memory.MemoryKindSemantic,
+		Summary: "subscription subscription recurring cashflow cleanup should maybe stay a recommendation priority",
+		Facts: []memory.MemoryFact{
+			{Key: "duplicate_subscription_count", Value: "2", EvidenceID: observation.EvidenceID("evidence-subscription")},
+		},
+		Source: memory.MemorySource{
+			EvidenceIDs: []observation.EvidenceID{observation.EvidenceID("evidence-subscription")},
+			TaskID:      "task-eval-low-confidence",
+			WorkflowID:  "workflow-eval-low-confidence",
+			TraceID:     "trace-eval-low-confidence",
+			Actor:       "memory_steward",
+		},
+		Confidence: memory.MemoryConfidence{Score: 0.42, Rationale: "intentionally weak deterministic eval memory"},
+		CreatedAt:  time.Date(2026, 3, 29, 8, 0, 0, 0, time.UTC),
+		UpdatedAt:  time.Date(2026, 3, 29, 8, 0, 0, 0, time.UTC),
+	}
+	for _, record := range []memory.MemoryRecord{stale, lowConfidence} {
+		if err := env1.MemoryStores.Store.Put(ctx, record); err != nil {
+			_ = env1.Close()
+			return scenarioRunOutput{}, err
+		}
+	}
+	if _, err := env1.RebuildMemoryIndexes(ctx); err != nil {
+		_ = env1.Close()
+		return scenarioRunOutput{}, err
+	}
+	if err := env1.Close(); err != nil {
+		return scenarioRunOutput{}, err
+	}
+
+	secondRunCtx := runCtx
+	secondRunCtx.Now = runCtx.Now.Add(24 * time.Hour)
+	env2, err := openMockPhase5DEnvironment(secondRunCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	defer func() { _ = env2.Close() }()
+	second, err := env2.RunMonthlyReview(ctx, "user-1", "请帮我做一份月度财务复盘", state.FinancialWorldState{})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	view, err := env2.ReplayQuery.Query(ctx, observability.ReplayQuery{WorkflowID: second.Result.WorkflowID})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	comparison, err := env2.ReplayQuery.Compare(ctx,
+		observability.ReplayQuery{WorkflowID: first.Result.WorkflowID},
+		observability.ReplayQuery{WorkflowID: second.Result.WorkflowID},
+	)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	if !containsReplayLine(view.Summary.MemorySummary, "rejection_rule=") && !containsReplayLine(view.Explanation.WhyMemoryDecision, "memory rejected by") {
+		return scenarioRunOutput{}, fmt.Errorf("expected replay surface to expose memory rejection visibility, got summary=%v explanation=%v", view.Summary.MemorySummary, view.Explanation.WhyMemoryDecision)
 	}
 	return scenarioRunOutput{
 		RuntimeState:       second.Result.RuntimeState,
@@ -698,6 +809,15 @@ func traceTokenUsage(trace observability.WorkflowTraceDump) int {
 		total += item.TotalTokens
 	}
 	return total
+}
+
+func containsReplayLine(lines []string, needle string) bool {
+	for _, line := range lines {
+		if strings.Contains(line, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func scenarioBaseState(now time.Time) state.FinancialWorldState {

@@ -5,15 +5,27 @@
   },
   "right": {
     "kind": "workflow",
-    "id": "workflow-monthly-review-20260329080001"
+    "id": "workflow-monthly-review-20260330080000"
   },
   "diffs": [
     {
       "category": "memory",
       "field": "memory_summary",
+      "left": [
+        "rejection_rule=:empty_hit"
+      ],
       "right": [
-        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-debt-pressure",
-        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure,workflow-monthly-review-20260329080000-memory-late-night"
+        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure",
+        "rejected=memory-eval-low-confidence,memory-eval-stale-episodic",
+        "selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure",
+        "rejection_rule=memory-eval-low-confidence:low_confidence",
+        "rejection_rule=memory-eval-stale-episodic:stale_episodic"
+      ],
+      "details": [
+        "added: selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-tax-signal,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-debt-pressure | rejected=memory-eval-low-confidence,memory-eval-stale-episodic | selected=workflow-monthly-review-20260329080000-memory-procedure,workflow-monthly-review-20260329080000-memory-subscriptions,workflow-monthly-review-20260329080000-memory-late-night,workflow-monthly-review-20260329080000-memory-debt-pressure | rejection_rule=memory-eval-low-confidence:low_confidence | rejection_rule=memory-eval-stale-episodic:stale_episodic",
+        "removed: rejection_rule=:empty_hit",
+        "left_count=1",
+        "right_count=5"
       ],
       "summary": "memory selection/rejection changed"
     }

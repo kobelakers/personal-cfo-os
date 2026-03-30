@@ -64,6 +64,7 @@ Stable deterministic/mock-only replay/eval/debug evidence:
 
 - `phase6a_eval_default_corpus.json`
 - `phase6a_replay_compare_monthly_review_memory.json`
+- `phase6a_replay_monthly_review_memory_rejection.json`
 - `phase6a_replay_debt_vs_invest_waiting_approval.json`
 - `phase6a_replay_life_event_task_graph.json`
 
@@ -76,7 +77,8 @@ go run ./cmd/eval --mode corpus --corpus phase6a-default --format json --output 
 Regenerate replay samples:
 
 ```bash
-go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/monthly_review_cross_session_memory_influence/runtime.db --compare-left workflow:workflow-monthly-review-20260329080000 --compare-right workflow:workflow-monthly-review-20260329080001 --format json > ./docs/eval/samples/phase6a_replay_compare_monthly_review_memory.json
+go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/monthly_review_memory_rejection_visibility/runtime.db --compare-left workflow:workflow-monthly-review-20260329080000 --compare-right workflow:workflow-monthly-review-20260330080000 --format json > ./docs/eval/samples/phase6a_replay_compare_monthly_review_memory.json
+go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/monthly_review_memory_rejection_visibility/runtime.db --workflow-id workflow-monthly-review-20260330080000 --format json > ./docs/eval/samples/phase6a_replay_monthly_review_memory_rejection.json
 go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/debt_vs_invest_waiting_approval/runtime.db --workflow-id workflow-debt-vs-invest-20260329080000 --format json > ./docs/eval/samples/phase6a_replay_debt_vs_invest_waiting_approval.json
 go run ./cmd/replay --runtime-db /tmp/personal-cfo-6a-evidence/corpus/life_event_generated_follow_up_tasks/life_event_follow_up_runtime.db --task-graph-id graph-life-event-eval-20260329080000 --format json > ./docs/eval/samples/phase6a_replay_life_event_task_graph.json
 ```
@@ -87,4 +89,4 @@ Projection rebuild/backfill remains local-first and query-safe:
 go run ./cmd/replay --runtime-db ./var/runtime.db --rebuild-projections --all
 ```
 
-The canonical 6A corpus intentionally excludes live provider paths so golden traces and eval diffs stay stable.
+The canonical 6A corpus intentionally excludes live provider paths so golden traces and eval diffs stay stable. It now covers 11 deterministic scenarios, including an explicit memory-rejection visibility case.

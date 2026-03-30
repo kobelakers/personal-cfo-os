@@ -14,17 +14,18 @@ Phase 6A upgrades the current governed finance agent backbone with a **queryable
   - hard failure when authoritative runtime truth is missing
   - partial replay view plus degradation reasons when projections are missing, stale, or incomplete
 - `cmd/eval` runs a canonical deterministic/mock-only corpus rather than only phase runners.
-- the P0 corpus covers these 10 canonical cases:
+- the P0 corpus covers these 11 canonical cases:
   1. Monthly Review happy path
   2. Monthly Review cross-session memory influence
-  3. Monthly Review trust/validator failure
-  4. Debt vs Invest waiting_approval
-  5. Debt vs Invest deny/fail
-  6. Life Event -> generated follow-up tasks
-  7. Tax child workflow happy path
-  8. Portfolio child workflow happy path
-  9. retry / reevaluate
-  10. parent workflow -> child workflow provenance reconstruction
+  3. Monthly Review memory rejection visibility
+  4. Monthly Review trust/validator failure
+  5. Debt vs Invest waiting_approval
+  6. Debt vs Invest deny/fail
+  7. Life Event -> generated follow-up tasks
+  8. Tax child workflow happy path
+  9. Portfolio child workflow happy path
+  10. retry / reevaluate
+  11. parent workflow -> child workflow provenance reconstruction
 - golden replay/debug outputs are checked in for representative 6A cases.
 - 5B / 5C / 5D regression coverage still passes.
 
@@ -65,6 +66,7 @@ Provider-sensitive fields such as token/cost may still be recorded when availabl
 - task replay query
 - execution replay query
 - approval replay query
+- workflow projection freshness on `completed`, `failed`, `waiting_approval`, and approval-resume transitions
 - parent -> generated task -> child workflow -> artifact -> state commit -> operator action reconstruction
 - why failed attribution
 - why waiting_approval attribution
@@ -88,6 +90,7 @@ Canonical 6A samples:
 
 - `docs/eval/samples/phase6a_eval_default_corpus.json`
 - `docs/eval/samples/phase6a_replay_compare_monthly_review_memory.json`
+- `docs/eval/samples/phase6a_replay_monthly_review_memory_rejection.json`
 - `docs/eval/samples/phase6a_replay_debt_vs_invest_waiting_approval.json`
 - `docs/eval/samples/phase6a_replay_life_event_task_graph.json`
 

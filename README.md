@@ -112,8 +112,11 @@ Phase 6A upgrades replay/eval/debug from "export a trace and read JSON by hand" 
   - why a child workflow executed
   - why memory was selected or rejected
   - what changed between two runs
+- the canonical replay plane is now `internal/runtime.ReplayQueryService`; the earlier observability-local replay stack has been retired so the repo only tells one replay story
 - `cmd/replay` is no longer a placeholder; it can query a single scope, compare two scopes, rebuild projections, and print JSON or human-readable summaries
-- `cmd/eval` is no longer mainly a phase runner; it now has a deterministic regression harness with a canonical 10-scenario corpus
+- workflow-level replay projection freshness is now explicitly hardened for `completed`, `failed`, `waiting_approval`, and approval-resume transitions; stale or incomplete projections degrade to partial replay views instead of becoming opaque errors
+- `cmd/eval` is no longer mainly a phase runner; it now has a deterministic regression harness with a canonical 11-scenario corpus
+- the canonical corpus now includes an explicit `monthly_review_memory_rejection_visibility` case so rejected-memory reasons are a first-class replay/debug regression surface
 - the canonical 6A corpus only runs deterministic fixtures / mock intelligence paths; live provider paths remain smoke/manual evidence and are intentionally excluded from stable regression
 
 ## Current Positioning

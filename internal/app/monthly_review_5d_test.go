@@ -158,12 +158,141 @@ func TestPhase5DDebtVsInvestDeterministicWaitingApproval(t *testing.T) {
 	}
 }
 
+func TestPhase5DWorkflowReplayProjectionCompletedIsFresh(t *testing.T) {
+	env := openPhase5DTestEnv(t, filepath.Join(t.TempDir(), "memory.db"), "holdings_2026-03-safe.csv", time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC))
+	result, err := env.RunMonthlyReview(t.Context(), "user-1", "请帮我做一份月度财务复盘", state.FinancialWorldState{})
+	if err != nil {
+		t.Fatalf("run monthly review for workflow replay freshness: %v", err)
+	}
+	view, err := env.ReplayQuery.Query(t.Context(), observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		t.Fatalf("query monthly review replay by workflow: %v", err)
+	}
+	if view.Degraded {
+		t.Fatalf("expected fresh workflow replay projection after completed run, got %+v", view.DegradationReasons)
+	}
+	if view.Summary.FinalState != string(runtimepkg.WorkflowStateCompleted) {
+		t.Fatalf("expected completed workflow replay summary, got %+v", view.Summary)
+	}
+	if err := env.Close(); err != nil {
+		t.Fatalf("close phase 5d env: %v", err)
+	}
+}
+
+func TestPhase5DWorkflowReplayProjectionRefreshesAcrossApprovalResume(t *testing.T) {
+	env := openPhase5DTestEnv(t, filepath.Join(t.TempDir(), "memory.db"), "holdings_2026-03-safe.csv", time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC))
+	initial, err := env.RunDebtVsInvest(t.Context(), "user-1", "提前还贷还是继续投资更合适", state.FinancialWorldState{})
+	if err != nil {
+		t.Fatalf("run debt-vs-invest waiting approval path: %v", err)
+	}
+	waitingView, err := env.ReplayQuery.Query(t.Context(), observability.ReplayQuery{WorkflowID: initial.Result.WorkflowID})
+	if err != nil {
+		t.Fatalf("query waiting approval workflow replay: %v", err)
+	}
+	if waitingView.Degraded {
+		t.Fatalf("expected fresh waiting_approval workflow replay projection, got %+v", waitingView.DegradationReasons)
+	}
+	if waitingView.Summary.FinalState != string(runtimepkg.WorkflowStateWaitingApproval) {
+		t.Fatalf("expected waiting_approval workflow replay summary, got %+v", waitingView.Summary)
+	}
+
+	resumed, err := env.ResumeDebtVsInvestAfterApproval(t.Context(), initial.Result)
+	if err != nil {
+		t.Fatalf("resume debt-vs-invest after approval: %v", err)
+	}
+	resumedView, err := env.ReplayQuery.Query(t.Context(), observability.ReplayQuery{WorkflowID: resumed.Result.WorkflowID})
+	if err != nil {
+		t.Fatalf("query resumed workflow replay: %v", err)
+	}
+	if resumedView.Degraded {
+		t.Fatalf("expected resumed workflow replay projection to stay fresh, got %+v", resumedView.DegradationReasons)
+	}
+	if resumedView.Summary.FinalState != string(runtimepkg.WorkflowStateCompleted) {
+		t.Fatalf("expected resumed workflow replay summary to refresh to completed, got %+v", resumedView.Summary)
+	}
+	if err := env.Close(); err != nil {
+		t.Fatalf("close phase 5d env: %v", err)
+	}
+}
+
+func TestPhase5DWorkflowReplayProjectionFailedIsFresh(t *testing.T) {
+	env := openPhase5DTestEnvWithVerificationOverride(
+		t,
+		filepath.Join(t.TempDir(), "memory.db"),
+		"holdings_2026-03-safe.csv",
+		time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC),
+		func(base verification.Pipeline) verification.Pipeline {
+			base.GroundingValidator = forcedTrustFailureValidator{
+				validator: "forced_monthly_review_grounding_failure",
+				code:      "forced_monthly_review_trust_failure",
+				message:   "test-only grounding failure for workflow replay freshness",
+			}
+			return base
+		},
+	)
+	result, err := env.RunMonthlyReview(t.Context(), "user-1", "请帮我做一份月度财务复盘", state.FinancialWorldState{})
+	if err != nil {
+		t.Fatalf("run failed monthly review for workflow replay freshness: %v", err)
+	}
+	view, err := env.ReplayQuery.Query(t.Context(), observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		t.Fatalf("query failed workflow replay: %v", err)
+	}
+	if view.Degraded {
+		t.Fatalf("expected failed workflow replay projection to be fresh, got %+v", view.DegradationReasons)
+	}
+	if view.Summary.FinalState != string(runtimepkg.WorkflowStateFailed) {
+		t.Fatalf("expected failed workflow replay summary, got %+v", view.Summary)
+	}
+	if len(view.FailureAttributions) == 0 {
+		t.Fatalf("expected workflow replay failure attribution for failed path, got %+v", view)
+	}
+	if err := env.Close(); err != nil {
+		t.Fatalf("close phase 5d env: %v", err)
+	}
+}
+
+func TestPhase5DWorkflowReplayProjectionStaleReturnsDegradedPartialView(t *testing.T) {
+	env := openPhase5DTestEnv(t, filepath.Join(t.TempDir(), "memory.db"), "holdings_2026-03-safe.csv", time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC))
+	result, err := env.RunMonthlyReview(t.Context(), "user-1", "请帮我做一份月度财务复盘", state.FinancialWorldState{})
+	if err != nil {
+		t.Fatalf("run monthly review for stale workflow replay test: %v", err)
+	}
+	record, ok, err := env.RuntimeStores.WorkflowRuns.Load(result.Result.WorkflowID)
+	if err != nil || !ok {
+		t.Fatalf("load workflow run record for stale replay test: ok=%t err=%v", ok, err)
+	}
+	record.RuntimeState = runtimepkg.WorkflowStateFailed
+	record.FailureCategory = runtimepkg.FailureCategoryTrustValidation
+	record.FailureSummary = "workflow replay projection intentionally left stale"
+	record.UpdatedAt = record.UpdatedAt.Add(2 * time.Hour)
+	if err := env.RuntimeStores.WorkflowRuns.Save(record); err != nil {
+		t.Fatalf("save stale workflow runtime truth: %v", err)
+	}
+
+	view, err := env.ReplayQuery.Query(t.Context(), observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		t.Fatalf("query stale workflow replay: %v", err)
+	}
+	if !view.Degraded {
+		t.Fatalf("expected stale workflow replay projection to degrade")
+	}
+	if view.Summary.FinalState != string(runtimepkg.WorkflowStateFailed) {
+		t.Fatalf("expected authoritative failed state to win when projection is stale, got %+v", view.Summary)
+	}
+	if err := env.Close(); err != nil {
+		t.Fatalf("close phase 5d env: %v", err)
+	}
+}
+
 func openPhase5DTestEnv(t *testing.T, memoryDB string, holdingsFixture string, now time.Time) *Phase5DEnvironment {
 	t.Helper()
+	runtimeDB := filepath.Join(filepath.Dir(memoryDB), "runtime.db")
 	env, err := OpenPhase5DEnvironment(Phase5DOptions{
 		FixtureDir:      monthlyReview5BFixtureDir(),
 		HoldingsFixture: holdingsFixture,
 		MemoryDBPath:    memoryDB,
+		RuntimeDBPath:   runtimeDB,
 		EmbeddingModel:  "mock-embedding-model",
 		Now:             func() time.Time { return now },
 		ChatModelFactory: func(callRecorder model.CallRecorder, usageRecorder model.UsageRecorder) model.ChatModel {
@@ -187,10 +316,12 @@ func openPhase5DTestEnvWithVerificationOverride(
 	override func(base verification.Pipeline) verification.Pipeline,
 ) *Phase5DEnvironment {
 	t.Helper()
+	runtimeDB := filepath.Join(filepath.Dir(memoryDB), "runtime.db")
 	env, err := OpenPhase5DEnvironment(Phase5DOptions{
 		FixtureDir:      monthlyReview5BFixtureDir(),
 		HoldingsFixture: holdingsFixture,
 		MemoryDBPath:    memoryDB,
+		RuntimeDBPath:   runtimeDB,
 		EmbeddingModel:  "mock-embedding-model",
 		Now:             func() time.Time { return now },
 		ChatModelFactory: func(callRecorder model.CallRecorder, usageRecorder model.UsageRecorder) model.ChatModel {

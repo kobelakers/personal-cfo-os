@@ -123,6 +123,21 @@ func traceMemorySummary(trace WorkflowTraceDump) []string {
 			if len(item.RejectedMemoryID) > 0 {
 				result = append(result, fmt.Sprintf("rejected=%s", strings.Join(item.RejectedMemoryID, ",")))
 			}
+			for _, candidate := range item.Results {
+				if !candidate.Rejected || candidate.RejectionRule == "" {
+					continue
+				}
+				result = append(result, fmt.Sprintf("rejection_rule=%s:%s", candidate.MemoryID, candidate.RejectionRule))
+			}
+		}
+	} else {
+		for _, item := range trace.MemoryRetrievals {
+			for _, candidate := range item.Results {
+				if !candidate.Rejected || candidate.RejectionRule == "" {
+					continue
+				}
+				result = append(result, fmt.Sprintf("rejection_rule=%s:%s", candidate.MemoryID, candidate.RejectionRule))
+			}
 		}
 	}
 	return dedupeStrings(result)
@@ -180,6 +195,21 @@ func traceMemoryDecisionExplanation(trace WorkflowTraceDump) []string {
 		}
 		if strings.TrimSpace(item.Reason) != "" {
 			result = append(result, item.Reason)
+		}
+	}
+	for _, item := range trace.MemoryRetrievals {
+		for _, candidate := range item.Results {
+			if !candidate.Rejected {
+				continue
+			}
+			switch {
+			case candidate.RejectionRule != "" && candidate.RejectionReason != "":
+				result = append(result, fmt.Sprintf("memory rejected by %s: %s (%s)", candidate.RejectionRule, candidate.MemoryID, candidate.RejectionReason))
+			case candidate.RejectionRule != "":
+				result = append(result, fmt.Sprintf("memory rejected by %s: %s", candidate.RejectionRule, candidate.MemoryID))
+			case candidate.RejectionReason != "":
+				result = append(result, fmt.Sprintf("memory rejected: %s (%s)", candidate.MemoryID, candidate.RejectionReason))
+			}
 		}
 	}
 	return dedupeStrings(result)

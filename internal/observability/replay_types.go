@@ -40,39 +40,39 @@ type ReplayScope struct {
 }
 
 type WorkflowReplayView struct {
-	WorkflowID       string             `json:"workflow_id"`
-	TaskID           string             `json:"task_id,omitempty"`
-	Intent           string             `json:"intent,omitempty"`
-	RuntimeState     string             `json:"runtime_state"`
-	FailureCategory  string             `json:"failure_category,omitempty"`
-	FailureSummary   string             `json:"failure_summary,omitempty"`
-	ApprovalID       string             `json:"approval_id,omitempty"`
-	TaskGraphID      string             `json:"task_graph_id,omitempty"`
-	RootCorrelationID string            `json:"root_correlation_id,omitempty"`
-	Summary          string             `json:"summary,omitempty"`
-	Artifacts        []ReplayArtifactRef `json:"artifacts,omitempty"`
+	WorkflowID        string              `json:"workflow_id"`
+	TaskID            string              `json:"task_id,omitempty"`
+	Intent            string              `json:"intent,omitempty"`
+	RuntimeState      string              `json:"runtime_state"`
+	FailureCategory   string              `json:"failure_category,omitempty"`
+	FailureSummary    string              `json:"failure_summary,omitempty"`
+	ApprovalID        string              `json:"approval_id,omitempty"`
+	TaskGraphID       string              `json:"task_graph_id,omitempty"`
+	RootCorrelationID string              `json:"root_correlation_id,omitempty"`
+	Summary           string              `json:"summary,omitempty"`
+	Artifacts         []ReplayArtifactRef `json:"artifacts,omitempty"`
 }
 
 type TaskGraphReplayView struct {
-	TaskGraphID       string             `json:"task_graph_id"`
-	ParentWorkflowID  string             `json:"parent_workflow_id,omitempty"`
-	ParentTaskID      string             `json:"parent_task_id,omitempty"`
-	PendingApprovalID string             `json:"pending_approval_id,omitempty"`
-	TaskIDs           []string           `json:"task_ids,omitempty"`
-	ExecutionIDs      []string           `json:"execution_ids,omitempty"`
+	TaskGraphID       string              `json:"task_graph_id"`
+	ParentWorkflowID  string              `json:"parent_workflow_id,omitempty"`
+	ParentTaskID      string              `json:"parent_task_id,omitempty"`
+	PendingApprovalID string              `json:"pending_approval_id,omitempty"`
+	TaskIDs           []string            `json:"task_ids,omitempty"`
+	ExecutionIDs      []string            `json:"execution_ids,omitempty"`
 	Artifacts         []ReplayArtifactRef `json:"artifacts,omitempty"`
 }
 
 type ApprovalReplayView struct {
-	ApprovalID      string    `json:"approval_id"`
-	WorkflowID      string    `json:"workflow_id,omitempty"`
-	TaskGraphID     string    `json:"task_graph_id,omitempty"`
-	TaskID          string    `json:"task_id,omitempty"`
-	Status          string    `json:"status"`
-	RequestedAction string    `json:"requested_action,omitempty"`
-	RequestedAt     time.Time `json:"requested_at,omitempty"`
+	ApprovalID      string     `json:"approval_id"`
+	WorkflowID      string     `json:"workflow_id,omitempty"`
+	TaskGraphID     string     `json:"task_graph_id,omitempty"`
+	TaskID          string     `json:"task_id,omitempty"`
+	Status          string     `json:"status"`
+	RequestedAction string     `json:"requested_action,omitempty"`
+	RequestedAt     time.Time  `json:"requested_at,omitempty"`
 	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
-	ResolvedBy      string    `json:"resolved_by,omitempty"`
+	ResolvedBy      string     `json:"resolved_by,omitempty"`
 }
 
 type ProvenanceNode struct {
@@ -128,29 +128,29 @@ type ReplaySummary struct {
 }
 
 type ReplayExplanation struct {
-	WhyFailed          string   `json:"why_failed,omitempty"`
-	WhyWaitingApproval string   `json:"why_waiting_approval,omitempty"`
-	WhyGeneratedTask   []string `json:"why_generated_task,omitempty"`
-	WhyChildExecuted   []string `json:"why_child_executed,omitempty"`
-	WhyMemoryDecision  []string `json:"why_memory_decision,omitempty"`
+	WhyFailed           string   `json:"why_failed,omitempty"`
+	WhyWaitingApproval  string   `json:"why_waiting_approval,omitempty"`
+	WhyGeneratedTask    []string `json:"why_generated_task,omitempty"`
+	WhyChildExecuted    []string `json:"why_child_executed,omitempty"`
+	WhyMemoryDecision   []string `json:"why_memory_decision,omitempty"`
 	WhyValidationFailed []string `json:"why_validation_failed,omitempty"`
 }
 
 type ReplayView struct {
-	Query                ReplayQuery          `json:"query"`
-	Scope                ReplayScope          `json:"scope"`
-	Workflow             *WorkflowReplayView  `json:"workflow,omitempty"`
-	TaskGraph            *TaskGraphReplayView `json:"task_graph,omitempty"`
-	Approval             *ApprovalReplayView  `json:"approval,omitempty"`
-	Provenance           ProvenanceGraph      `json:"provenance"`
+	Query                 ReplayQuery            `json:"query"`
+	Scope                 ReplayScope            `json:"scope"`
+	Workflow              *WorkflowReplayView    `json:"workflow,omitempty"`
+	TaskGraph             *TaskGraphReplayView   `json:"task_graph,omitempty"`
+	Approval              *ApprovalReplayView    `json:"approval,omitempty"`
+	Provenance            ProvenanceGraph        `json:"provenance"`
 	ExecutionAttributions []ExecutionAttribution `json:"execution_attributions,omitempty"`
 	FailureAttributions   []FailureAttribution   `json:"failure_attributions,omitempty"`
-	Summary              ReplaySummary       `json:"summary"`
-	Explanation          ReplayExplanation   `json:"explanation"`
-	Degraded             bool                `json:"degraded"`
-	DegradationReasons   []ReplayDegradation `json:"degradation_reasons,omitempty"`
-	ProjectionStatus     string              `json:"projection_status,omitempty"`
-	ProjectionVersion    int                 `json:"projection_version,omitempty"`
+	Summary               ReplaySummary          `json:"summary"`
+	Explanation           ReplayExplanation      `json:"explanation"`
+	Degraded              bool                   `json:"degraded"`
+	DegradationReasons    []ReplayDegradation    `json:"degradation_reasons,omitempty"`
+	ProjectionStatus      string                 `json:"projection_status,omitempty"`
+	ProjectionVersion     int                    `json:"projection_version,omitempty"`
 }
 
 type ReplayComparisonDiff struct {
@@ -158,14 +158,15 @@ type ReplayComparisonDiff struct {
 	Field    string   `json:"field"`
 	Left     []string `json:"left,omitempty"`
 	Right    []string `json:"right,omitempty"`
+	Details  []string `json:"details,omitempty"`
 	Summary  string   `json:"summary"`
 }
 
 type ReplayComparison struct {
-	Left    ReplayScope           `json:"left"`
-	Right   ReplayScope           `json:"right"`
+	Left    ReplayScope            `json:"left"`
+	Right   ReplayScope            `json:"right"`
 	Diffs   []ReplayComparisonDiff `json:"diffs,omitempty"`
-	Summary []string              `json:"summary,omitempty"`
+	Summary []string               `json:"summary,omitempty"`
 }
 
 type DebugSummary struct {
@@ -180,4 +181,3 @@ type DebugSummary struct {
 	ChildWorkflows    []string `json:"child_workflows,omitempty"`
 	Explanation       []string `json:"explanation,omitempty"`
 }
-
