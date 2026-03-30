@@ -84,6 +84,7 @@ case "$MODE" in
     run_web &
     WEB_PID="$!"
     echo "dev-stack api=http://127.0.0.1${DEV_STACK_API_ADDR} ui=http://127.0.0.1:${DEV_STACK_UI_PORT}"
+    echo "panels: task-graphs approvals replay intelligence artifacts benchmarks"
     wait
     ;;
   *)

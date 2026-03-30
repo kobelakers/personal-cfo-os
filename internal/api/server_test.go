@@ -202,7 +202,13 @@ func TestBenchmarkEndpointsUseConfiguredCatalog(t *testing.T) {
 	if err := json.Unmarshal(list.Body.Bytes(), &items); err != nil {
 		t.Fatalf("decode benchmark list: %v", err)
 	}
-	if len(items) != 1 || items[0]["id"] != "sample-phase7b-benchmark" {
+	if len(items) != 2 {
+		t.Fatalf("expected sample + artifact benchmark entries, got %v", items)
+	}
+	if items[0]["id"] != "artifact-artifact-benchmark-api-test" && items[1]["id"] != "artifact-artifact-benchmark-api-test" {
+		t.Fatalf("expected artifact-backed benchmark entry, got %v", items)
+	}
+	if items[0]["id"] != "sample-phase7b-benchmark" && items[1]["id"] != "sample-phase7b-benchmark" {
 		t.Fatalf("expected seeded benchmark catalog, got %v", items)
 	}
 	detail := performRequest(t, server, http.MethodGet, "/api/v1/benchmarks/runs/sample-phase7b-benchmark", nil)
@@ -390,6 +396,72 @@ func newTestServerWithOptions(t *testing.T, options ServerOptions) (*Server, str
 	if err != nil || !ok {
 		t.Fatalf("load api test approval: %v %+v", err, approval)
 	}
+	if err := workflowRuns.Save(runtime.WorkflowRunRecord{
+		WorkflowID:   "workflow-benchmark-artifact",
+		TaskID:       "task-benchmark-artifact",
+		Intent:       "benchmark_catalog_seed",
+		RuntimeState: runtime.WorkflowStateCompleted,
+		StartedAt:    now,
+		UpdatedAt:    now,
+		Summary:      "benchmark artifact seed",
+	}); err != nil {
+		t.Fatalf("seed workflow run for benchmark artifact: %v", err)
+	}
+	if err := artifactStore.SaveArtifact("workflow-benchmark-artifact", "task-benchmark-artifact", reporting.WorkflowArtifact{
+		ID:         "artifact-benchmark-api-test",
+		Kind:       reporting.ArtifactKindEvalRunResult,
+		WorkflowID: "workflow-benchmark-artifact",
+		TaskID:     "task-benchmark-artifact",
+		ProducedBy: "api_test",
+		ContentJSON: `{
+  "run_id": "artifact-benchmark-run",
+  "corpus_id": "phase7b-artifact",
+  "deterministic_only": true,
+  "started_at": "2026-03-29T15:00:00Z",
+  "completed_at": "2026-03-29T15:00:00Z",
+  "results": [
+    {
+      "scenario_id": "artifact-benchmark-scenario",
+      "category": "artifact_seed",
+      "description": "artifact-backed benchmark run",
+      "deterministic": true,
+      "passed": true,
+      "runtime_state": "completed",
+      "token_usage": 320,
+      "duration_milliseconds": 60
+    }
+  ],
+  "score": {
+    "scenario_count": 1,
+    "passed_count": 1,
+    "failed_count": 0,
+    "task_success_rate": 1,
+    "validator_pass_rate": 1,
+    "approval_frequency": 0,
+    "average_latency_milliseconds": 60,
+    "total_token_usage": 320
+  },
+  "summary": {
+    "corpus_id": "phase7b-artifact",
+    "deterministic_only": true,
+    "passed_scenarios": ["artifact-benchmark-scenario"],
+    "summary_lines": ["artifact-backed benchmark"]
+  },
+  "cost_summary": {
+    "usd": 0.03125,
+    "precision": "recorded_exact",
+    "source": "artifact_payload"
+  }
+}`,
+		Ref: reporting.ArtifactRef{
+			ID:       "artifact-benchmark-api-test",
+			Summary:  "artifact benchmark seed",
+			Location: "artifact-benchmark-api-test.json",
+		},
+		CreatedAt: now.Add(2 * time.Minute),
+	}); err != nil {
+		t.Fatalf("seed benchmark artifact: %v", err)
+	}
 	replayQuery := runtime.NewReplayQueryService(service, workflowRuns, replayProjections, artifactStore, replayStore)
 	benchmarkDir := t.TempDir()
 	writeBenchmarkSample(t, benchmarkDir, now)
@@ -397,6 +469,8 @@ func newTestServerWithOptions(t *testing.T, options ServerOptions) (*Server, str
 	options.RuntimeBackend = firstNonEmpty(options.RuntimeBackend, "sqlite")
 	options.BlobBackend = firstNonEmpty(options.BlobBackend, "localfs")
 	options.BenchmarkCatalogDir = firstNonEmpty(options.BenchmarkCatalogDir, benchmarkDir)
+	options.BenchmarkArtifacts = artifactStore
+	options.BenchmarkWorkflowRuns = workflowRuns
 	options.SupportedSchemaVersions = []string{"v1"}
 	return NewServer(runtime.NewQueryService(service), replayQuery, runtime.NewOperatorService(service), service, options), approval.ApprovalID, graph.GraphID
 }

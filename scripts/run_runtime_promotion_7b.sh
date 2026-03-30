@@ -37,12 +37,15 @@ case "$MODE" in
     build_ui
     compose up -d postgres minio minio-init api worker-a worker-b
     wait_for_surface
+    echo "runtime-promotion operator surface is ready"
+    echo "open /api/v1/meta/profile and the UI root to verify the 7B surface"
     ;;
   smoke)
     build_ui
     compose up -d postgres minio minio-init api worker-a worker-b
     wait_for_surface
     echo "runtime-promotion operator surface is ready"
+    echo "see docs/product/interview-demo-runbook.md for the panel checklist"
     ;;
   down)
     compose down -v

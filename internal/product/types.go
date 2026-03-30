@@ -48,23 +48,41 @@ type ArtifactContentView struct {
 	ReferenceOnly bool                       `json:"reference_only,omitempty"`
 }
 
+type BenchmarkCostPrecision string
+
+const (
+	BenchmarkCostPrecisionUnknown             BenchmarkCostPrecision = "unknown"
+	BenchmarkCostPrecisionRecordedExact       BenchmarkCostPrecision = "recorded_exact"
+	BenchmarkCostPrecisionEstimatedFromUsage  BenchmarkCostPrecision = "estimated_from_usage"
+	BenchmarkCostPrecisionEstimatedFromTokens BenchmarkCostPrecision = "estimated_from_tokens"
+)
+
+type BenchmarkCostSummary struct {
+	USD       float64                `json:"usd"`
+	Precision BenchmarkCostPrecision `json:"precision"`
+	Source    string                 `json:"source,omitempty"`
+}
+
 type BenchmarkRunSummary struct {
-	ID                       string    `json:"id"`
-	Source                   string    `json:"source"`
-	Title                    string    `json:"title"`
-	CorpusID                 string    `json:"corpus_id"`
-	RunID                    string    `json:"run_id"`
-	DeterministicOnly        bool      `json:"deterministic_only"`
-	ScenarioCount            int       `json:"scenario_count"`
-	PassedCount              int       `json:"passed_count"`
-	FailedCount              int       `json:"failed_count"`
-	ApprovalFrequency        float64   `json:"approval_frequency"`
-	AverageLatencyMs         float64   `json:"average_latency_ms"`
-	TotalTokenUsage          int       `json:"total_token_usage"`
-	ValidatorPassRate        float64   `json:"validator_pass_rate"`
-	PolicyViolationRate      float64   `json:"policy_violation_rate"`
-	StartedAt                time.Time `json:"started_at"`
-	CompletedAt              time.Time `json:"completed_at"`
+	ID                  string               `json:"id"`
+	Source              string               `json:"source"`
+	SourceRef           string               `json:"source_ref,omitempty"`
+	ArtifactID          string               `json:"artifact_id,omitempty"`
+	Title               string               `json:"title"`
+	CorpusID            string               `json:"corpus_id"`
+	RunID               string               `json:"run_id"`
+	DeterministicOnly   bool                 `json:"deterministic_only"`
+	ScenarioCount       int                  `json:"scenario_count"`
+	PassedCount         int                  `json:"passed_count"`
+	FailedCount         int                  `json:"failed_count"`
+	ApprovalFrequency   float64              `json:"approval_frequency"`
+	AverageLatencyMs    float64              `json:"average_latency_ms"`
+	TotalTokenUsage     int                  `json:"total_token_usage"`
+	ValidatorPassRate   float64              `json:"validator_pass_rate"`
+	PolicyViolationRate float64              `json:"policy_violation_rate"`
+	CostSummary         BenchmarkCostSummary `json:"cost_summary"`
+	StartedAt           time.Time            `json:"started_at"`
+	CompletedAt         time.Time            `json:"completed_at"`
 }
 
 type BenchmarkRunDetail struct {
@@ -129,13 +147,15 @@ func BuildArtifactContentView(artifact reporting.WorkflowArtifact) ArtifactConte
 	case reporting.ArtifactKindEvalRunResult:
 		var run eval.EvalRun
 		if err := json.Unmarshal([]byte(payload), &run); err == nil {
+			cost := benchmarkCostSummaryFromPayload([]byte(payload), run)
 			view.SummaryLines = append(view.SummaryLines,
 				fmt.Sprintf("corpus_id=%s", run.CorpusID),
 				fmt.Sprintf("passed=%d failed=%d", run.Score.PassedCount, run.Score.FailedCount),
+				fmt.Sprintf("cost_precision=%s", cost.Precision),
 			)
 			view.UsageSummary = ArtifactUsageSummary{
 				TotalTokens:      run.Score.TotalTokenUsage,
-				EstimatedCostUSD: estimatedCostFromEvalRun(run),
+				EstimatedCostUSD: cost.USD,
 			}
 		}
 	}
@@ -143,10 +163,12 @@ func BuildArtifactContentView(artifact reporting.WorkflowArtifact) ArtifactConte
 	return view
 }
 
-func NewBenchmarkRunSummary(id string, source string, run eval.EvalRun) BenchmarkRunSummary {
+func NewBenchmarkRunSummary(id string, source string, sourceRef string, artifactID string, run eval.EvalRun, cost BenchmarkCostSummary) BenchmarkRunSummary {
 	return BenchmarkRunSummary{
 		ID:                  id,
 		Source:              source,
+		SourceRef:           sourceRef,
+		ArtifactID:          artifactID,
 		Title:               firstNonEmpty(run.CorpusID, id),
 		CorpusID:            run.CorpusID,
 		RunID:               run.RunID,
@@ -159,6 +181,7 @@ func NewBenchmarkRunSummary(id string, source string, run eval.EvalRun) Benchmar
 		TotalTokenUsage:     run.Score.TotalTokenUsage,
 		ValidatorPassRate:   run.Score.ValidatorPassRate,
 		PolicyViolationRate: run.Score.PolicyViolationRate,
+		CostSummary:         cost,
 		StartedAt:           run.StartedAt,
 		CompletedAt:         run.CompletedAt,
 	}
@@ -198,8 +221,129 @@ func buildUsageSummary(usage []model.UsageRecord, calls []model.CallRecord) Arti
 	return summary
 }
 
-func estimatedCostFromEvalRun(run eval.EvalRun) float64 {
-	return 0
+func benchmarkCostSummaryFromPayload(payload []byte, run eval.EvalRun) BenchmarkCostSummary {
+	if summary, ok := parseBenchmarkCostSummary(payload); ok {
+		return summary
+	}
+	return estimatedBenchmarkCostSummary(run)
+}
+
+func estimatedBenchmarkCostSummary(run eval.EvalRun) BenchmarkCostSummary {
+	totalTokens := run.Score.TotalTokenUsage
+	if totalTokens == 0 {
+		for _, item := range run.Results {
+			totalTokens += item.TokenUsage
+		}
+	}
+	if totalTokens == 0 {
+		return BenchmarkCostSummary{
+			Precision: BenchmarkCostPrecisionUnknown,
+			Source:    "no_token_usage_available",
+		}
+	}
+	promptTokens := (totalTokens * 3) / 4
+	completionTokens := totalTokens - promptTokens
+	return BenchmarkCostSummary{
+		USD:       model.EstimateCostUSD("gpt-5.4", model.ModelProfilePlannerReasoning, promptTokens, completionTokens),
+		Precision: BenchmarkCostPrecisionEstimatedFromTokens,
+		Source:    "token_policy_v1:gpt-5.4/planner_reasoning/75-25",
+	}
+}
+
+func parseBenchmarkCostSummary(payload []byte) (BenchmarkCostSummary, bool) {
+	var raw map[string]any
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		return BenchmarkCostSummary{}, false
+	}
+	if value, ok := raw["cost_summary"].(map[string]any); ok {
+		summary, ok := parseBenchmarkCostSummaryMap(value)
+		if ok {
+			return summary, true
+		}
+	}
+	if score, ok := raw["score"].(map[string]any); ok {
+		if usd, ok := numberValue(score["total_estimated_cost_usd"]); ok {
+			return BenchmarkCostSummary{
+				USD:       usd,
+				Precision: BenchmarkCostPrecisionEstimatedFromUsage,
+				Source:    "score.total_estimated_cost_usd",
+			}, true
+		}
+	}
+	if results, ok := raw["results"].([]any); ok {
+		var total float64
+		var found bool
+		var precision BenchmarkCostPrecision
+		var source string
+		for _, item := range results {
+			result, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if usd, ok := numberValue(result["recorded_cost_usd"]); ok {
+				total += usd
+				found = true
+				precision = BenchmarkCostPrecisionRecordedExact
+				source = "results[].recorded_cost_usd"
+				continue
+			}
+			if usd, ok := numberValue(result["estimated_cost_usd"]); ok {
+				total += usd
+				found = true
+				if precision == "" {
+					precision = BenchmarkCostPrecisionEstimatedFromUsage
+					source = "results[].estimated_cost_usd"
+				}
+			}
+		}
+		if found {
+			return BenchmarkCostSummary{
+				USD:       total,
+				Precision: precision,
+				Source:    source,
+			}, true
+		}
+	}
+	return BenchmarkCostSummary{}, false
+}
+
+func parseBenchmarkCostSummaryMap(value map[string]any) (BenchmarkCostSummary, bool) {
+	usd, ok := numberValue(value["usd"])
+	if !ok {
+		return BenchmarkCostSummary{}, false
+	}
+	summary := BenchmarkCostSummary{
+		USD:       usd,
+		Precision: BenchmarkCostPrecisionEstimatedFromUsage,
+	}
+	if rawPrecision, ok := value["precision"].(string); ok && strings.TrimSpace(rawPrecision) != "" {
+		summary.Precision = BenchmarkCostPrecision(strings.TrimSpace(rawPrecision))
+	}
+	if rawSource, ok := value["source"].(string); ok {
+		summary.Source = strings.TrimSpace(rawSource)
+	}
+	return summary, true
+}
+
+func numberValue(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case json.Number:
+		parsed, err := typed.Float64()
+		if err != nil {
+			return 0, false
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
 }
 
 func artifactSummaryLine(artifact reporting.WorkflowArtifact) string {

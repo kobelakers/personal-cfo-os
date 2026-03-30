@@ -250,6 +250,9 @@ export interface TaskCommandResult {
 
 export interface BenchmarkRunSummary {
   id: string;
+  source: string;
+  source_ref?: string;
+  artifact_id?: string;
   title: string;
   corpus_id: string;
   run_id: string;
@@ -262,6 +265,13 @@ export interface BenchmarkRunSummary {
   total_token_usage: number;
   validator_pass_rate: number;
   policy_violation_rate: number;
+  cost_summary: {
+    usd: number;
+    precision: string;
+    source?: string;
+  };
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface BenchmarkRunDetail {

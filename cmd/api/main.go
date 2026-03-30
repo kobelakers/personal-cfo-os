@@ -53,12 +53,14 @@ func main() {
 	}()
 
 	server := &http.Server{
-		Addr:    *addr,
+		Addr: *addr,
 		Handler: api.NewServer(plane.Query, plane.ReplayQuery, plane.Operator, plane.Service, api.ServerOptions{
 			RuntimeProfile:          *runtimeProfile,
 			RuntimeBackend:          *runtimeBackend,
 			BlobBackend:             *blobBackend,
 			BenchmarkCatalogDir:     *benchmarkDir,
+			BenchmarkArtifacts:      plane.Stores.Artifacts,
+			BenchmarkWorkflowRuns:   plane.Stores.WorkflowRuns,
 			SupportedSchemaVersions: []string{"v1"},
 			UIDistDir:               *uiDist,
 		}).Handler(),

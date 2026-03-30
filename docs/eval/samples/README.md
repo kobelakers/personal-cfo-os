@@ -147,8 +147,14 @@ Stable productization / externalization reference outputs:
 - `phase7b_benchmark_compare.json`
 - `phase7b_operator_surface.json`
 
+Runbook / sample index:
+
+- `docs/product/interview-demo-runbook.md`
+- `docs/product/operator-sample-index.md`
+
 These 7B samples are intentionally different from 7A runtime proofs:
 
 - they are operator-facing surface samples, not kernel correctness proofs
 - they document `/api/v1`, deployment profiles, benchmark reporting, and UI-facing evidence density
 - they do not introduce a second protocol truth or replay truth
+- benchmark samples now reflect both sample-backed and artifact-backed registry semantics plus cost-ish summary fields

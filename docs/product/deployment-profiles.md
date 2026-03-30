@@ -30,6 +30,8 @@ Phase 7B 把已有运行方式整理成正式产品化档位。
 - `./scripts/run_interview_demo_7b.sh all`
 - env example：`deployments/.env.interview-demo.example`
 - 会先 build UI，再用 deterministic seed 生成本地可读样例数据
+- runbook：`docs/product/interview-demo-runbook.md`
+- operator sample index：`docs/product/operator-sample-index.md`
 
 ### dev-stack
 
@@ -43,3 +45,4 @@ Phase 7B 把已有运行方式整理成正式产品化档位。
 - `runtime-promotion` 继续承接 7A 的 promoted backend 证明
 - `interview-demo` 用 deterministic seed 和 checked-in samples 提升外部可读性，而不是伪造新的内核语义
 - `dev-stack` 以开发效率为主，不与 `runtime-promotion` 的 correctness/proof 目标混淆
+- 7B closeout 后，这些 profile 已经形成一套清晰的 demo/evidence 入口，而不是零散命令集合

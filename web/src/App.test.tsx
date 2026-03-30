@@ -167,6 +167,8 @@ const baseResponses: Record<string, unknown> = {
   "/api/v1/benchmarks/runs": [
     {
       id: "phase6b",
+      source: "sample",
+      source_ref: "docs/eval/samples/phase6b_eval_default_corpus.json",
       title: "phase6b",
       corpus_id: "phase6b-default",
       run_id: "phase6b-default-run",
@@ -179,9 +181,12 @@ const baseResponses: Record<string, unknown> = {
       total_token_usage: 780,
       validator_pass_rate: 1,
       policy_violation_rate: 0,
+      cost_summary: { usd: 0.0142, precision: "estimated_from_tokens", source: "token_policy_v1" },
     },
     {
       id: "phase6a",
+      source: "sample",
+      source_ref: "docs/eval/samples/phase6a_eval_default_corpus.json",
       title: "phase6a",
       corpus_id: "phase6a-default",
       run_id: "phase6a-default-run",
@@ -194,11 +199,14 @@ const baseResponses: Record<string, unknown> = {
       total_token_usage: 640,
       validator_pass_rate: 1,
       policy_violation_rate: 0,
+      cost_summary: { usd: 0.0116, precision: "estimated_from_tokens", source: "token_policy_v1" },
     },
   ],
   "/api/v1/benchmarks/runs/phase6b": {
     summary: {
       id: "phase6b",
+      source: "sample",
+      source_ref: "docs/eval/samples/phase6b_eval_default_corpus.json",
       title: "phase6b",
       corpus_id: "phase6b-default",
       run_id: "phase6b-default-run",
@@ -211,6 +219,7 @@ const baseResponses: Record<string, unknown> = {
       total_token_usage: 780,
       validator_pass_rate: 1,
       policy_violation_rate: 0,
+      cost_summary: { usd: 0.0142, precision: "estimated_from_tokens", source: "token_policy_v1" },
     },
     run: {
       summary: {

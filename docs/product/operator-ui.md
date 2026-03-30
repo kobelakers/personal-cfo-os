@@ -3,6 +3,24 @@
 Phase 7B 把 `web/` 从 placeholder 升级成最小但正式的 operator console。  
 这层只可视化已有 typed services、runtime、operator、replay、artifact、benchmark surfaces，不引入新的业务判断。
 
+7B closeout 后，UI 结构也从单文件集中实现收口成 panelized structure：
+
+- `TaskGraphPanel`
+- `ApprovalPanel`
+- `ReplayPanel`
+- `IntelligencePanel`
+- `ArtifactPanel`
+- `BenchmarkPanel`
+
+并配套最小 hooks：
+
+- `useBootstrap`
+- `useReplay`
+- `useArtifact`
+- `useBenchmarks`
+
+这一步是工程化收口，不改变 UI 的核心行为，也不引入新的前端逻辑层。
+
 ## 设计边界
 
 - UI 只调用 `/api/v1`
@@ -62,3 +80,4 @@ Phase 7B 把 `web/` 从 placeholder 升级成最小但正式的 operator console
 - 所有 replay/debug 仍来自 canonical `internal/runtime.ReplayQueryService`
 - benchmark 仍来自 deterministic sample / eval artifact truth surface
 - UI 只是可视化与动作触发层，不是新的协议真相源
+- panelized structure 的目标是 maintainability，不是把判断逻辑抽到前端

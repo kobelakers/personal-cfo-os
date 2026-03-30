@@ -73,6 +73,13 @@ Phase 7B does not change the kernel truth surface. It productizes the existing t
 - `AgentEnvelope` is documented only as reference/internal execution protocol exposure, not as a public write contract
 - benchmark/reporting is now a formal read/compare/export surface on top of deterministic corpus truth and checked-in samples
 
+Phase 7B closeout hardens that product surface rather than widening it:
+
+- benchmark registry now reads both checked-in deterministic samples and artifact-plane `eval_run_result` artifacts behind one typed catalog
+- benchmark summaries now carry source, artifact identity, and a cost-ish summary with explicit precision/source semantics
+- the operator UI has been refactored into a panelized structure plus minimal hooks, without changing its API-only boundary
+- interview-demo, dev-stack, and runtime-promotion now have clearer runbooks/sample indexes, so the product surface is easier to demo and defend externally
+
 ## Phase 5C Real Memory Substrate
 
 Phase 5C upgrades memory from a shaped interface to a load-bearing substrate for Monthly Review:

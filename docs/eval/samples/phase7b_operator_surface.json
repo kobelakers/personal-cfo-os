@@ -19,6 +19,14 @@
   "notes": [
     "UI is a visualization layer over typed services and canonical replay truth",
     "unversioned endpoints remain compatibility aliases only",
-    "AgentEnvelope is documented as reference/internal execution protocol exposure only"
+    "AgentEnvelope is documented as reference/internal execution protocol exposure only",
+    "benchmark registry now merges sample-backed and artifact-backed eval evidence under one typed surface",
+    "the operator UI is panelized rather than centered in a single large component"
+  ],
+  "evidence_pack": [
+    "docs/product/interview-demo-runbook.md",
+    "docs/product/operator-sample-index.md",
+    "docs/eval/samples/phase7b_benchmark_summary.json",
+    "docs/eval/samples/phase7b_benchmark_compare.json"
   ]
 }

@@ -2,6 +2,10 @@ package model
 
 import "strings"
 
+func EstimateCostUSD(modelName string, profile ModelProfile, promptTokens int, completionTokens int) float64 {
+	return estimateCostUSD(modelName, profile, promptTokens, completionTokens)
+}
+
 func estimateCostUSD(modelName string, profile ModelProfile, promptTokens int, completionTokens int) float64 {
 	inputRate, outputRate := pricingForModel(modelName, profile)
 	return (float64(promptTokens)/1_000_000.0)*inputRate + (float64(completionTokens)/1_000_000.0)*outputRate

@@ -2,15 +2,26 @@
   "surface": "benchmark_compare",
   "left": {
     "id": "phase6b_eval_default_corpus",
-    "corpus_id": "phase6b-default"
+    "source": "sample",
+    "corpus_id": "phase6b-default",
+    "cost_summary": {
+      "usd": 0.0142,
+      "precision": "estimated_from_tokens"
+    }
   },
   "right": {
-    "id": "phase6a_eval_default_corpus",
-    "corpus_id": "phase6a-default"
+    "id": "artifact-eval-run-demo",
+    "source": "artifact",
+    "artifact_id": "artifact-eval-run-demo",
+    "corpus_id": "phase7b-artifact-demo",
+    "cost_summary": {
+      "usd": 0.03125,
+      "precision": "recorded_exact"
+    }
   },
   "summary": [
     "scenario set changed",
-    "approval frequency shifted",
-    "behavior-domain coverage exists only in phase6b-default"
+    "benchmark source changed from sample to artifact",
+    "cost precision changed from estimated_from_tokens to recorded_exact"
   ]
 }

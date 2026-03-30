@@ -29,6 +29,8 @@ seed_demo() {
       --out "$ROOT/${INTERVIEW_DEMO_MANIFEST#./}" \
       --reset
   )
+  echo "seed manifest: $ROOT/${INTERVIEW_DEMO_MANIFEST#./}"
+  echo "sample index: $ROOT/docs/product/operator-sample-index.md"
 }
 
 run_api() {
@@ -62,6 +64,7 @@ case "$MODE" in
     build_ui
     seed_demo
     echo "interview-demo available at http://127.0.0.1${INTERVIEW_DEMO_ADDR}"
+    echo "runbook: $ROOT/docs/product/interview-demo-runbook.md"
     run_api
     ;;
   *)

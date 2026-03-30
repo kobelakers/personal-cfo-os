@@ -21,6 +21,8 @@ type ServerOptions struct {
 	RuntimeBackend          string
 	BlobBackend             string
 	BenchmarkCatalogDir     string
+	BenchmarkArtifacts      runtime.ArtifactMetadataStore
+	BenchmarkWorkflowRuns   runtime.WorkflowRunStore
 	SupportedSchemaVersions []string
 	UIDistDir               string
 	UIMode                  string
@@ -43,11 +45,15 @@ func NewServer(query *runtime.QueryService, replay *runtime.ReplayQueryService, 
 		supportedVersions = []string{"v1"}
 	}
 	surface := product.NewOperatorSurfaceService(product.OperatorSurfaceOptions{
-		Query:                   query,
-		Replay:                  replay,
-		Operator:                operator,
-		Service:                 service,
-		Benchmarks:              product.NewBenchmarkSurfaceService(options.BenchmarkCatalogDir),
+		Query:    query,
+		Replay:   replay,
+		Operator: operator,
+		Service:  service,
+		Benchmarks: product.NewBenchmarkSurfaceService(product.BenchmarkSurfaceOptions{
+			SampleDir:    options.BenchmarkCatalogDir,
+			Artifacts:    options.BenchmarkArtifacts,
+			WorkflowRuns: options.BenchmarkWorkflowRuns,
+		}),
 		RuntimeProfile:          options.RuntimeProfile,
 		RuntimeBackend:          options.RuntimeBackend,
 		BlobBackend:             options.BlobBackend,

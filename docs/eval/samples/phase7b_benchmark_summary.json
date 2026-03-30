@@ -4,6 +4,8 @@
   "runs": [
     {
       "id": "phase6a_eval_default_corpus",
+      "source": "sample",
+      "source_ref": "docs/eval/samples/phase6a_eval_default_corpus.json",
       "title": "phase6a-default",
       "corpus_id": "phase6a-default",
       "deterministic_only": true,
@@ -11,11 +13,18 @@
       "failed_count": 0,
       "average_latency_ms": 37.0,
       "total_token_usage": 640,
+      "cost_summary": {
+        "usd": 0.0116,
+        "precision": "estimated_from_tokens",
+        "source": "token_policy_v1:gpt-5.4/planner_reasoning/75-25"
+      },
       "approval_frequency": 0.18,
       "validator_pass_rate": 1.0
     },
     {
       "id": "phase6b_eval_default_corpus",
+      "source": "sample",
+      "source_ref": "docs/eval/samples/phase6b_eval_default_corpus.json",
       "title": "phase6b-default",
       "corpus_id": "phase6b-default",
       "deterministic_only": true,
@@ -23,7 +32,32 @@
       "failed_count": 0,
       "average_latency_ms": 42.0,
       "total_token_usage": 780,
+      "cost_summary": {
+        "usd": 0.0142,
+        "precision": "estimated_from_tokens",
+        "source": "token_policy_v1:gpt-5.4/planner_reasoning/75-25"
+      },
       "approval_frequency": 0.25,
+      "validator_pass_rate": 1.0
+    },
+    {
+      "id": "artifact-eval-run-demo",
+      "source": "artifact",
+      "artifact_id": "artifact-eval-run-demo",
+      "source_ref": "artifacts/eval/artifact-eval-run-demo.json",
+      "title": "artifact-demo",
+      "corpus_id": "phase7b-artifact-demo",
+      "deterministic_only": true,
+      "passed_count": 1,
+      "failed_count": 0,
+      "average_latency_ms": 58.0,
+      "total_token_usage": 320,
+      "cost_summary": {
+        "usd": 0.03125,
+        "precision": "recorded_exact",
+        "source": "artifact_payload"
+      },
+      "approval_frequency": 0.0,
       "validator_pass_rate": 1.0
     }
   ]
