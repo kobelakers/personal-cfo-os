@@ -7,11 +7,12 @@ import (
 )
 
 type WorkerRunOptions struct {
-	WorkerID          WorkerID
-	Role              WorkerRole
-	LeaseTTL          time.Duration
-	HeartbeatInterval time.Duration
-	ClaimBatch        int
+	WorkerID           WorkerID
+	Role               WorkerRole
+	LeaseTTL           time.Duration
+	HeartbeatInterval  time.Duration
+	ClaimBatch         int
+	leaseTickerFactory LeaseTickerFactory
 }
 
 func (s *Service) RunWorkerPass(ctx context.Context, policy AutoExecutionPolicy, dryRun bool) (WorkerPassResult, error) {
@@ -26,16 +27,17 @@ func (s *Service) RunWorkerPass(ctx context.Context, policy AutoExecutionPolicy,
 func (s *Service) RunAsyncWorkerOnce(ctx context.Context, policy AutoExecutionPolicy, options WorkerRunOptions, dryRun bool) (WorkerPassResult, error) {
 	if s.workQueue != nil && s.scheduler != nil && s.workers != nil {
 		worker := AsyncWorker{
-			ID:                firstNonEmptyWorker(options.WorkerID, WorkerID("worker-pass")),
-			Role:              firstNonEmptyWorkerRole(options.Role, WorkerRoleAll),
-			Service:           s,
-			Scheduler:         s.schedulerService(policy),
-			Policy:            policy,
-			Clock:             s.clock,
-			LeaseTTL:          options.LeaseTTL,
-			HeartbeatInterval: options.HeartbeatInterval,
-			ClaimBatch:        options.ClaimBatch,
-			BackendProfile:    s.backendProfile,
+			ID:                 firstNonEmptyWorker(options.WorkerID, WorkerID("worker-pass")),
+			Role:               firstNonEmptyWorkerRole(options.Role, WorkerRoleAll),
+			Service:            s,
+			Scheduler:          s.schedulerService(policy),
+			Policy:             policy,
+			Clock:              s.clock,
+			LeaseTTL:           options.LeaseTTL,
+			HeartbeatInterval:  options.HeartbeatInterval,
+			ClaimBatch:         options.ClaimBatch,
+			BackendProfile:     s.backendProfile,
+			LeaseTickerFactory: options.leaseTickerFactory,
 		}
 		return worker.RunOnce(ctx, dryRun)
 	}

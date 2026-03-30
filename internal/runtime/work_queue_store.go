@@ -16,15 +16,20 @@ func NewInMemoryWorkQueueStore() *InMemoryWorkQueueStore {
 	return &InMemoryWorkQueueStore{items: make(map[string]WorkItem)}
 }
 
-func (s *InMemoryWorkQueueStore) Enqueue(item WorkItem) error {
+func (s *InMemoryWorkQueueStore) Enqueue(item WorkItem) (WorkEnqueueResult, error) {
 	if item.ID == "" {
-		return fmt.Errorf("work item id is required")
+		return WorkEnqueueResult{}, fmt.Errorf("work item id is required")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, existing := range s.items {
 		if item.DedupeKey != "" && existing.DedupeKey == item.DedupeKey && existing.Status != WorkItemStatusCompleted && existing.Status != WorkItemStatusFailed && existing.Status != WorkItemStatusAbandoned {
-			return nil
+			return WorkEnqueueResult{
+				Kind:               item.Kind,
+				Disposition:        WorkEnqueueDispositionDuplicateSuppressed,
+				DedupeKey:          item.DedupeKey,
+				ExistingWorkItemID: existing.ID,
+			}, nil
 		}
 	}
 	if item.Status == "" {
@@ -35,7 +40,12 @@ func (s *InMemoryWorkQueueStore) Enqueue(item WorkItem) error {
 		item.FencingToken = current.FencingToken
 	}
 	s.items[item.ID] = item
-	return nil
+	return WorkEnqueueResult{
+		WorkItemID:  item.ID,
+		Kind:        item.Kind,
+		Disposition: WorkEnqueueDispositionEnqueued,
+		DedupeKey:   item.DedupeKey,
+	}, nil
 }
 
 func (s *InMemoryWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now time.Time, leaseTTL time.Duration) ([]WorkClaim, error) {

@@ -41,7 +41,7 @@ The repository now runs a real governed finance workflow backbone with system-ag
 
 ## Phase 7A Runtime Promotion
 
-Phase 7A promotes the runtime backbone without turning the repo into a UI phase, a broker-first distributed system, or a remote-agent platform:
+Phase 7A is now in closeout-hardened state: the runtime backbone is promoted without turning the repo into a UI phase, a broker-first distributed system, or a remote-agent platform:
 
 - `cmd/worker` now runs an async-capable claim/lease/heartbeat/reclaim model instead of a plain worker pass loop
 - runtime uses durable typed work items for:
@@ -51,8 +51,10 @@ Phase 7A promotes the runtime backbone without turning the repo into a UI phase,
   - `retry_failed_execution`
   - `scheduler_wakeup`
 - scheduler and reevaluator are now explicit runtime subsystems that enqueue work rather than executing workflow business logic inline
-- completion, checkpoint, and transition commits are now guarded by lease ownership plus fencing token checks, so reclaimed stale workers cannot commit successfully
+- Postgres work-queue `heartbeat / complete / fail / requeue` mutations now use atomic fenced CAS, dedupe is safe under concurrent writers, reclaim has a single winner, and long-running claims renew leases through periodic heartbeat
+- completion, checkpoint, and transition commits remain guarded by lease ownership plus fencing token checks, so reclaimed stale workers cannot commit successfully
 - SQLite remains the `local-lite` profile, while Postgres is now a real `runtime-promotion` backend for runtime-authoritative stores
+- `SkillExecutionStore` now has Postgres parity, so the promoted runtime profile does not drop the 6B skill-runtime truth surface
 - checkpoint payloads, final report payloads, and replay bundles now support ref-backed blob storage through LocalFS or MinIO-compatible backends
 - replay/debug stays on the same canonical `internal/runtime.ReplayQueryService` plane and can now explain worker claim, lease heartbeat, reclaim, retry scheduling, and approval resume across workers
 
@@ -410,6 +412,8 @@ Stable 7A sample outputs checked into the repo:
 
 - `docs/eval/samples/phase7a_runtime_promotion_profile.json`
 - `docs/eval/samples/phase7a_async_runtime_proofs.json`
+
+These samples now reflect closeout-hardened promoted-backend proofs instead of only in-memory/runtime-contract evidence.
 
 The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
 

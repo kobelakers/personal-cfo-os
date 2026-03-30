@@ -10,9 +10,9 @@ type sqliteWorkQueueStore struct {
 	db *SQLiteRuntimeDB
 }
 
-func (s *sqliteWorkQueueStore) Enqueue(item WorkItem) error {
+func (s *sqliteWorkQueueStore) Enqueue(item WorkItem) (WorkEnqueueResult, error) {
 	if item.ID == "" {
-		return fmt.Errorf("work item id is required")
+		return WorkEnqueueResult{}, fmt.Errorf("work item id is required")
 	}
 	if item.Status == "" {
 		item.Status = WorkItemStatusQueued
@@ -34,10 +34,15 @@ func (s *sqliteWorkQueueStore) Enqueue(item WorkItem) error {
 			LIMIT 1
 		`, item.DedupeKey, string(WorkItemStatusCompleted), string(WorkItemStatusFailed), string(WorkItemStatusAbandoned)).Scan(&existing)
 		if err == nil {
-			return nil
+			return WorkEnqueueResult{
+				Kind:               item.Kind,
+				Disposition:        WorkEnqueueDispositionDuplicateSuppressed,
+				DedupeKey:          item.DedupeKey,
+				ExistingWorkItemID: existing,
+			}, nil
 		}
 		if !errorsIsNoRows(err) {
-			return err
+			return WorkEnqueueResult{}, err
 		}
 	}
 	_, err := s.db.db.Exec(`
@@ -76,7 +81,15 @@ func (s *sqliteWorkQueueStore) Enqueue(item WorkItem) error {
 		item.LastUpdatedAt.UTC().Format(time.RFC3339Nano), nullString(item.Reason), nullString(string(item.WakeupKind)),
 		nullableTime(item.RetryNotBefore), item.AttemptCount, nullString(item.LeaseID), item.FencingToken, nullString(item.ClaimToken),
 		nullString(string(item.ClaimedByWorkerID)), nullableTime(item.LeaseExpiresAt))
-	return err
+	if err != nil {
+		return WorkEnqueueResult{}, err
+	}
+	return WorkEnqueueResult{
+		WorkItemID:  item.ID,
+		Kind:        item.Kind,
+		Disposition: WorkEnqueueDispositionEnqueued,
+		DedupeKey:   item.DedupeKey,
+	}, nil
 }
 
 func (s *sqliteWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now time.Time, leaseTTL time.Duration) ([]WorkClaim, error) {

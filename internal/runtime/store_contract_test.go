@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 )
 
 func TestSQLiteRuntimeCoreStoreContract(t *testing.T) {
@@ -141,6 +142,30 @@ func exerciseRuntimeCoreStores(t *testing.T, stores *StoreBundle, backend string
 	}
 	if loaded, ok, err := stores.Executions.LoadLatestByTask(graph.GraphID, graph.GeneratedTasks[0].Task.ID); err != nil || !ok || loaded.Status != TaskQueueStatusCompleted {
 		t.Fatalf("load latest execution: ok=%t err=%v record=%+v", ok, err, loaded)
+	}
+	if stores.SkillExecutions != nil {
+		skillRecord := SkillExecutionRecord{
+			WorkflowID:  workflow.WorkflowID,
+			TaskID:      graph.GeneratedTasks[0].Task.ID,
+			ExecutionID: execution.ExecutionID,
+			Selection: skills.SkillSelection{
+				Family:   skills.SkillFamilyDiscretionaryGuardrail,
+				Version:  "v1",
+				RecipeID: "budget_guardrail.v1",
+			},
+			Status:    skills.SkillExecutionStatusExecuted,
+			CreatedAt: now,
+			UpdatedAt: now.Add(time.Minute),
+		}
+		if err := stores.SkillExecutions.Save(skillRecord); err != nil {
+			t.Fatalf("save skill execution: %v", err)
+		}
+		if loaded, ok, err := stores.SkillExecutions.Load(execution.ExecutionID); err != nil || !ok || loaded.ExecutionID != execution.ExecutionID {
+			t.Fatalf("load skill execution: ok=%t err=%v record=%+v", ok, err, loaded)
+		}
+		if records, err := stores.SkillExecutions.ListByWorkflow(workflow.WorkflowID); err != nil || len(records) == 0 {
+			t.Fatalf("list skill executions by workflow: err=%v records=%+v", err, records)
+		}
 	}
 
 	approval := ApprovalStateRecord{
@@ -283,8 +308,10 @@ func exerciseRuntimeCoreStores(t *testing.T, stores *StoreBundle, backend string
 		LastUpdatedAt: now,
 		Reason:        "contract work item",
 	}
-	if err := stores.WorkQueue.Enqueue(workItem); err != nil {
+	if result, err := stores.WorkQueue.Enqueue(workItem); err != nil {
 		t.Fatalf("enqueue work item: %v", err)
+	} else if result.Disposition != WorkEnqueueDispositionEnqueued {
+		t.Fatalf("expected work item to enqueue, got %+v", result)
 	}
 	claims, err := stores.WorkQueue.ClaimReady(WorkerID("worker-"+suffix), 1, now, 30*time.Second)
 	if err != nil || len(claims) != 1 {

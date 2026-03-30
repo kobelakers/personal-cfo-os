@@ -208,6 +208,7 @@ func (s *postgresTaskExecutionStore) Save(record TaskExecutionRecord) error {
 }
 
 func (s *postgresTaskExecutionStore) Update(record TaskExecutionRecord, expectedVersion int64) error {
+	record.Version = expectedVersion + 1
 	raw, err := marshalJSON(record)
 	if err != nil {
 		return err
@@ -216,7 +217,7 @@ func (s *postgresTaskExecutionStore) Update(record TaskExecutionRecord, expected
 		UPDATE task_executions
 		SET version = ?, record_json = ?
 		WHERE execution_id = ? AND version = ?
-	`, record.Version+1, raw, record.ExecutionID, expectedVersion)
+	`, record.Version, raw, record.ExecutionID, expectedVersion)
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,6 @@ func (s *postgresTaskExecutionStore) Update(record TaskExecutionRecord, expected
 	if affected != 1 {
 		return &ConflictError{Resource: "task_execution", ID: record.ExecutionID, Reason: "version mismatch"}
 	}
-	record.Version = expectedVersion + 1
 	return nil
 }
 
@@ -640,63 +640,104 @@ func (s *postgresReplayProjectionStore) SaveBuild(record ReplayProjectionBuildRe
 }
 
 func (s *postgresReplayProjectionStore) ReplaceProvenance(scope ReplayProjectionScope, nodes []ProvenanceNodeRecord, edges []ProvenanceEdgeRecord) error {
-	if _, err := s.db.exec(`DELETE FROM replay_provenance_nodes WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
-		return err
-	}
-	if _, err := s.db.exec(`DELETE FROM replay_provenance_edges WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
-		return err
-	}
-	for _, node := range nodes {
-		raw, err := marshalJSON(node)
-		if err != nil {
+	return s.withProjectionScopeTx(scope, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(rewritePositionalSQL(`DELETE FROM replay_provenance_edges WHERE scope_kind = ? AND scope_id = ?`), string(scope.ScopeKind), scope.ScopeID); err != nil {
 			return err
 		}
-		if _, err := s.db.exec(`INSERT INTO replay_provenance_nodes(scope_kind, scope_id, node_id, record_json) VALUES (?, ?, ?, ?)`, string(scope.ScopeKind), scope.ScopeID, node.NodeID, raw); err != nil {
+		if _, err := tx.Exec(rewritePositionalSQL(`DELETE FROM replay_provenance_nodes WHERE scope_kind = ? AND scope_id = ?`), string(scope.ScopeKind), scope.ScopeID); err != nil {
 			return err
 		}
-	}
-	for _, edge := range edges {
-		raw, err := marshalJSON(edge)
-		if err != nil {
-			return err
+		for _, node := range nodes {
+			raw, err := marshalJSON(node)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(rewritePositionalSQL(`
+				INSERT INTO replay_provenance_nodes(scope_kind, scope_id, node_id, record_json)
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT(scope_kind, scope_id, node_id) DO UPDATE SET
+					record_json = excluded.record_json
+			`), string(scope.ScopeKind), scope.ScopeID, node.NodeID, raw); err != nil {
+				return err
+			}
 		}
-		if _, err := s.db.exec(`INSERT INTO replay_provenance_edges(scope_kind, scope_id, edge_id, record_json) VALUES (?, ?, ?, ?)`, string(scope.ScopeKind), scope.ScopeID, edge.EdgeID, raw); err != nil {
-			return err
+		for _, edge := range edges {
+			raw, err := marshalJSON(edge)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(rewritePositionalSQL(`
+				INSERT INTO replay_provenance_edges(scope_kind, scope_id, edge_id, record_json)
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT(scope_kind, scope_id, edge_id) DO UPDATE SET
+					record_json = excluded.record_json
+			`), string(scope.ScopeKind), scope.ScopeID, edge.EdgeID, raw); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (s *postgresReplayProjectionStore) ReplaceExecutionAttributions(scope ReplayProjectionScope, records []ExecutionAttributionRecord) error {
-	if _, err := s.db.exec(`DELETE FROM replay_execution_attributions WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
-		return err
-	}
-	for _, record := range records {
-		raw, err := marshalJSON(record)
-		if err != nil {
+	return s.withProjectionScopeTx(scope, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(rewritePositionalSQL(`DELETE FROM replay_execution_attributions WHERE scope_kind = ? AND scope_id = ?`), string(scope.ScopeKind), scope.ScopeID); err != nil {
 			return err
 		}
-		if _, err := s.db.exec(`INSERT INTO replay_execution_attributions(scope_kind, scope_id, execution_id, category, record_json) VALUES (?, ?, ?, ?, ?)`, string(scope.ScopeKind), scope.ScopeID, record.ExecutionID, record.Category, raw); err != nil {
-			return err
+		for _, record := range records {
+			raw, err := marshalJSON(record)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(rewritePositionalSQL(`
+				INSERT INTO replay_execution_attributions(scope_kind, scope_id, execution_id, category, record_json)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(scope_kind, scope_id, execution_id, category) DO UPDATE SET
+					record_json = excluded.record_json
+			`), string(scope.ScopeKind), scope.ScopeID, record.ExecutionID, record.Category, raw); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (s *postgresReplayProjectionStore) ReplaceFailureAttributions(scope ReplayProjectionScope, records []FailureAttributionRecord) error {
-	if _, err := s.db.exec(`DELETE FROM replay_failure_attributions WHERE scope_kind = ? AND scope_id = ?`, string(scope.ScopeKind), scope.ScopeID); err != nil {
+	return s.withProjectionScopeTx(scope, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(rewritePositionalSQL(`DELETE FROM replay_failure_attributions WHERE scope_kind = ? AND scope_id = ?`), string(scope.ScopeKind), scope.ScopeID); err != nil {
+			return err
+		}
+		for _, record := range records {
+			raw, err := marshalJSON(record)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(rewritePositionalSQL(`
+				INSERT INTO replay_failure_attributions(scope_kind, scope_id, attribution_id, record_json)
+				VALUES (?, ?, ?, ?)
+				ON CONFLICT(scope_kind, scope_id, attribution_id) DO UPDATE SET
+					record_json = excluded.record_json
+			`), string(scope.ScopeKind), scope.ScopeID, record.AttributionID, raw); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (s *postgresReplayProjectionStore) withProjectionScopeTx(scope ReplayProjectionScope, fn func(tx *sql.Tx) error) error {
+	tx, err := s.db.db.Begin()
+	if err != nil {
 		return err
 	}
-	for _, record := range records {
-		raw, err := marshalJSON(record)
-		if err != nil {
-			return err
-		}
-		if _, err := s.db.exec(`INSERT INTO replay_failure_attributions(scope_kind, scope_id, attribution_id, record_json) VALUES (?, ?, ?, ?)`, string(scope.ScopeKind), scope.ScopeID, record.AttributionID, raw); err != nil {
-			return err
-		}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(rewritePositionalSQL(`SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))`), string(scope.ScopeKind), scope.ScopeID); err != nil {
+		return err
 	}
-	return nil
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *postgresReplayProjectionStore) LoadWorkflowProjection(workflowID string) (WorkflowReplayProjection, bool, error) {
@@ -895,25 +936,9 @@ func (s *postgresArtifactMetadataStore) list(query string, arg string) ([]report
 
 type postgresWorkQueueStore struct{ db *PostgresRuntimeDB }
 
-func (s *postgresWorkQueueStore) Enqueue(item WorkItem) error {
+func (s *postgresWorkQueueStore) Enqueue(item WorkItem) (WorkEnqueueResult, error) {
 	if item.ID == "" {
-		return fmt.Errorf("work item id is required")
-	}
-	if item.DedupeKey != "" {
-		row := s.db.queryRow(`
-			SELECT work_item_id
-			FROM work_items
-			WHERE dedupe_key = ?
-			  AND status NOT IN (?, ?, ?)
-			ORDER BY available_at ASC
-			LIMIT 1
-		`, item.DedupeKey, string(WorkItemStatusCompleted), string(WorkItemStatusFailed), string(WorkItemStatusAbandoned))
-		var existing string
-		if err := row.Scan(&existing); err == nil {
-			return nil
-		} else if !errorsIsNoRows(err) {
-			return err
-		}
+		return WorkEnqueueResult{}, fmt.Errorf("work item id is required")
 	}
 	if item.Status == "" {
 		item.Status = WorkItemStatusQueued
@@ -921,42 +946,41 @@ func (s *postgresWorkQueueStore) Enqueue(item WorkItem) error {
 	if item.LastUpdatedAt.IsZero() {
 		item.LastUpdatedAt = item.AvailableAt
 	}
-	_, err := s.db.exec(`
+	row := s.db.queryRow(`
 		INSERT INTO work_items (
 			work_item_id, kind, status, dedupe_key, graph_id, task_id, execution_id, approval_id, checkpoint_id,
 			workflow_id, available_at, claimed_at, completed_at, failed_at, last_updated_at, reason, wakeup_kind,
 			retry_not_before, attempt_count, lease_id, fencing_token, claim_token, claimed_by_worker_id, lease_expires_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(work_item_id) DO UPDATE SET
-			kind = excluded.kind,
-			status = excluded.status,
-			dedupe_key = excluded.dedupe_key,
-			graph_id = excluded.graph_id,
-			task_id = excluded.task_id,
-			execution_id = excluded.execution_id,
-			approval_id = excluded.approval_id,
-			checkpoint_id = excluded.checkpoint_id,
-			workflow_id = excluded.workflow_id,
-			available_at = excluded.available_at,
-			claimed_at = excluded.claimed_at,
-			completed_at = excluded.completed_at,
-			failed_at = excluded.failed_at,
-			last_updated_at = excluded.last_updated_at,
-			reason = excluded.reason,
-			wakeup_kind = excluded.wakeup_kind,
-			retry_not_before = excluded.retry_not_before,
-			attempt_count = excluded.attempt_count,
-			lease_id = excluded.lease_id,
-			fencing_token = excluded.fencing_token,
-			claim_token = excluded.claim_token,
-			claimed_by_worker_id = excluded.claimed_by_worker_id,
-			lease_expires_at = excluded.lease_expires_at
+		ON CONFLICT DO NOTHING
+		RETURNING work_item_id
 	`, item.ID, string(item.Kind), string(item.Status), nullString(item.DedupeKey), nullString(item.GraphID), nullString(item.TaskID),
 		nullString(item.ExecutionID), nullString(item.ApprovalID), nullString(item.CheckpointID), nullString(item.WorkflowID),
 		item.AvailableAt.UTC().Format(time.RFC3339Nano), nullableTime(item.ClaimedAt), nullableTime(item.CompletedAt), nullableTime(item.FailedAt),
 		item.LastUpdatedAt.UTC().Format(time.RFC3339Nano), nullString(item.Reason), nullString(string(item.WakeupKind)), nullableTime(item.RetryNotBefore), item.AttemptCount,
 		nullString(item.LeaseID), item.FencingToken, nullString(item.ClaimToken), nullString(string(item.ClaimedByWorkerID)), nullableTime(item.LeaseExpiresAt))
-	return err
+	var insertedID string
+	if err := row.Scan(&insertedID); err != nil {
+		if !errorsIsNoRows(err) {
+			return WorkEnqueueResult{}, err
+		}
+		existingID, loadErr := s.lookupActiveDedupe(item)
+		if loadErr != nil {
+			return WorkEnqueueResult{}, loadErr
+		}
+		return WorkEnqueueResult{
+			Kind:               item.Kind,
+			Disposition:        WorkEnqueueDispositionDuplicateSuppressed,
+			DedupeKey:          item.DedupeKey,
+			ExistingWorkItemID: existingID,
+		}, nil
+	}
+	return WorkEnqueueResult{
+		WorkItemID:  insertedID,
+		Kind:        item.Kind,
+		Disposition: WorkEnqueueDispositionEnqueued,
+		DedupeKey:   item.DedupeKey,
+	}, nil
 }
 
 func (s *postgresWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now time.Time, leaseTTL time.Duration) ([]WorkClaim, error) {
@@ -983,12 +1007,22 @@ func (s *postgresWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now ti
 		return nil, err
 	}
 	defer rows.Close()
-	claims := make([]WorkClaim, 0)
+	items := make([]WorkItem, 0)
 	for rows.Next() {
 		item, err := scanWorkItem(rows)
 		if err != nil {
 			return nil, err
 		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	claims := make([]WorkClaim, 0, len(items))
+	for _, item := range items {
 		item.Status = WorkItemStatusClaimed
 		item.ClaimedByWorkerID = workerID
 		item.FencingToken++
@@ -1017,9 +1051,6 @@ func (s *postgresWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now ti
 			LeaseExpiresAt: expires,
 		})
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -1027,10 +1058,16 @@ func (s *postgresWorkQueueStore) ClaimReady(workerID WorkerID, limit int, now ti
 }
 
 func (s *postgresWorkQueueStore) Heartbeat(heartbeat LeaseHeartbeat) error {
-	return s.withFence(heartbeat.WorkItemID, heartbeat.LeaseID, heartbeat.FencingToken, heartbeat.WorkerID, func(item WorkItem) error {
-		_, err := s.db.exec(`UPDATE work_items SET last_updated_at = ?, lease_expires_at = ? WHERE work_item_id = ?`, heartbeat.RecordedAt.UTC().Format(time.RFC3339Nano), heartbeat.LeaseExpiresAt.UTC().Format(time.RFC3339Nano), item.ID)
-		return err
-	})
+	return s.updateClaimedWorkItemCAS(FenceValidation{
+		WorkItemID:   heartbeat.WorkItemID,
+		LeaseID:      heartbeat.LeaseID,
+		FencingToken: heartbeat.FencingToken,
+		WorkerID:     heartbeat.WorkerID,
+	}, `
+		UPDATE work_items
+		SET last_updated_at = ?, lease_expires_at = ?
+		WHERE work_item_id = ? AND status = ? AND lease_id = ? AND fencing_token = ? AND claimed_by_worker_id = ?
+	`, heartbeat.RecordedAt.UTC().Format(time.RFC3339Nano), heartbeat.LeaseExpiresAt.UTC().Format(time.RFC3339Nano))
 }
 
 func (s *postgresWorkQueueStore) Complete(fence FenceValidation, now time.Time) error {
@@ -1042,43 +1079,64 @@ func (s *postgresWorkQueueStore) Fail(fence FenceValidation, summary string, now
 }
 
 func (s *postgresWorkQueueStore) Requeue(fence FenceValidation, nextAvailableAt time.Time, reason string, now time.Time) error {
-	return s.withFence(fence.WorkItemID, fence.LeaseID, fence.FencingToken, fence.WorkerID, func(item WorkItem) error {
-		_, err := s.db.exec(`
-			UPDATE work_items
-			SET status = ?, available_at = ?, last_updated_at = ?, reason = ?, claimed_at = NULL,
-			    lease_id = NULL, claim_token = NULL, claimed_by_worker_id = NULL, lease_expires_at = NULL
-			WHERE work_item_id = ?
-		`, string(WorkItemStatusQueued), nextAvailableAt.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), reason, item.ID)
-		return err
-	})
+	return s.updateClaimedWorkItemCAS(fence, `
+		UPDATE work_items
+		SET status = ?, available_at = ?, last_updated_at = ?, reason = ?, claimed_at = NULL,
+		    lease_id = NULL, claim_token = NULL, claimed_by_worker_id = NULL, lease_expires_at = NULL
+		WHERE work_item_id = ? AND status = ? AND lease_id = ? AND fencing_token = ? AND claimed_by_worker_id = ?
+	`, string(WorkItemStatusQueued), nextAvailableAt.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), reason)
 }
 
 func (s *postgresWorkQueueStore) ReclaimExpired(now time.Time) ([]LeaseReclaimResult, error) {
-	rows, err := s.db.query(`
+	tx, err := s.db.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	rows, err := tx.Query(rewritePositionalSQL(`
 		SELECT work_item_id, kind, status, dedupe_key, graph_id, task_id, execution_id, approval_id, checkpoint_id,
 		       workflow_id, available_at, claimed_at, completed_at, failed_at, last_updated_at, reason, wakeup_kind,
 		       retry_not_before, attempt_count, lease_id, fencing_token, claim_token, claimed_by_worker_id, lease_expires_at
 		FROM work_items
 		WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
 		ORDER BY lease_expires_at ASC, work_item_id ASC
-	`, string(WorkItemStatusClaimed), now.UTC().Format(time.RFC3339Nano))
+		FOR UPDATE SKIP LOCKED
+	`), string(WorkItemStatusClaimed), now.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	result := make([]LeaseReclaimResult, 0)
+	items := make([]WorkItem, 0)
 	for rows.Next() {
 		item, err := scanWorkItem(rows)
 		if err != nil {
 			return nil, err
 		}
-		if _, err := s.db.exec(`
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	result := make([]LeaseReclaimResult, 0, len(items))
+	for _, item := range items {
+		updateResult, err := tx.Exec(rewritePositionalSQL(`
 			UPDATE work_items
 			SET status = ?, reason = ?, last_updated_at = ?, claimed_at = NULL, lease_id = NULL, claim_token = NULL,
 			    claimed_by_worker_id = NULL, lease_expires_at = NULL
-			WHERE work_item_id = ? AND status = ? AND fencing_token = ?
-		`, string(WorkItemStatusQueued), "reclaimed after lease expiry", now.UTC().Format(time.RFC3339Nano), item.ID, string(WorkItemStatusClaimed), item.FencingToken); err != nil {
+			WHERE work_item_id = ? AND status = ? AND lease_id = ? AND fencing_token = ? AND claimed_by_worker_id = ?
+		`), string(WorkItemStatusQueued), "reclaimed after lease expiry", now.UTC().Format(time.RFC3339Nano), item.ID, string(WorkItemStatusClaimed), item.LeaseID, item.FencingToken, string(item.ClaimedByWorkerID))
+		if err != nil {
 			return nil, err
+		}
+		affected, err := updateResult.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected != 1 {
+			continue
 		}
 		result = append(result, LeaseReclaimResult{
 			WorkItemID:   item.ID,
@@ -1089,7 +1147,10 @@ func (s *postgresWorkQueueStore) ReclaimExpired(now time.Time) ([]LeaseReclaimRe
 			ReclaimedAt:  now.UTC(),
 		})
 	}
-	return result, rows.Err()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (s *postgresWorkQueueStore) Load(workItemID string) (WorkItem, bool, error) {
@@ -1136,23 +1197,20 @@ func (s *postgresWorkQueueStore) ValidateFence(fence FenceValidation) error {
 }
 
 func (s *postgresWorkQueueStore) finish(fence FenceValidation, status WorkItemStatus, summary string, now time.Time) error {
-	return s.withFence(fence.WorkItemID, fence.LeaseID, fence.FencingToken, fence.WorkerID, func(item WorkItem) error {
-		var completedAt any
-		var failedAt any
-		if status == WorkItemStatusCompleted {
-			completedAt = now.UTC().Format(time.RFC3339Nano)
-		}
-		if status == WorkItemStatusFailed {
-			failedAt = now.UTC().Format(time.RFC3339Nano)
-		}
-		_, err := s.db.exec(`
-			UPDATE work_items
-			SET status = ?, reason = ?, last_updated_at = ?, claimed_at = NULL, lease_id = NULL, claim_token = NULL,
-			    claimed_by_worker_id = NULL, lease_expires_at = NULL, completed_at = ?, failed_at = ?
-			WHERE work_item_id = ?
-		`, string(status), summary, now.UTC().Format(time.RFC3339Nano), completedAt, failedAt, item.ID)
-		return err
-	})
+	var completedAt any
+	var failedAt any
+	if status == WorkItemStatusCompleted {
+		completedAt = now.UTC().Format(time.RFC3339Nano)
+	}
+	if status == WorkItemStatusFailed {
+		failedAt = now.UTC().Format(time.RFC3339Nano)
+	}
+	return s.updateClaimedWorkItemCAS(fence, `
+		UPDATE work_items
+		SET status = ?, reason = ?, last_updated_at = ?, claimed_at = NULL, lease_id = NULL, claim_token = NULL,
+		    claimed_by_worker_id = NULL, lease_expires_at = NULL, completed_at = ?, failed_at = ?
+		WHERE work_item_id = ? AND status = ? AND lease_id = ? AND fencing_token = ? AND claimed_by_worker_id = ?
+	`, string(status), summary, now.UTC().Format(time.RFC3339Nano), completedAt, failedAt)
 }
 
 func (s *postgresWorkQueueStore) withFence(workItemID string, leaseID string, fencingToken int64, workerID WorkerID, fn func(WorkItem) error) error {
@@ -1172,6 +1230,67 @@ func (s *postgresWorkQueueStore) withFence(workItemID string, leaseID string, fe
 		return err
 	}
 	return fn(item)
+}
+
+func (s *postgresWorkQueueStore) lookupActiveDedupe(item WorkItem) (string, error) {
+	if strings.TrimSpace(item.DedupeKey) != "" {
+		row := s.db.queryRow(`
+			SELECT work_item_id
+			FROM work_items
+			WHERE dedupe_key = ?
+			  AND status IN (?, ?)
+			ORDER BY available_at ASC, work_item_id ASC
+			LIMIT 1
+		`, item.DedupeKey, string(WorkItemStatusQueued), string(WorkItemStatusClaimed))
+		var existing string
+		if err := row.Scan(&existing); err != nil {
+			if errorsIsNoRows(err) {
+				return "", nil
+			}
+			return "", err
+		}
+		return existing, nil
+	}
+	row := s.db.queryRow(`SELECT work_item_id FROM work_items WHERE work_item_id = ?`, item.ID)
+	var existing string
+	if err := row.Scan(&existing); err != nil {
+		if errorsIsNoRows(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return existing, nil
+}
+
+func (s *postgresWorkQueueStore) updateClaimedWorkItemCAS(fence FenceValidation, query string, args ...any) error {
+	fullArgs := append([]any{}, args...)
+	fullArgs = append(fullArgs, fence.WorkItemID, string(WorkItemStatusClaimed), fence.LeaseID, fence.FencingToken, string(fence.WorkerID))
+	result, err := s.db.exec(query, fullArgs...)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 1 {
+		return nil
+	}
+	return s.fenceConflictForCAS(fence)
+}
+
+func (s *postgresWorkQueueStore) fenceConflictForCAS(fence FenceValidation) error {
+	item, ok, err := s.Load(fence.WorkItemID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return &NotFoundError{Resource: "work_item", ID: fence.WorkItemID}
+	}
+	if err := validateFenceAgainstItem(item, fence); err != nil {
+		return err
+	}
+	return &ConflictError{Resource: "work_item", ID: fence.WorkItemID, Reason: "fenced work-item update rejected"}
 }
 
 type postgresWorkAttemptStore struct{ db *PostgresRuntimeDB }

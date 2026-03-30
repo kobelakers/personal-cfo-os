@@ -44,7 +44,7 @@ run_proofs() {
   export MINIO_TEST_SECRET_KEY="$MINIO_ROOT_PASSWORD"
 
   go test ./internal/runtime ./internal/artifacts \
-    -run 'TestRuntimePromotionProfileContract|TestPostgresRuntimeCoreStoreContract|TestMinIOBlobStoreContract|TestWorkQueueExclusiveClaimAndFenceRejectsStaleWorkerCommit|TestSchedulerDeferredWakeupEnqueuesReevaluation|TestApproveTaskAsyncEnqueuesResumeAndDifferentWorkerCompletes|TestTransientFailureRetryBackoffLaterWorkerCompletes' \
+    -run 'TestRuntimePromotionProfileContract|TestPostgresRuntimeCoreStoreContract|TestMinIOBlobStoreContract|TestPostgresWorkQueueFenceRejectsStaleWorkerCommit|TestPostgresWorkQueueDedupeIsAtomicUnderConcurrentEnqueue|TestPostgresReclaimHasSingleWinner|TestPostgresHeartbeatRenewsLeaseDuringLongExecution|TestRuntimePromotionProfileApprovalResumeAcrossWorkers|TestRuntimePromotionProfileRetryBackoffAcrossWorkers|TestPostgresSkillExecutionStoreParity' \
     -count=1
 
   cat > "$OUT_DIR/phase7a_runtime_promotion_profile.json" <<EOF
@@ -59,12 +59,15 @@ run_proofs() {
     "postgres": true,
     "minio": true,
     "api": true,
-    "multi_worker": true
+    "multi_worker": true,
+    "fenced_cas": true,
+    "active_dedupe": true,
+    "skill_execution_parity": true
   },
   "notes": [
-    "runtime-promotion keeps typed protocol, verification, governance, and replay on the same durable plane",
-    "Postgres is the authoritative runtime backend for the promoted profile",
-    "checkpoint payloads, final reports, and replay bundles are ref-backed through MinIO-compatible blob storage"
+    "7A closeout keeps typed protocol, verification, governance, and replay on the same canonical runtime plane",
+    "Postgres queue mutations now use atomic fenced CAS for heartbeat, complete, fail, and requeue",
+    "checkpoint payloads, final reports, and replay bundles remain ref-backed through MinIO-compatible blob storage"
   ]
 }
 EOF
@@ -74,24 +77,39 @@ EOF
   "phase": "7a",
   "proofs": [
     {
-      "id": "deferred_follow_up_wakeup",
+      "id": "postgres_stale_worker_fence_reject",
       "status": "passed",
-      "source": "TestSchedulerDeferredWakeupEnqueuesReevaluation"
+      "source": "TestPostgresWorkQueueFenceRejectsStaleWorkerCommit"
     },
     {
-      "id": "approval_resume_different_worker",
+      "id": "postgres_concurrent_enqueue_dedupe",
       "status": "passed",
-      "source": "TestApproveTaskAsyncEnqueuesResumeAndDifferentWorkerCompletes"
+      "source": "TestPostgresWorkQueueDedupeIsAtomicUnderConcurrentEnqueue"
     },
     {
-      "id": "transient_retry_backoff",
+      "id": "postgres_reclaim_single_winner",
       "status": "passed",
-      "source": "TestTransientFailureRetryBackoffLaterWorkerCompletes"
+      "source": "TestPostgresReclaimHasSingleWinner"
     },
     {
-      "id": "stale_worker_fencing_reject",
+      "id": "postgres_periodic_heartbeat_renewal",
       "status": "passed",
-      "source": "TestWorkQueueExclusiveClaimAndFenceRejectsStaleWorkerCommit"
+      "source": "TestPostgresHeartbeatRenewsLeaseDuringLongExecution"
+    },
+    {
+      "id": "runtime_profile_approval_resume_across_workers",
+      "status": "passed",
+      "source": "TestRuntimePromotionProfileApprovalResumeAcrossWorkers"
+    },
+    {
+      "id": "runtime_profile_retry_backoff_across_workers",
+      "status": "passed",
+      "source": "TestRuntimePromotionProfileRetryBackoffAcrossWorkers"
+    },
+    {
+      "id": "postgres_skill_execution_store_parity",
+      "status": "passed",
+      "source": "TestPostgresSkillExecutionStoreParity"
     },
     {
       "id": "postgres_minio_runtime_profile_contract",

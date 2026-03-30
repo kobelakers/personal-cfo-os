@@ -37,7 +37,7 @@ func TestWorkQueueExclusiveClaimAndFenceRejectsStaleWorkerCommit(t *testing.T) {
 		LastUpdatedAt: clock.Now(),
 		Reason:        "unit test",
 	}
-	if err := queue.Enqueue(item); err != nil {
+	if _, err := queue.Enqueue(item); err != nil {
 		t.Fatalf("enqueue work item: %v", err)
 	}
 	claimsA, err := queue.ClaimReady(WorkerID("worker-a"), 1, clock.Now(), 5*time.Second)
@@ -207,7 +207,7 @@ func TestTransientFailureRetryBackoffLaterWorkerCompletes(t *testing.T) {
 			return completedFollowUpResult("workflow-child-"+spec.ID, runtimeTestState(now, current.Version.Sequence+1)), nil
 		},
 	})
-	if err := harness.service.workQueue.Enqueue(WorkItem{
+	if _, err := harness.service.workQueue.Enqueue(WorkItem{
 		ID:            "work-initial-execute",
 		Kind:          WorkItemKindExecuteReadyTask,
 		Status:        WorkItemStatusQueued,

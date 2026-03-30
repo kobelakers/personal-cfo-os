@@ -19,7 +19,7 @@ func (s *Service) reevaluateTaskGraphAsync(ctx context.Context, graphID string, 
 		return err
 	}
 	for _, taskID := range activation.ReadyTaskIDs {
-		if err := s.workQueue.Enqueue(WorkItem{
+		if _, err := s.workQueue.Enqueue(WorkItem{
 			ID:            makeID("work", WorkItemKindExecuteReadyTask, graphID, taskID),
 			Kind:          WorkItemKindExecuteReadyTask,
 			Status:        WorkItemStatusQueued,
@@ -106,7 +106,7 @@ func (s *Service) handleSchedulerWakeup(ctx context.Context, item WorkItem) erro
 	_ = ctx
 	switch item.WakeupKind {
 	case SchedulerWakeupDueWindow, SchedulerWakeupDependency, SchedulerWakeupCapability, SchedulerWakeupOperator:
-		return s.workQueue.Enqueue(WorkItem{
+		_, err := s.workQueue.Enqueue(WorkItem{
 			ID:            makeID("work", WorkItemKindReevaluateTaskGraph, item.GraphID, item.WakeupKind),
 			Kind:          WorkItemKindReevaluateTaskGraph,
 			Status:        WorkItemStatusQueued,
@@ -118,8 +118,9 @@ func (s *Service) handleSchedulerWakeup(ctx context.Context, item WorkItem) erro
 			Reason:        item.Reason,
 			WakeupKind:    item.WakeupKind,
 		})
+		return err
 	case SchedulerWakeupApproval:
-		return s.workQueue.Enqueue(WorkItem{
+		_, err := s.workQueue.Enqueue(WorkItem{
 			ID:            makeID("work", WorkItemKindResumeApprovedCheckpoint, item.ApprovalID),
 			Kind:          WorkItemKindResumeApprovedCheckpoint,
 			Status:        WorkItemStatusQueued,
@@ -132,8 +133,9 @@ func (s *Service) handleSchedulerWakeup(ctx context.Context, item WorkItem) erro
 			Reason:        item.Reason,
 			WakeupKind:    item.WakeupKind,
 		})
+		return err
 	case SchedulerWakeupRetry:
-		return s.workQueue.Enqueue(WorkItem{
+		_, err := s.workQueue.Enqueue(WorkItem{
 			ID:            makeID("work", WorkItemKindRetryFailedExecution, item.ExecutionID),
 			Kind:          WorkItemKindRetryFailedExecution,
 			Status:        WorkItemStatusQueued,
@@ -146,6 +148,7 @@ func (s *Service) handleSchedulerWakeup(ctx context.Context, item WorkItem) erro
 			Reason:        item.Reason,
 			WakeupKind:    item.WakeupKind,
 		})
+		return err
 	default:
 		return fmt.Errorf("unsupported scheduler wakeup kind %q", item.WakeupKind)
 	}

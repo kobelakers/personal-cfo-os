@@ -80,6 +80,7 @@ type TaskCommandResult struct {
 	AutoResumeTried       bool                 `json:"auto_resume_tried,omitempty"`
 	AutoResumeApplied     bool                 `json:"auto_resume_applied,omitempty"`
 	FailureSummary        string               `json:"failure_summary,omitempty"`
+	EnqueueResults        []WorkEnqueueResult  `json:"enqueue_results,omitempty"`
 	EnqueuedWorkItemIDs   []string             `json:"enqueued_work_item_ids,omitempty"`
 	EnqueuedWorkKinds     []WorkItemKind       `json:"enqueued_work_kinds,omitempty"`
 	AsyncDispatchAccepted bool                 `json:"async_dispatch_accepted,omitempty"`

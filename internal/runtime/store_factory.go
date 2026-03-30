@@ -80,6 +80,7 @@ func BundleFromPostgres(stores *PostgresRuntimeStores) *StoreBundle {
 		WorkflowRuns:     stores.WorkflowRuns,
 		TaskGraphs:       stores.TaskGraphs,
 		Executions:       stores.Executions,
+		SkillExecutions:  stores.SkillExecutions,
 		Approvals:        stores.Approvals,
 		OperatorActions:  stores.OperatorActions,
 		Checkpoints:      stores.Checkpoints,

@@ -52,16 +52,18 @@ Phase 6B promotes one narrow but load-bearing capability/domain path rather than
 
 ## Runtime Promotion (Phase 7A)
 
-Phase 7A upgrades the runtime backbone rather than widening the system into UI or externalized protocol work:
+Phase 7A upgrades the runtime backbone rather than widening the system into UI or externalized protocol work. The current codebase is already past the architectural promotion step and into closeout hardening:
 
 1. durable work items now drive async execution instead of a pure in-process worker pass
-2. workers claim work through leases, heartbeat lease ownership, and can lose the lease through expiry/reclaim
-3. stale workers are fenced: completion/checkpoint/transition commits now validate lease ownership plus fencing token, so reclaimed workers cannot successfully apply final state
-4. scheduler and reevaluator now enqueue typed work for deferred wakeups, approval resumes, dependency/capability reevaluations, and retry backoff
-5. runtime-authoritative stores now have two formal profiles:
+2. workers claim work through leases, renew those leases with periodic heartbeat, and can lose the lease through expiry/reclaim
+3. Postgres queue mutation correctness is now hardened: `heartbeat / complete / fail / requeue` use atomic fenced CAS, dedupe is concurrent-writer safe, and reclaim has a single effective winner
+4. stale workers are fenced: completion/checkpoint/transition commits now validate lease ownership plus fencing token, so reclaimed workers cannot successfully apply final state
+5. scheduler and reevaluator now enqueue typed work for deferred wakeups, approval resumes, dependency/capability reevaluations, and retry backoff
+6. runtime-authoritative stores now have two formal profiles:
    - `local-lite`: SQLite + LocalFS
    - `runtime-promotion`: Postgres + MinIO-compatible blob storage
-6. replay/debug still uses the same canonical `internal/runtime.ReplayQueryService`, but now it can explain claim/lease/heartbeat/reclaim/retry/scheduler chains across workers
+7. `SkillExecutionStore` now has runtime-promotion parity, so the Postgres profile preserves the 6B skill-runtime truth surface
+8. replay/debug still uses the same canonical `internal/runtime.ReplayQueryService`, but now it can explain claim/lease/heartbeat/reclaim/retry/scheduler chains across workers
 
 ## Trustworthy Finance Reasoning (Phase 5D)
 

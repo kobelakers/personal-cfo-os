@@ -23,12 +23,13 @@ type SchedulerService struct {
 }
 
 type SchedulerTickResult struct {
-	ScannedGraphs       int               `json:"scanned_graphs"`
-	SavedWakeups        []SchedulerWakeup `json:"saved_wakeups,omitempty"`
-	DispatchedWakeups   []SchedulerWakeup `json:"dispatched_wakeups,omitempty"`
-	EnqueuedWorkItemIDs []string          `json:"enqueued_work_item_ids,omitempty"`
-	EnqueuedWorkKinds   []WorkItemKind    `json:"enqueued_work_kinds,omitempty"`
-	TickedAt            time.Time         `json:"ticked_at"`
+	ScannedGraphs       int                 `json:"scanned_graphs"`
+	SavedWakeups        []SchedulerWakeup   `json:"saved_wakeups,omitempty"`
+	DispatchedWakeups   []SchedulerWakeup   `json:"dispatched_wakeups,omitempty"`
+	EnqueueResults      []WorkEnqueueResult `json:"enqueue_results,omitempty"`
+	EnqueuedWorkItemIDs []string            `json:"enqueued_work_item_ids,omitempty"`
+	EnqueuedWorkKinds   []WorkItemKind      `json:"enqueued_work_kinds,omitempty"`
+	TickedAt            time.Time           `json:"ticked_at"`
 }
 
 func (s SchedulerService) Tick(ctx context.Context) (SchedulerTickResult, error) {
@@ -57,15 +58,19 @@ func (s SchedulerService) Tick(ctx context.Context) (SchedulerTickResult, error)
 		if !ok {
 			continue
 		}
-		if err := s.WorkQueue.Enqueue(item); err != nil {
+		enqueued, err := s.WorkQueue.Enqueue(item)
+		if err != nil {
 			return SchedulerTickResult{}, err
 		}
 		if err := s.Wakeups.MarkWakeupDispatched(wakeup.ID, now); err != nil {
 			return SchedulerTickResult{}, err
 		}
 		result.DispatchedWakeups = append(result.DispatchedWakeups, wakeup)
-		result.EnqueuedWorkItemIDs = append(result.EnqueuedWorkItemIDs, item.ID)
-		result.EnqueuedWorkKinds = append(result.EnqueuedWorkKinds, item.Kind)
+		result.EnqueueResults = append(result.EnqueueResults, enqueued)
+		if enqueued.Disposition == WorkEnqueueDispositionEnqueued {
+			result.EnqueuedWorkItemIDs = append(result.EnqueuedWorkItemIDs, firstNonEmpty(enqueued.WorkItemID, item.ID))
+			result.EnqueuedWorkKinds = append(result.EnqueuedWorkKinds, item.Kind)
+		}
 		if err := s.appendReplay(ReplayEventRecord{
 			EventID:           makeID("replay", "scheduler-dispatch", wakeup.ID, now),
 			RootCorrelationID: firstNonEmpty(wakeup.GraphID, wakeup.ExecutionID, wakeup.ApprovalID),
@@ -145,7 +150,7 @@ func (s SchedulerService) scheduleGraph(snapshot TaskGraphSnapshot, now time.Tim
 				LastUpdatedAt: now,
 				Reason:        "ready task detected during scheduler scan",
 			}
-			if err := s.WorkQueue.Enqueue(item); err != nil {
+			if _, err := s.WorkQueue.Enqueue(item); err != nil {
 				return nil, err
 			}
 		}

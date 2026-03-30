@@ -1,5 +1,5 @@
 {
-  "phase": "7a",
+  "phase": "7a-closeout",
   "runtime_profile": "runtime-promotion",
   "runtime_backend": "postgres",
   "blob_backend": "minio",
@@ -12,11 +12,14 @@
     "postgres": true,
     "minio": true,
     "api": true,
-    "multi_worker": true
+    "multi_worker": true,
+    "fenced_cas": true,
+    "active_dedupe": true,
+    "skill_execution_parity": true
   },
   "notes": [
-    "runtime-promotion keeps typed protocol, verification, governance, and replay on the same durable plane",
-    "Postgres is the authoritative runtime backend for the promoted profile",
-    "checkpoint payloads, final reports, and replay bundles are ref-backed through MinIO-compatible blob storage"
+    "7A closeout keeps typed protocol, verification, governance, and replay on the same canonical runtime plane",
+    "Postgres queue mutations now use atomic fenced CAS for heartbeat, complete, fail, and requeue",
+    "checkpoint payloads, final reports, and replay bundles remain ref-backed through MinIO-compatible blob storage"
   ]
 }

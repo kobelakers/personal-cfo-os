@@ -282,18 +282,24 @@ func (s *Service) enqueueWorkItem(item WorkItem) (TaskCommandResult, error) {
 	if s.workQueue == nil {
 		return TaskCommandResult{}, fmt.Errorf("work queue store is required")
 	}
-	if err := s.workQueue.Enqueue(item); err != nil {
+	enqueued, err := s.workQueue.Enqueue(item)
+	if err != nil {
 		return TaskCommandResult{}, err
 	}
-	return TaskCommandResult{
+	result := TaskCommandResult{
 		GraphID:               item.GraphID,
 		TaskID:                item.TaskID,
 		ExecutionID:           item.ExecutionID,
 		ApprovalID:            item.ApprovalID,
-		AsyncDispatchAccepted: true,
-		EnqueuedWorkItemIDs:   []string{item.ID},
-		EnqueuedWorkKinds:     []WorkItemKind{item.Kind},
-	}, nil
+		EnqueueResults:        []WorkEnqueueResult{enqueued},
+		AsyncDispatchAccepted: enqueued.Disposition == WorkEnqueueDispositionEnqueued,
+	}
+	if enqueued.Disposition == WorkEnqueueDispositionEnqueued {
+		workItemID := firstNonEmpty(enqueued.WorkItemID, item.ID)
+		result.EnqueuedWorkItemIDs = []string{workItemID}
+		result.EnqueuedWorkKinds = []WorkItemKind{item.Kind}
+	}
+	return result, nil
 }
 
 func (s *Service) rebuildTaskGraphProjection(ctx context.Context, graphID string) error {

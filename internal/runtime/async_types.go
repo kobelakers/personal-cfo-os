@@ -141,6 +141,21 @@ type ClaimResult struct {
 	Claims []WorkClaim `json:"claims,omitempty"`
 }
 
+type WorkEnqueueDisposition string
+
+const (
+	WorkEnqueueDispositionEnqueued            WorkEnqueueDisposition = "enqueued"
+	WorkEnqueueDispositionDuplicateSuppressed WorkEnqueueDisposition = "duplicate_suppressed"
+)
+
+type WorkEnqueueResult struct {
+	WorkItemID         string                 `json:"work_item_id,omitempty"`
+	Kind               WorkItemKind           `json:"kind,omitempty"`
+	Disposition        WorkEnqueueDisposition `json:"disposition"`
+	DedupeKey          string                 `json:"dedupe_key,omitempty"`
+	ExistingWorkItemID string                 `json:"existing_work_item_id,omitempty"`
+}
+
 type LeaseReclaimResult struct {
 	WorkItemID   string    `json:"work_item_id"`
 	LeaseID      string    `json:"lease_id"`
@@ -220,7 +235,7 @@ type FenceValidator interface {
 }
 
 type WorkQueueStore interface {
-	Enqueue(item WorkItem) error
+	Enqueue(item WorkItem) (WorkEnqueueResult, error)
 	ClaimReady(workerID WorkerID, limit int, now time.Time, leaseTTL time.Duration) ([]WorkClaim, error)
 	Heartbeat(heartbeat LeaseHeartbeat) error
 	Complete(fence FenceValidation, now time.Time) error

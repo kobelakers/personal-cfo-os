@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -10,16 +11,17 @@ import (
 // old worker pass into claim/lease/reclaim semantics while still delegating
 // business execution to the existing typed runtime services.
 type AsyncWorker struct {
-	ID                WorkerID
-	Role              WorkerRole
-	Service           *Service
-	Scheduler         SchedulerService
-	Policy            AutoExecutionPolicy
-	Clock             Clock
-	LeaseTTL          time.Duration
-	HeartbeatInterval time.Duration
-	ClaimBatch        int
-	BackendProfile    string
+	ID                 WorkerID
+	Role               WorkerRole
+	Service            *Service
+	Scheduler          SchedulerService
+	Policy             AutoExecutionPolicy
+	Clock              Clock
+	LeaseTTL           time.Duration
+	HeartbeatInterval  time.Duration
+	ClaimBatch         int
+	BackendProfile     string
+	LeaseTickerFactory LeaseTickerFactory
 }
 
 func (w AsyncWorker) RunOnce(ctx context.Context, dryRun bool) (WorkerPassResult, error) {
@@ -129,6 +131,13 @@ func (w AsyncWorker) RunOnce(ctx context.Context, dryRun bool) (WorkerPassResult
 }
 
 func (w AsyncWorker) processClaim(ctx context.Context, claim WorkClaim, result *WorkerPassResult) error {
+	claimCtx, cancel := context.WithCancel(ctx)
+	renewalState, renewalStopped := w.startLeaseRenewal(claimCtx, cancel, claim)
+	defer func() {
+		cancel()
+		<-renewalStopped
+	}()
+
 	attempt := ExecutionAttempt{
 		AttemptID:    makeID("attempt", claim.WorkItem.ID, claim.FencingToken, w.now()),
 		WorkItemID:   claim.WorkItem.ID,
@@ -157,27 +166,27 @@ func (w AsyncWorker) processClaim(ctx context.Context, claim WorkClaim, result *
 	var err error
 	switch claim.WorkItem.Kind {
 	case WorkItemKindSchedulerWakeup:
-		err = w.Service.handleSchedulerWakeup(ctx, claim.WorkItem)
+		err = w.Service.handleSchedulerWakeup(claimCtx, claim.WorkItem)
 	case WorkItemKindReevaluateTaskGraph:
-		err = w.Service.reevaluateTaskGraphAsync(ctx, claim.WorkItem.GraphID, w.ID, fence)
+		err = w.Service.reevaluateTaskGraphAsync(claimCtx, claim.WorkItem.GraphID, w.ID, fence)
 		if err == nil {
 			result.Reevaluated = append(result.Reevaluated, claim.WorkItem.GraphID)
 		}
 	case WorkItemKindExecuteReadyTask:
 		var batch FollowUpExecutionBatchResult
-		batch, err = w.Service.executeReadyTasksAsync(ctx, claim.WorkItem.GraphID, w.Policy, w.ID, fence)
+		batch, err = w.Service.executeReadyTasksAsync(claimCtx, claim.WorkItem.GraphID, w.Policy, w.ID, fence)
 		if err == nil {
 			result.Executed = append(result.Executed, batch.ExecutedTasks...)
 		}
 	case WorkItemKindResumeApprovedCheckpoint:
 		var commandResult TaskCommandResult
-		commandResult, err = w.Service.resumeApprovedTaskAsync(ctx, claim.WorkItem.GraphID, claim.WorkItem.TaskID, claim.WorkItem.ApprovalID, w.ID, fence)
+		commandResult, err = w.Service.resumeApprovedTaskAsync(claimCtx, claim.WorkItem.GraphID, claim.WorkItem.TaskID, claim.WorkItem.ApprovalID, w.ID, fence)
 		if err == nil && commandResult.TaskID != "" {
 			result.ResumedTasks = append(result.ResumedTasks, commandResult.TaskID)
 		}
 	case WorkItemKindRetryFailedExecution:
 		var commandResult TaskCommandResult
-		commandResult, err = w.Service.retryFailedTaskAsync(ctx, claim.WorkItem.GraphID, claim.WorkItem.TaskID, claim.WorkItem.ExecutionID, w.ID, fence)
+		commandResult, err = w.Service.retryFailedTaskAsync(claimCtx, claim.WorkItem.GraphID, claim.WorkItem.TaskID, claim.WorkItem.ExecutionID, w.ID, fence)
 		if err == nil && commandResult.ExecutionID != "" {
 			result.Executed = append(result.Executed, TaskExecutionRecord{
 				ExecutionID:   commandResult.ExecutionID,
@@ -189,19 +198,40 @@ func (w AsyncWorker) processClaim(ctx context.Context, claim WorkClaim, result *
 	default:
 		err = fmt.Errorf("unsupported work item kind %q", claim.WorkItem.Kind)
 	}
+	cancel()
+	<-renewalStopped
+	renewalErr := renewalState.Err()
+	if renewalErr != nil {
+		err = renewalErr
+	}
 	finished := w.now()
 	if err != nil {
-		attempt.Status = ExecutionAttemptStatusFailed
-		attempt.FailureCategory = FailureCategoryProtocol
-		attempt.FailureSummary = err.Error()
-		attempt.FinishedAt = &finished
-		if isFenceConflict(err) {
-			attempt.Status = ExecutionAttemptStatusReclaimed
+		if renewalErr != nil {
+			attempt.Status = ExecutionAttemptStatusAbandoned
+			if isFenceConflict(renewalErr) || IsNotFound(renewalErr) {
+				attempt.Status = ExecutionAttemptStatusReclaimed
+			}
+			attempt.FailureSummary = renewalErr.Error()
+		} else {
+			attempt.Status = ExecutionAttemptStatusFailed
+			attempt.FailureCategory = FailureCategoryProtocol
+			attempt.FailureSummary = err.Error()
+			if isFenceConflict(err) {
+				attempt.Status = ExecutionAttemptStatusReclaimed
+			}
 		}
+		attempt.FinishedAt = &finished
 		if w.Service.workAttempts != nil {
 			if updateErr := w.Service.workAttempts.UpdateAttempt(attempt); updateErr != nil {
 				return updateErr
 			}
+		}
+		if renewalErr != nil {
+			if isFenceConflict(renewalErr) || IsNotFound(renewalErr) {
+				result.SkippedTasks = append(result.SkippedTasks, claim.WorkItem.ID)
+				return nil
+			}
+			return renewalErr
 		}
 		if isFenceConflict(err) {
 			result.SkippedTasks = append(result.SkippedTasks, claim.WorkItem.ID)
@@ -225,6 +255,55 @@ func (w AsyncWorker) processClaim(ctx context.Context, claim WorkClaim, result *
 	}
 	result.CompletedWorkItemIDs = append(result.CompletedWorkItemIDs, claim.WorkItem.ID)
 	return nil
+}
+
+type leaseRenewalState struct {
+	mu  sync.RWMutex
+	err error
+}
+
+func (s *leaseRenewalState) Set(err error) {
+	if err == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.err == nil {
+		s.err = err
+	}
+}
+
+func (s *leaseRenewalState) Err() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.err
+}
+
+func (w AsyncWorker) startLeaseRenewal(ctx context.Context, cancel context.CancelFunc, claim WorkClaim) (*leaseRenewalState, <-chan struct{}) {
+	state := &leaseRenewalState{}
+	stopped := make(chan struct{})
+	if w.Service == nil || w.Service.workQueue == nil {
+		close(stopped)
+		return state, stopped
+	}
+	ticker := w.leaseTickerFactory().New(w.heartbeatInterval())
+	go func() {
+		defer close(stopped)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C():
+				if err := w.heartbeat(claim); err != nil {
+					state.Set(err)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	return state, stopped
 }
 
 func (w AsyncWorker) heartbeat(claim WorkClaim) error {
@@ -289,6 +368,20 @@ func (w AsyncWorker) claimBatch() int {
 		return 1
 	}
 	return w.ClaimBatch
+}
+
+func (w AsyncWorker) heartbeatInterval() time.Duration {
+	if w.HeartbeatInterval <= 0 {
+		return 10 * time.Second
+	}
+	return w.HeartbeatInterval
+}
+
+func (w AsyncWorker) leaseTickerFactory() LeaseTickerFactory {
+	if w.LeaseTickerFactory != nil {
+		return w.LeaseTickerFactory
+	}
+	return systemLeaseTickerFactory{}
 }
 
 func isFenceConflict(err error) bool {

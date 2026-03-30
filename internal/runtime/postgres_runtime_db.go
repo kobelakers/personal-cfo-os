@@ -21,6 +21,7 @@ type PostgresRuntimeStores struct {
 	WorkflowRuns     WorkflowRunStore
 	TaskGraphs       TaskGraphStore
 	Executions       TaskExecutionStore
+	SkillExecutions  SkillExecutionStore
 	Approvals        ApprovalStateStore
 	OperatorActions  OperatorActionStore
 	Checkpoints      CheckpointStore
@@ -44,6 +45,7 @@ func NewPostgresRuntimeStores(dsn string) (*PostgresRuntimeStores, error) {
 		WorkflowRuns:     &postgresWorkflowRunStore{db: db},
 		TaskGraphs:       &postgresTaskGraphStore{db: db},
 		Executions:       &postgresTaskExecutionStore{db: db},
+		SkillExecutions:  &postgresSkillExecutionStore{db: db},
 		Approvals:        &postgresApprovalStateStore{db: db},
 		OperatorActions:  &postgresOperatorActionStore{db: db},
 		Checkpoints:      &postgresCheckpointStore{db: db},
@@ -82,6 +84,14 @@ func (db *PostgresRuntimeDB) Close() error {
 }
 
 func (db *PostgresRuntimeDB) EnsureSchema() error {
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(7015001)`); err != nil {
+		return err
+	}
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS runtime_schema_migrations (
 			version BIGINT PRIMARY KEY,
@@ -114,6 +124,17 @@ func (db *PostgresRuntimeDB) EnsureSchema() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_pg_task_executions_task_started
 			ON task_executions(graph_id, task_id, started_at);`,
+		`CREATE TABLE IF NOT EXISTS skill_executions (
+			execution_id TEXT PRIMARY KEY,
+			workflow_id TEXT,
+			task_id TEXT,
+			status TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			record_json TEXT NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_pg_skill_executions_workflow_updated
+			ON skill_executions(workflow_id, updated_at DESC, execution_id ASC);`,
 		`CREATE TABLE IF NOT EXISTS approvals (
 			approval_id TEXT PRIMARY KEY,
 			graph_id TEXT NOT NULL,
@@ -248,6 +269,9 @@ func (db *PostgresRuntimeDB) EnsureSchema() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_pg_work_items_status_available
 			ON work_items(status, available_at);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pg_work_items_active_dedupe
+			ON work_items(dedupe_key)
+			WHERE dedupe_key IS NOT NULL AND status IN ('queued', 'claimed');`,
 		`CREATE TABLE IF NOT EXISTS work_attempts (
 			attempt_id TEXT PRIMARY KEY,
 			work_item_id TEXT NOT NULL,
@@ -270,12 +294,14 @@ func (db *PostgresRuntimeDB) EnsureSchema() error {
 			ON scheduler_wakeups(available_at);`,
 	}
 	for _, stmt := range statements {
-		if _, err := db.exec(stmt); err != nil {
+		if _, err := tx.Exec(stmt); err != nil {
 			return err
 		}
 	}
-	_, err := db.exec(`INSERT INTO runtime_schema_migrations(version, applied_at) VALUES (?, ?) ON CONFLICT(version) DO NOTHING`, ReplayProjectionSchemaVersion, time.Now().UTC().Format(time.RFC3339Nano))
-	return err
+	if _, err := tx.Exec(rewritePositionalSQL(`INSERT INTO runtime_schema_migrations(version, applied_at) VALUES (?, ?) ON CONFLICT(version) DO NOTHING`), ReplayProjectionSchemaVersion, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (db *PostgresRuntimeDB) exec(query string, args ...any) (sql.Result, error) {

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted, with Phase 7A closeout hardening applied
 
 ## Context
 
@@ -39,6 +39,15 @@ Phase 7A promotes the runtime by introducing:
 6. a narrow object-storage seam for checkpoint/report/replay payload refs
 7. async replay fields on the existing canonical replay plane
 
+Phase 7A closeout then hardens the promoted backend by requiring:
+
+1. atomic fenced CAS for Postgres `heartbeat / complete / fail / requeue`
+2. concurrent-writer-safe active dedupe for enqueue
+3. single-winner reclaim
+4. real periodic heartbeat renewal during long-running claims
+5. Postgres parity for `SkillExecutionStore`
+6. promoted-backend proof tests instead of only in-memory/runtime-contract evidence
+
 ## Why This Design
 
 ### DB-backed queue first
@@ -66,6 +75,8 @@ Phase 7A does not attempt exactly-once execution. It instead formalizes:
 - durable attempts
 - lease exclusivity
 - fencing token validation on final commits
+
+Closeout hardening makes that lease model backend-correct instead of only architecturally present: Postgres queue mutations are now committed through one fenced CAS SQL statement, reclaim has a single winner, and duplicate active work is suppressed by an atomic dedupe constraint rather than a preflight read.
 
 This is strong enough for a promoted runtime backbone while remaining compatible with the current local-first architecture.
 
@@ -105,3 +116,4 @@ This ADR does not introduce:
 - broker-first queue architecture
 - full artifact lifecycle management
 - full observability infrastructure promotion
+- a first-class migration runner; runtime schema is still managed through `EnsureSchema()` and should be promoted later without changing runtime semantics
