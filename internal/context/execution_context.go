@@ -5,6 +5,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 )
 
@@ -16,6 +17,7 @@ type BlockExecutionContext struct {
 	AssignedRecipient    string                   `json:"assigned_recipient"`
 	Goal                 string                   `json:"goal"`
 	SelectionReason      ContextSelectionReason   `json:"selection_reason"`
+	SelectedSkill        *skills.SkillSelection   `json:"selected_skill,omitempty"`
 	SelectedMemoryIDs    []string                 `json:"selected_memory_ids,omitempty"`
 	SelectedEvidenceIDs  []observation.EvidenceID `json:"selected_evidence_ids,omitempty"`
 	SelectedStateBlocks  []string                 `json:"selected_state_blocks,omitempty"`
@@ -78,6 +80,7 @@ func (a ExecutionContextAssembler) Assemble(
 		AssignedRecipient:    spec.AssignedRecipient,
 		Goal:                 spec.Goal,
 		SelectionReason:      blockSelectionReason(spec.BlockKind),
+		SelectedSkill:        spec.SelectedSkill,
 		SelectedMemoryIDs:    compacted.MemoryIDs,
 		SelectedEvidenceIDs:  compacted.EvidenceIDs,
 		SelectedStateBlocks:  stateBlockNames(compacted.StateBlocks),

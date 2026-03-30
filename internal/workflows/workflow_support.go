@@ -244,6 +244,7 @@ func blockContextSpec(plan planning.ExecutionPlan, block planning.ExecutionBlock
 		RequiredStateBlocks:  block.RequiredStateBlocks,
 		ExecutionView:        block.ExecutionContextView,
 		VerificationRules:    verificationRules,
+		SelectedSkill:        block.SelectedSkill,
 	}
 }
 

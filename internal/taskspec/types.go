@@ -27,6 +27,7 @@ const (
 	UserIntentUnknown            UserIntentType = "unknown"
 	UserIntentMonthlyReview      UserIntentType = "monthly_review"
 	UserIntentDebtVsInvest       UserIntentType = "debt_vs_invest"
+	UserIntentBehaviorIntervention UserIntentType = "behavior_intervention"
 	UserIntentLifeEventTrigger   UserIntentType = "life_event_trigger"
 	UserIntentTaxOptimization    UserIntentType = "tax_optimization"
 	UserIntentPortfolioRebalance UserIntentType = "portfolio_rebalance"

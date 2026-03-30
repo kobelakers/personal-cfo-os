@@ -6,6 +6,7 @@ import (
 
 	contextview "github.com/kobelakers/personal-cfo-os/internal/context"
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
@@ -14,6 +15,7 @@ const (
 	BlockRecipientDebtAgent      = "debt_agent"
 	BlockRecipientTaxAgent       = "tax_agent"
 	BlockRecipientPortfolioAgent = "portfolio_agent"
+	BlockRecipientBehaviorAgent  = "behavior_agent"
 )
 
 type ExecutionBlockID string
@@ -30,6 +32,7 @@ const (
 	ExecutionBlockKindPortfolioEventImpact ExecutionBlockKind = "portfolio_event_impact_block"
 	ExecutionBlockKindTaxOptimization      ExecutionBlockKind = "tax_optimization_block"
 	ExecutionBlockKindPortfolioRebalance   ExecutionBlockKind = "portfolio_rebalance_block"
+	ExecutionBlockKindBehaviorIntervention ExecutionBlockKind = "behavior_intervention_block"
 )
 
 type ExecutionBlockDependency struct {
@@ -71,6 +74,9 @@ type ExecutionBlock struct {
 	SuccessCriteria      []ExecutionBlockSuccessCriteria  `json:"success_criteria"`
 	VerificationHints    []ExecutionBlockVerificationHint `json:"verification_hints"`
 	RiskHints            []ExecutionBlockRiskHint         `json:"risk_hints,omitempty"`
+	AllowedSkillFamilies []string                         `json:"allowed_skill_families,omitempty"`
+	SkillSelectionHint   string                           `json:"skill_selection_hint,omitempty"`
+	SelectedSkill        *skills.SkillSelection           `json:"selected_skill,omitempty"`
 	DependsOn            []ExecutionBlockDependency       `json:"depends_on,omitempty"`
 }
 
@@ -277,6 +283,53 @@ func taxOptimizationBlocks(spec taskspec.TaskSpec) []ExecutionBlock {
 			RiskHints: []ExecutionBlockRiskHint{
 				{Level: "medium", Rationale: "tax optimization may be deadline-sensitive and approval-sensitive for withholding changes"},
 			},
+		},
+	}
+}
+
+func behaviorInterventionBlocks(spec taskspec.TaskSpec, _ contextview.ContextSlice) []ExecutionBlock {
+	hint := "behavior_intervention_default"
+	lowerGoal := strings.ToLower(spec.Goal)
+	switch {
+	case strings.Contains(lowerGoal, "hard_cap") || strings.Contains(lowerGoal, "强消费护栏") || strings.Contains(lowerGoal, "硬性消费护栏"):
+		hint = "behavior_guardrail_hard_cap"
+	case strings.Contains(lowerGoal, "消费护栏") || strings.Contains(lowerGoal, "guardrail") || strings.Contains(lowerGoal, "spending cap"):
+		hint = "behavior_guardrail"
+	case strings.Contains(lowerGoal, "订阅") || strings.Contains(lowerGoal, "subscription"):
+		hint = "subscription_cleanup"
+	case strings.Contains(lowerGoal, "深夜消费") || strings.Contains(lowerGoal, "late-night"):
+		hint = "late_night"
+	}
+	return []ExecutionBlock{
+		{
+			ID:                ExecutionBlockID("behavior-intervention"),
+			Kind:              ExecutionBlockKindBehaviorIntervention,
+			AssignedRecipient: BlockRecipientBehaviorAgent,
+			Goal:              "分析订阅重叠、深夜消费和 discretionary spend 异常，并选择合适的 behavior skill family/version/recipe 生成受治理的干预建议。",
+			RequiredEvidenceRefs: requiredByType(spec.RequiredEvidence,
+				"transaction_batch",
+				"recurring_subscription_signal",
+				"late_night_spending_signal",
+			),
+			RequiredMemoryKinds:  []memory.MemoryKind{memory.MemoryKindSemantic, memory.MemoryKindEpisodic, memory.MemoryKindProcedural},
+			RequiredStateBlocks:  []string{"behavior_state", "cashflow_state", "risk_state"},
+			ExecutionContextView: contextview.ContextViewExecution,
+			SuccessCriteria: []ExecutionBlockSuccessCriteria{
+				{ID: "behavior-anomaly-coverage", Description: "duplicate subscriptions, late-night spikes, and discretionary pressure are surfaced as deterministic signals"},
+				{ID: "skill-selection-explainable", Description: "selected skill family/version/recipe is explainable through evidence, state, and procedural memory"},
+			},
+			VerificationHints: []ExecutionBlockVerificationHint{
+				{Rule: "behavior_grounding", Description: "behavior recommendations and selected skill must stay grounded in deterministic evidence, state, and procedural memory"},
+			},
+			RiskHints: []ExecutionBlockRiskHint{
+				{Level: "high", Rationale: "high-intensity guardrail recipes must be governed and may require approval"},
+			},
+			AllowedSkillFamilies: []string{
+				string(skills.SkillFamilySubscriptionCleanup),
+				string(skills.SkillFamilyLateNightSpendNudge),
+				string(skills.SkillFamilyDiscretionaryGuardrail),
+			},
+			SkillSelectionHint: hint,
 		},
 	}
 }

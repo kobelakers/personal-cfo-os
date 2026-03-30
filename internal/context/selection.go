@@ -131,6 +131,8 @@ func requiredSkillsForIntent(intent taskspec.UserIntentType) []string {
 		return []string{"monthly_review"}
 	case taskspec.UserIntentDebtVsInvest:
 		return []string{"debt_optimization"}
+	case taskspec.UserIntentBehaviorIntervention:
+		return []string{"behavior_intervention"}
 	default:
 		return nil
 	}

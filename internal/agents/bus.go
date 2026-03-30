@@ -483,6 +483,38 @@ func (b *LocalSystemStepBus) DispatchAnalysisBlock(
 			Portfolio:         &result.Result,
 		}
 		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
+	case RecipientBehaviorAgent:
+		envelope := b.newEnvelope(meta, RecipientBehaviorAgent, protocol.MessageKindBehaviorAnalysisRequest, protocol.AgentRequestBody{
+			BehaviorAnalysisRequest: &protocol.BehaviorAnalysisRequestPayload{
+				CurrentState:     current,
+				RelevantMemories: filteredMemories,
+				RelevantEvidence: filteredEvidence,
+				Block:            block,
+				ExecutionContext: executionContext,
+			},
+		})
+		dispatched, err := b.Dispatcher.Dispatch(ctx, envelope)
+		if err != nil {
+			return AnalysisBlockStepResult{}, err
+		}
+		result := dispatched.Response.Body.BehaviorAnalysisResult
+		if result == nil {
+			return AnalysisBlockStepResult{}, &AgentExecutionError{
+				Recipient: RecipientBehaviorAgent,
+				Kind:      protocol.MessageKindBehaviorAnalysisRequest,
+				Failure: protocol.AgentFailure{
+					Category: protocol.AgentFailureBadPayload,
+					Message:  "behavior analysis result body is missing",
+				},
+			}
+		}
+		envelopeResult := analysis.BlockResultEnvelope{
+			BlockID:           string(block.ID),
+			BlockKind:         string(block.Kind),
+			AssignedRecipient: block.AssignedRecipient,
+			Behavior:          &result.Result,
+		}
+		return AnalysisBlockStepResult{Metadata: stepMetadata(dispatched), Block: block, Result: envelopeResult}, envelopeResult.Validate()
 	default:
 		return AnalysisBlockStepResult{}, &AgentExecutionError{
 			Recipient: block.AssignedRecipient,
@@ -944,6 +976,39 @@ func traceRequestDetails(envelope protocol.AgentEnvelope) traceContext {
 				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
 			}
 		}
+	case protocol.MessageKindTaxAnalysisRequest:
+		if payload := envelope.Payload.TaxAnalysisRequest; payload != nil {
+			return traceContext{
+				PlanID:              payload.ExecutionContext.PlanID,
+				BlockID:             payload.ExecutionContext.BlockID,
+				BlockKind:           payload.ExecutionContext.BlockKind,
+				SelectedMemoryIDs:   payload.ExecutionContext.SelectedMemoryIDs,
+				SelectedEvidenceIDs: evidenceIDsToStrings(payload.ExecutionContext.SelectedEvidenceIDs),
+				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
+			}
+		}
+	case protocol.MessageKindPortfolioAnalysisRequest:
+		if payload := envelope.Payload.PortfolioAnalysisRequest; payload != nil {
+			return traceContext{
+				PlanID:              payload.ExecutionContext.PlanID,
+				BlockID:             payload.ExecutionContext.BlockID,
+				BlockKind:           payload.ExecutionContext.BlockKind,
+				SelectedMemoryIDs:   payload.ExecutionContext.SelectedMemoryIDs,
+				SelectedEvidenceIDs: evidenceIDsToStrings(payload.ExecutionContext.SelectedEvidenceIDs),
+				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
+			}
+		}
+	case protocol.MessageKindBehaviorAnalysisRequest:
+		if payload := envelope.Payload.BehaviorAnalysisRequest; payload != nil {
+			return traceContext{
+				PlanID:              payload.ExecutionContext.PlanID,
+				BlockID:             payload.ExecutionContext.BlockID,
+				BlockKind:           payload.ExecutionContext.BlockKind,
+				SelectedMemoryIDs:   payload.ExecutionContext.SelectedMemoryIDs,
+				SelectedEvidenceIDs: evidenceIDsToStrings(payload.ExecutionContext.SelectedEvidenceIDs),
+				SelectedStateBlocks: payload.ExecutionContext.SelectedStateBlocks,
+			}
+		}
 	}
 	return traceContext{}
 }
@@ -967,6 +1032,27 @@ func traceResponseDetails(response protocol.AgentResponse) traceContext {
 		}
 	case protocol.MessageKindDebtAnalysisResult:
 		if payload := response.Body.DebtAnalysisResult; payload != nil {
+			return traceContext{
+				BlockID:       payload.Result.BlockID,
+				ResultSummary: payload.Result.Summary,
+			}
+		}
+	case protocol.MessageKindTaxAnalysisResult:
+		if payload := response.Body.TaxAnalysisResult; payload != nil {
+			return traceContext{
+				BlockID:       payload.Result.BlockID,
+				ResultSummary: payload.Result.Summary,
+			}
+		}
+	case protocol.MessageKindPortfolioAnalysisResult:
+		if payload := response.Body.PortfolioAnalysisResult; payload != nil {
+			return traceContext{
+				BlockID:       payload.Result.BlockID,
+				ResultSummary: payload.Result.Summary,
+			}
+		}
+	case protocol.MessageKindBehaviorAnalysisResult:
+		if payload := response.Body.BehaviorAnalysisResult; payload != nil {
 			return traceContext{
 				BlockID:       payload.Result.BlockID,
 				ResultSummary: payload.Result.Summary,

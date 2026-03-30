@@ -5,6 +5,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/finance"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 )
 
@@ -29,6 +30,9 @@ const (
 	RecommendationTypeInvestMore         RecommendationType = "invest_more"
 	RecommendationTypePortfolioRebalance RecommendationType = "portfolio_rebalance"
 	RecommendationTypeTaxAction          RecommendationType = "tax_action"
+	RecommendationTypeBehaviorSubscriptionCleanup RecommendationType = "behavior_subscription_cleanup"
+	RecommendationTypeBehaviorSpendNudge          RecommendationType = "behavior_spend_nudge"
+	RecommendationTypeBehaviorGuardrail           RecommendationType = "behavior_guardrail"
 )
 
 type Recommendation struct {
@@ -145,6 +149,37 @@ type PortfolioBlockResult struct {
 	Confidence           float64                       `json:"confidence"`
 }
 
+type BehaviorMetricBundle struct {
+	DuplicateSubscriptionCount       int     `json:"duplicate_subscription_count"`
+	LateNightSpendCount              int     `json:"late_night_spend_count"`
+	LateNightSpendRatio              float64 `json:"late_night_spend_ratio"`
+	DiscretionaryPressureScore       float64 `json:"discretionary_pressure_score"`
+	RecurringSubscriptionCount       int     `json:"recurring_subscription_count"`
+	MonthlyVariableExpenseCents      int64   `json:"monthly_variable_expense_cents"`
+	MonthlyNetIncomeCents            int64   `json:"monthly_net_income_cents"`
+}
+
+type BehaviorBlockResult struct {
+	BlockID               string                 `json:"block_id"`
+	Summary               string                 `json:"summary"`
+	KeyFindings           []string               `json:"key_findings,omitempty"`
+	DeterministicMetrics  BehaviorMetricBundle   `json:"deterministic_metrics"`
+	MetricRecords         []finance.MetricRecord `json:"metric_records,omitempty"`
+	EvidenceIDs           []observation.EvidenceID `json:"evidence_ids,omitempty"`
+	MemoryIDsUsed         []string               `json:"memory_ids_used,omitempty"`
+	MetricRefs            []string               `json:"metric_refs,omitempty"`
+	GroundingRefs         []string               `json:"grounding_refs,omitempty"`
+	RiskFlags             []RiskFlag             `json:"risk_flags,omitempty"`
+	Recommendations       []Recommendation       `json:"recommendations,omitempty"`
+	Caveats               []string               `json:"caveats,omitempty"`
+	ApprovalRequired      bool                   `json:"approval_required,omitempty"`
+	ApprovalReason        string                 `json:"approval_reason,omitempty"`
+	PolicyRuleRefs        []string               `json:"policy_rule_refs,omitempty"`
+	SelectedSkill         skills.SkillSelection  `json:"selected_skill"`
+	SkillSelectionReasons []string               `json:"skill_selection_reasons,omitempty"`
+	Confidence            float64                `json:"confidence"`
+}
+
 // BlockResultEnvelope is the typed handoff from domain agents into reporting and verification.
 type BlockResultEnvelope struct {
 	BlockID           string                `json:"block_id"`
@@ -154,6 +189,7 @@ type BlockResultEnvelope struct {
 	Debt              *DebtBlockResult      `json:"debt,omitempty"`
 	Tax               *TaxBlockResult       `json:"tax,omitempty"`
 	Portfolio         *PortfolioBlockResult `json:"portfolio,omitempty"`
+	Behavior          *BehaviorBlockResult  `json:"behavior,omitempty"`
 }
 
 func (e BlockResultEnvelope) Validate() error {
@@ -182,6 +218,12 @@ func (e BlockResultEnvelope) Validate() error {
 			e.BlockID = e.Portfolio.BlockID
 		}
 	}
+	if e.Behavior != nil {
+		count++
+		if e.BlockID == "" {
+			e.BlockID = e.Behavior.BlockID
+		}
+	}
 	if count != 1 {
 		return fmt.Errorf("block result envelope must contain exactly one typed result, got %d", count)
 	}
@@ -201,6 +243,8 @@ func (e BlockResultEnvelope) Validate() error {
 		return fmt.Errorf("tax result cannot be attached to block kind %q", e.BlockKind)
 	case e.Portfolio != nil && e.BlockKind != "portfolio_event_impact_block" && e.BlockKind != "portfolio_rebalance_block":
 		return fmt.Errorf("portfolio result cannot be attached to block kind %q", e.BlockKind)
+	case e.Behavior != nil && e.BlockKind != "behavior_intervention_block":
+		return fmt.Errorf("behavior result cannot be attached to block kind %q", e.BlockKind)
 	}
 	return nil
 }
@@ -215,6 +259,8 @@ func (e BlockResultEnvelope) Summary() string {
 		return e.Tax.Summary
 	case e.Portfolio != nil:
 		return e.Portfolio.Summary
+	case e.Behavior != nil:
+		return e.Behavior.Summary
 	default:
 		return ""
 	}
@@ -223,13 +269,15 @@ func (e BlockResultEnvelope) Summary() string {
 func (e BlockResultEnvelope) EvidenceIDs() []observation.EvidenceID {
 	switch {
 	case e.Cashflow != nil:
-		return e.Cashflow.EvidenceIDs
+		return append([]observation.EvidenceID{}, e.Cashflow.EvidenceIDs...)
 	case e.Debt != nil:
-		return e.Debt.EvidenceIDs
+		return append([]observation.EvidenceID{}, e.Debt.EvidenceIDs...)
 	case e.Tax != nil:
-		return e.Tax.EvidenceIDs
+		return append([]observation.EvidenceID{}, e.Tax.EvidenceIDs...)
 	case e.Portfolio != nil:
-		return e.Portfolio.EvidenceIDs
+		return append([]observation.EvidenceID{}, e.Portfolio.EvidenceIDs...)
+	case e.Behavior != nil:
+		return append([]observation.EvidenceID{}, e.Behavior.EvidenceIDs...)
 	default:
 		return nil
 	}
@@ -238,13 +286,15 @@ func (e BlockResultEnvelope) EvidenceIDs() []observation.EvidenceID {
 func (e BlockResultEnvelope) MemoryIDsUsed() []string {
 	switch {
 	case e.Cashflow != nil:
-		return e.Cashflow.MemoryIDsUsed
+		return append([]string{}, e.Cashflow.MemoryIDsUsed...)
 	case e.Debt != nil:
-		return e.Debt.MemoryIDsUsed
+		return append([]string{}, e.Debt.MemoryIDsUsed...)
 	case e.Tax != nil:
-		return e.Tax.MemoryIDsUsed
+		return append([]string{}, e.Tax.MemoryIDsUsed...)
 	case e.Portfolio != nil:
-		return e.Portfolio.MemoryIDsUsed
+		return append([]string{}, e.Portfolio.MemoryIDsUsed...)
+	case e.Behavior != nil:
+		return append([]string{}, e.Behavior.MemoryIDsUsed...)
 	default:
 		return nil
 	}

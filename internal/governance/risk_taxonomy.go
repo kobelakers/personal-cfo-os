@@ -9,6 +9,7 @@ const (
 	SensitiveRecommendationPortfolioRebalance SensitiveRecommendationType = "portfolio_rebalance"
 	SensitiveRecommendationDebtRestructure    SensitiveRecommendationType = "debt_restructure"
 	SensitiveRecommendationTaxAction          SensitiveRecommendationType = "tax_action"
+	SensitiveRecommendationBehaviorGuardrail  SensitiveRecommendationType = "behavior_guardrail"
 )
 
 func recommendationTypeSensitive(kind analysis.RecommendationType) bool {
@@ -16,7 +17,8 @@ func recommendationTypeSensitive(kind analysis.RecommendationType) bool {
 	case analysis.RecommendationTypeInvestMore,
 		analysis.RecommendationTypePortfolioRebalance,
 		analysis.RecommendationTypeDebtRestructure,
-		analysis.RecommendationTypeTaxAction:
+		analysis.RecommendationTypeTaxAction,
+		analysis.RecommendationTypeBehaviorGuardrail:
 		return true
 	default:
 		return false

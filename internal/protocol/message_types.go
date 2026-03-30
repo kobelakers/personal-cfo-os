@@ -23,6 +23,8 @@ const (
 	MessageKindTaxAnalysisResult           MessageKind = "tax_analysis_result"
 	MessageKindPortfolioAnalysisRequest    MessageKind = "portfolio_analysis_request"
 	MessageKindPortfolioAnalysisResult     MessageKind = "portfolio_analysis_result"
+	MessageKindBehaviorAnalysisRequest     MessageKind = "behavior_analysis_request"
+	MessageKindBehaviorAnalysisResult      MessageKind = "behavior_analysis_result"
 	MessageKindTaskGenerationRequest       MessageKind = "task_generation_request"
 	MessageKindTaskGenerationResult        MessageKind = "task_generation_result"
 )
@@ -39,6 +41,7 @@ func (k MessageKind) IsRequest() bool {
 		MessageKindDebtAnalysisRequest,
 		MessageKindTaxAnalysisRequest,
 		MessageKindPortfolioAnalysisRequest,
+		MessageKindBehaviorAnalysisRequest,
 		MessageKindTaskGenerationRequest:
 		return true
 	default:
@@ -58,6 +61,7 @@ func (k MessageKind) IsResult() bool {
 		MessageKindDebtAnalysisResult,
 		MessageKindTaxAnalysisResult,
 		MessageKindPortfolioAnalysisResult,
+		MessageKindBehaviorAnalysisResult,
 		MessageKindTaskGenerationResult:
 		return true
 	default:
@@ -87,6 +91,8 @@ func ExpectedResultKind(requestKind MessageKind) MessageKind {
 		return MessageKindTaxAnalysisResult
 	case MessageKindPortfolioAnalysisRequest:
 		return MessageKindPortfolioAnalysisResult
+	case MessageKindBehaviorAnalysisRequest:
+		return MessageKindBehaviorAnalysisResult
 	case MessageKindTaskGenerationRequest:
 		return MessageKindTaskGenerationResult
 	default:

@@ -1,6 +1,6 @@
 # System Overview
 
-Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a trustworthy finance reasoning substrate on the current live path, and a first operator-grade replay/eval/debug plane.
+Personal CFO OS is a long-running personal finance agent system designed around typed evidence, state-first reasoning, structured memory, explicit runtime semantics, protocol contracts, governance, verification, replayable observability, and now a first proactive life-event loop with first capability-backed follow-up execution, a first operator-runnable durable runtime plane, a first real-intelligence-backed Monthly Review golden path, a first real memory substrate, a trustworthy finance reasoning substrate on the current live path, a first operator-grade replay/eval/debug plane, a first versioned skill runtime, and a first formal behavior domain.
 
 ## Core Loop
 
@@ -10,7 +10,7 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 4. Workflow services keep observation/reducer orchestration thin and hand execution to a workflow-facing `SystemStepBus`.
 5. `MemorySteward` derives and retrieves memories before planning; retrieved memories now come from a durable memory plane and influence downstream block ordering, planner rationale, and recommendation emphasis.
 6. `PlannerAgent` assembles planning context, renders a versioned prompt with an applied render policy, performs provider-backed structured generation, validates/repairs/fallbacks the output, and still returns the same block-level `ExecutionPlan`; `plan.Blocks` remains the only execution truth source.
-7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent` or `DebtAgent`; `CashflowAgent` now has a real provider-backed structured reasoning path, while `DebtAgent` stays deterministic.
+7. Workflow iterates `plan.Blocks`, assembles block-specific execution context, and dispatches `CashflowAgent`, `DebtAgent`, or `BehaviorAgent`; behavior dispatch now includes orchestrator-selected skill family/version/recipe metadata instead of letting the domain agent improvise a recipe.
 8. `ReportAgent` aggregates typed domain block results into a draft, then later finalizes only after verification and governance allow or redact.
 9. `VerificationAgent` runs block-level validation first and now also executes grounding, numeric, and business-rule validators against the final report surface on the live path.
 10. `GovernanceAgent` evaluates typed recommendation/risk/disclosure state before finalize and can require approval or deny publication.
@@ -20,6 +20,7 @@ Personal CFO OS is a long-running personal finance agent system designed around 
 14. Runtime durable truth is now augmented by versioned replay/debug projection rows plus artifact refs, so replay/debug can query the same durable plane without introducing a second explanation database.
 15. `internal/runtime.ReplayQueryService` is now the canonical replay plane; it answers workflow/task-graph/task/execution/approval why/how questions from authoritative runtime truth, normalized projections, and artifact refs, while degrading gracefully when projections are missing or stale instead of falling back to a second replay system.
 16. `cmd/eval` now runs a deterministic canonical 11-scenario regression corpus over the current backbone instead of only phase-specific runners, and golden replay/debug samples are produced from the same mock/runtime fixtures, including explicit memory-rejection visibility coverage.
+17. `behavior_intervention` now enters through deterministic intake, planner emits a skill-aware behavior block, orchestrator-side selection resolves concrete family/version/recipe, `BehaviorAgent` executes deterministic behavior analysis, and procedural memory can alter the next similar skill choice.
 
 ## Replay / Eval / Debug Plane (Phase 6A)
 
@@ -36,6 +37,17 @@ Phase 6A upgrades replay/eval/debug from durable trace export into a local opera
    - projection missing/stale/incomplete -> partial replay view with degradation reasons
 5. provenance is now treated as a directed graph instead of an ID bag, so replay can explain parent workflow -> generated task -> child workflow -> artifact -> state commit -> operator action chains
 6. the canonical 6A regression corpus is deterministic/mock only; live provider paths are retained for smoke/manual evidence, not stable regression
+
+## Skills System + Behavior Domain (Phase 6B)
+
+Phase 6B promotes one narrow but load-bearing capability/domain path rather than spreading behavior logic everywhere:
+
+1. `behavior_intervention` is now a real deterministic intake path and workflow intent
+2. `internal/skills` now provides canonical manifests, family/version/recipe metadata, policy, typed selection reasons, and runtime execution records
+3. `internal/behavior` is now a formal domain with deterministic metrics, anomaly detection, grounded recommendations, and behavior-specific validation
+4. `BehaviorBlockResult` now enters the same `analysis.BlockResultEnvelope` main chain as other domains, so behavior becomes verification/governance/reporting/replay input rather than a report appendix
+5. procedural memory extends the existing durable memory substrate and can deterministically influence later skill/recipe selection
+6. the canonical high-risk proof is `discretionary_guardrail / hard_cap.v1`, which escalates into `waiting_approval` without performing any external account action
 
 ## Trustworthy Finance Reasoning (Phase 5D)
 
@@ -127,11 +139,11 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane**.
+The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + first operator-runnable durable runtime plane + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane + first versioned skill runtime + first formal behavior domain + procedural-memory-influenced skill selection**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
-- This is intentional: system-agent boundaries are real, the first two load-bearing domain agents are live in A/B workflows, and Tax/Portfolio expansion is currently limited to Workflow C so scope remains controlled.
+- This is intentional: system-agent boundaries are real, the first two load-bearing finance domain agents are live in A/B workflows, `BehaviorAgent` is now live only in the narrow `behavior_intervention` workflow, and Tax/Portfolio expansion remains limited to Workflow C so scope stays controlled.
 
 ## Current Stubs
 
@@ -144,7 +156,7 @@ The repository is now best described as **system-agent backbone + first real dom
 - system-agent execution is local synchronous dispatch, not yet async/durable inbox-outbox execution
 - only `PlannerAgent` and `CashflowAgent` currently use real provider-backed reasoning, and only inside Monthly Review
 - prompt/provider/token/cost traces are now visible in workflow dumps, but they are not yet promoted to a separate operator-facing durable intelligence store
-- `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is still deferred
+- `TaxAgent` and `PortfolioAgent` are only live in Workflow C; behavior-domain execution is now live only through `behavior_intervention`
 - follow-up execution is now capability-backed for `tax_optimization` and `portfolio_rebalance`, but only at execution depth 1 and only through runtime allowlist policy
 - other generated intents can still remain `ready`, `dependency_blocked`, `deferred`, or `queued_pending_capability` without being auto-run
 - broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and richer blocked/deferred/capability regression coverage remain explicitly out of scope for this phase

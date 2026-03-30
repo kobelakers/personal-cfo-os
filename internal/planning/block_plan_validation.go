@@ -103,6 +103,9 @@ func (b ExecutionBlock) Validate() error {
 	if len(b.SuccessCriteria) == 0 {
 		return fmt.Errorf("block must include success criteria")
 	}
+	if b.Kind == ExecutionBlockKindBehaviorIntervention && len(b.AllowedSkillFamilies) == 0 {
+		return fmt.Errorf("behavior intervention block must include allowed skill families")
+	}
 	for _, item := range b.SuccessCriteria {
 		if item.ID == "" || item.Description == "" {
 			return fmt.Errorf("success criteria must include id and description")
@@ -136,6 +139,10 @@ func validateBlockRecipient(kind ExecutionBlockKind, recipient string) error {
 	case ExecutionBlockKindPortfolioEventImpact, ExecutionBlockKindPortfolioRebalance:
 		if recipient != BlockRecipientPortfolioAgent {
 			return fmt.Errorf("portfolio block %q must be assigned to %q", kind, BlockRecipientPortfolioAgent)
+		}
+	case ExecutionBlockKindBehaviorIntervention:
+		if recipient != BlockRecipientBehaviorAgent {
+			return fmt.Errorf("behavior block %q must be assigned to %q", kind, BlockRecipientBehaviorAgent)
 		}
 	default:
 		return fmt.Errorf("unsupported execution block kind %q", kind)

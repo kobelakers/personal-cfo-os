@@ -22,6 +22,7 @@ import (
 	"github.com/kobelakers/personal-cfo-os/internal/reducers"
 	"github.com/kobelakers/personal-cfo-os/internal/reporting"
 	runtimepkg "github.com/kobelakers/personal-cfo-os/internal/runtime"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 	"github.com/kobelakers/personal-cfo-os/internal/state"
 	"github.com/kobelakers/personal-cfo-os/internal/taskspec"
 	"github.com/kobelakers/personal-cfo-os/internal/tools"
@@ -56,6 +57,7 @@ type Phase5DOptions struct {
 type Phase5DEnvironment struct {
 	MonthlyReview       workflows.MonthlyReviewWorkflow
 	DebtVsInvest        workflows.DebtVsInvestWorkflow
+	BehaviorIntervention workflows.BehaviorInterventionWorkflow
 	EventLog            *observability.EventLog
 	AgentTrace          *observability.AgentTraceLog
 	PromptTrace         *observability.PromptTraceLog
@@ -275,6 +277,30 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 		runtimeService.SetReplayProjectionWriter(replayRebuilder)
 		replayQuery = runtimepkg.NewReplayQueryService(runtimeService, runtimeStores.WorkflowRuns, runtimeStores.ReplayQuery, runtimeStores.Artifacts, runtimeStores.Replay)
 	}
+	behaviorMemoryService := memory.WorkflowMemoryService{
+		Writer:               memoryWriter,
+		Retriever:            retriever,
+		BehaviorQueryBuilder: memory.BehaviorSkillSelectionQueryBuilder{},
+		Gate: governance.MemoryWriteGateService{
+			PolicyEngine: governance.StaticPolicyEngine{},
+			Policy: governance.MemoryWritePolicy{
+				MinConfidence:   0.7,
+				RequireEvidence: false,
+				AllowKinds: []memory.MemoryKind{
+					memory.MemoryKindEpisodic,
+					memory.MemoryKindSemantic,
+					memory.MemoryKindProcedural,
+				},
+			},
+			CorrelationID: "phase-6b-memory-gate",
+		},
+		Now: deps.LedgerAdapter.Now,
+	}
+	behaviorCatalog, err := skills.DefaultBehaviorSkillCatalog()
+	if err != nil {
+		_ = stores.DB.Close()
+		return nil, err
+	}
 
 	systemSteps, err := buildPhase5DStepBus(phase5DWiring{
 		deps:                         deps,
@@ -349,10 +375,40 @@ func OpenPhase5DEnvironment(options Phase5DOptions) (*Phase5DEnvironment, error)
 		}),
 		Now: deps.LedgerAdapter.Now,
 	}
+	behaviorWorkflow := workflows.BehaviorInterventionWorkflow{
+		Intake: taskspec.DeterministicIntakeService{Now: deps.LedgerAdapter.Now},
+		Service: workflows.BehaviorInterventionService{
+			QueryTransaction: tools.QueryTransactionTool{Adapter: deps.LedgerAdapter},
+			QueryLiability:   tools.QueryLiabilityTool{Adapter: deps.LedgerAdapter},
+			QueryPortfolio:   tools.QueryPortfolioTool{LedgerAdapter: deps.LedgerAdapter},
+			ReducerEngine:    reducers.DeterministicReducerEngine{Now: deps.LedgerAdapter.Now},
+		},
+		SystemSteps:         systemSteps,
+		Runtime: runtimepkg.NewLocalWorkflowRuntime("behavior-intervention-6b", runtimepkg.LocalRuntimeOptions{
+			EventLog:        eventLog,
+			Timeline:        timeline,
+			Journal:         journal,
+			CheckpointStore: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.CheckpointStore { return s.Checkpoints }),
+			TaskGraphs:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskGraphStore { return s.TaskGraphs }),
+			Executions:      valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.TaskExecutionStore { return s.Executions }),
+			Approvals:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ApprovalStateStore { return s.Approvals }),
+			OperatorActions: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.OperatorActionStore { return s.OperatorActions }),
+			Replay:          valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ReplayStore { return s.Replay }),
+			Artifacts:       valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.ArtifactMetadataStore { return s.Artifacts }),
+			Now:             deps.LedgerAdapter.Now,
+		}),
+		MemoryService:       behaviorMemoryService,
+		SkillSelector:       skills.DeterministicBehaviorSkillSelector{Catalog: behaviorCatalog},
+		SkillRuntime:        skills.StaticSkillRuntime{Catalog: behaviorCatalog},
+		SkillExecutionStore: valueOrDefaultRuntimeStore(runtimeStores, func(s *runtimepkg.SQLiteRuntimeStores) runtimepkg.SkillExecutionStore { return s.SkillExecutions }),
+		EventLog:            eventLog,
+		Now:                 deps.LedgerAdapter.Now,
+	}
 
 	return &Phase5DEnvironment{
 		MonthlyReview:       monthlyWorkflow,
 		DebtVsInvest:        debtWorkflow,
+		BehaviorIntervention: behaviorWorkflow,
 		EventLog:            eventLog,
 		AgentTrace:          agentTrace,
 		PromptTrace:         promptTrace,
@@ -397,6 +453,7 @@ func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
 		Retriever:            w.retriever,
 		PlannerQueryBuilder:  memory.PlannerMemoryQueryBuilder{},
 		CashflowQueryBuilder: memory.CashflowMemoryQueryBuilder{},
+		BehaviorQueryBuilder: memory.BehaviorSkillSelectionQueryBuilder{},
 		TraceRecorder:        w.memoryTrace,
 		Gate: governance.MemoryWriteGateService{
 			PolicyEngine: governance.StaticPolicyEngine{},
@@ -423,6 +480,9 @@ func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
 		LifeEventAggregator:          reporting.LifeEventAssessmentAggregator{Now: w.deps.LedgerAdapter.Now},
 		TaxOptimizationAggregator:    reporting.TaxOptimizationAggregator{Now: w.deps.LedgerAdapter.Now},
 		PortfolioRebalanceAggregator: reporting.PortfolioRebalanceAggregator{Now: w.deps.LedgerAdapter.Now},
+		BehaviorInterventionAggregator: reporting.BehaviorInterventionAggregator{
+			Now: w.deps.LedgerAdapter.Now,
+		},
 		Artifacts: reporting.ArtifactService{
 			Tool:     tools.GenerateTaskArtifactTool{},
 			Producer: reporting.StaticArtifactProducer{Now: w.deps.LedgerAdapter.Now},
@@ -493,6 +553,7 @@ func buildPhase5DStepBus(w phase5DWiring) (agents.SystemStepBus, error) {
 		agents.DebtAgentHandler{Engine: w.financeEngine},
 		agents.TaxAgentHandler{Engine: w.financeEngine},
 		agents.PortfolioAgentHandler{Engine: w.financeEngine},
+		agents.BehaviorAgentHandler{},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},
 		agents.VerificationAgentHandler{Pipeline: verificationPipeline},

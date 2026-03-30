@@ -137,6 +137,10 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindPortfolioAnalysisRequest
 	}
+	if b.BehaviorAnalysisRequest != nil {
+		count++
+		matched = matched || kind == MessageKindBehaviorAnalysisRequest
+	}
 	if b.TaskGenerationRequest != nil {
 		count++
 		matched = matched || kind == MessageKindTaskGenerationRequest
@@ -297,6 +301,22 @@ func (b AgentRequestBody) ValidateForKind(kind MessageKind) error {
 		if len(b.PortfolioAnalysisRequest.RelevantEvidence) == 0 {
 			return errors.New("portfolio analysis request requires relevant evidence")
 		}
+	case MessageKindBehaviorAnalysisRequest:
+		if b.BehaviorAnalysisRequest == nil {
+			return errors.New("behavior analysis request payload is required")
+		}
+		if err := b.BehaviorAnalysisRequest.Block.Validate(); err != nil {
+			return err
+		}
+		if b.BehaviorAnalysisRequest.Block.AssignedRecipient != "behavior_agent" {
+			return fmt.Errorf("behavior analysis request must target behavior_agent, got %q", b.BehaviorAnalysisRequest.Block.AssignedRecipient)
+		}
+		if len(b.BehaviorAnalysisRequest.RelevantEvidence) == 0 {
+			return errors.New("behavior analysis request requires relevant evidence")
+		}
+		if b.BehaviorAnalysisRequest.ExecutionContext.SelectedSkill == nil {
+			return errors.New("behavior analysis request requires selected skill in execution context")
+		}
 	case MessageKindTaskGenerationRequest:
 		if b.TaskGenerationRequest == nil {
 			return errors.New("task generation request payload is required")
@@ -365,6 +385,10 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		count++
 		matched = matched || kind == MessageKindPortfolioAnalysisResult
 	}
+	if b.BehaviorAnalysisResult != nil {
+		count++
+		matched = matched || kind == MessageKindBehaviorAnalysisResult
+	}
 	if b.TaskGenerationResult != nil {
 		count++
 		matched = matched || kind == MessageKindTaskGenerationResult
@@ -417,6 +441,13 @@ func (b AgentResultBody) ValidateForKind(kind MessageKind) error {
 		}
 		if b.PortfolioAnalysisResult.Result.BlockID == "" {
 			return errors.New("portfolio analysis result requires block id")
+		}
+	case MessageKindBehaviorAnalysisResult:
+		if b.BehaviorAnalysisResult == nil {
+			return errors.New("behavior analysis result payload is required")
+		}
+		if b.BehaviorAnalysisResult.Result.BlockID == "" {
+			return errors.New("behavior analysis result requires block id")
 		}
 	case MessageKindTaskGenerationResult:
 		if b.TaskGenerationResult == nil {

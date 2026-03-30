@@ -90,3 +90,30 @@ go run ./cmd/replay --runtime-db ./var/runtime.db --rebuild-projections --all
 ```
 
 The canonical 6A corpus intentionally excludes live provider paths so golden traces and eval diffs stay stable. It now covers 11 deterministic scenarios, including an explicit memory-rejection visibility case.
+
+## Phase 6B
+
+Stable deterministic/mock-only skills + behavior evidence:
+
+- `phase6b_eval_default_corpus.json`
+- `phase6b_replay_behavior_intervention.json`
+- `phase6b_replay_behavior_intervention_waiting_approval.json`
+- `phase6b_compare_procedural_memory_skill_selection.json`
+
+Regenerate the canonical 6B corpus and replay samples:
+
+```bash
+./scripts/run_behavior_intervention_6b.sh mock
+```
+
+Equivalent manual corpus command:
+
+```bash
+go run ./cmd/eval --mode corpus --corpus phase6b-default --fixed-now 2026-03-30T08:00:00Z --workdir ./var/phase6b-evidence --format json --output ./docs/eval/samples/phase6b_eval_default_corpus.json
+```
+
+The 6B corpus intentionally remains deterministic/mock-only so:
+
+- skill family / version / recipe selection stays stable
+- procedural-memory-driven compare output stays regression-friendly
+- checked-in replay samples do not depend on provider drift

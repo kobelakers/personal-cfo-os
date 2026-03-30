@@ -11,6 +11,7 @@ const (
 	PolicyRuleApprovalSensitiveRecommendation      = "approval.sensitive_recommendation"
 	PolicyRuleApprovalLowLiquidityAggressiveInvest = "approval.low_liquidity_aggressive_invest"
 	PolicyRuleApprovalHighDebtPressureInvest       = "approval.high_debt_pressure_invest"
+	PolicyRuleApprovalBehaviorGuardrailHardCap     = "behavior.guardrail.hard_cap.approval_required"
 	PolicyRuleDenyMissingDisclosure                = "deny.missing_disclosure"
 	PolicyRuleDenyInsufficientActorRole            = "deny.insufficient_actor_role"
 )
@@ -38,6 +39,12 @@ func approvalRulesForAction(request ActionRequest, toolPolicy *ToolExecutionPoli
 				outcome = PolicyDecisionRequireApproval
 				reason = firstNonEmpty(recommendation.ApprovalReason, "aggressive investment recommendation requires approval")
 				ruleRefs = append(ruleRefs, PolicyRuleApprovalLowLiquidityAggressiveInvest)
+			}
+		case analysis.RecommendationTypeBehaviorGuardrail:
+			if recommendation.ApprovalRequired {
+				outcome = PolicyDecisionRequireApproval
+				reason = firstNonEmpty(recommendation.ApprovalReason, "high-intensity behavior guardrail requires approval")
+				ruleRefs = append(ruleRefs, PolicyRuleApprovalBehaviorGuardrailHardCap)
 			}
 		case analysis.RecommendationTypePortfolioRebalance, analysis.RecommendationTypeDebtRestructure, analysis.RecommendationTypeTaxAction:
 			if recommendationTypeSensitive(recommendation.Type) && compareRisk(recommendationRiskLevel(recommendation.RiskLevel), ActionRiskHigh) >= 0 {

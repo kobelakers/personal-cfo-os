@@ -164,6 +164,65 @@ func DefaultScenarioCorpus() ScenarioCorpus {
 	}
 }
 
+func Phase6BDefaultScenarioCorpus() ScenarioCorpus {
+	return ScenarioCorpus{
+		ID:                "phase6b-default",
+		DeterministicOnly: true,
+		Cases: []ScenarioCase{
+			{
+				ID:            "behavior_intervention_happy_path",
+				Category:      "behavior_intervention",
+				Description:   "Behavior intervention happy path completes with a grounded behavior block result and a canonical selected skill",
+				Deterministic: true,
+				Expectation: ScenarioExpectation{
+					ExpectedFinalState: "completed",
+					ExpectedScopeKind:  "workflow",
+				},
+				run: runBehaviorInterventionHappyPath,
+			},
+			{
+				ID:            "behavior_skill_selection_influenced_by_procedural_memory",
+				Category:      "behavior_intervention",
+				Description:   "Procedural memory from a prior guardrail intervention changes the selected recipe on the next similar run",
+				Deterministic: true,
+				Expectation: ScenarioExpectation{
+					ExpectedFinalState:           "completed",
+					ExpectedScopeKind:            "workflow",
+					RequireComparison:            true,
+					RequiredComparisonCategories: []string{"skill"},
+				},
+				run: runBehaviorSkillSelectionInfluencedByProceduralMemory,
+			},
+			{
+				ID:            "behavior_intervention_waiting_approval",
+				Category:      "behavior_intervention",
+				Description:   "High-intensity discretionary guardrail intervention deterministically enters waiting_approval",
+				Deterministic: true,
+				Expectation: ScenarioExpectation{
+					ExpectedFinalState:      "waiting_approval",
+					ExpectedScopeKind:       "workflow",
+					RequireApproval:         true,
+					RequiredProvenanceEdges: []string{"requested_approval", "selected_skill"},
+				},
+				run: runBehaviorInterventionWaitingApproval,
+			},
+			{
+				ID:            "behavior_intervention_validator_failure",
+				Category:      "behavior_intervention",
+				Description:   "Behavior intervention validator failure deterministically ends in failed runtime state",
+				Deterministic: true,
+				Expectation: ScenarioExpectation{
+					ExpectedFinalState:        "failed",
+					ExpectedScopeKind:         "workflow",
+					RequireFailureExplanation: true,
+					RequireValidatorSummary:   true,
+				},
+				run: runBehaviorInterventionValidatorFailure,
+			},
+		},
+	}
+}
+
 func runMonthlyReviewHappyPath(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
 	env, err := openMockPhase5DEnvironment(runCtx, "holdings_2026-03-safe.csv", nil)
 	if err != nil {
@@ -611,12 +670,177 @@ func runParentChildProvenanceReconstruction(ctx context.Context, runCtx Scenario
 	}, nil
 }
 
+func runBehaviorInterventionHappyPath(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
+	env, err := openMockPhase6BEnvironment(runCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	defer func() { _ = env.Close() }()
+	result, err := env.RunBehaviorIntervention(ctx, "user-1", "请帮我做一次订阅清理复盘", state.FinancialWorldState{})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	view, err := env.ReplayQuery.Query(ctx, observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	return scenarioRunOutput{
+		RuntimeState:     result.Result.RuntimeState,
+		WorkflowID:       result.Result.WorkflowID,
+		Replay:           view,
+		DebugSummary:     observability.BuildDebugSummaryFromReplay(view),
+		TokenUsage:       traceTokenUsage(result.Trace),
+		EvidenceComplete: result.Result.CoverageReport.CoverageRatio >= 1,
+	}, nil
+}
+
+func runBehaviorSkillSelectionInfluencedByProceduralMemory(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
+	env1, err := openMockPhase6BEnvironment(runCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	first, err := env1.RunBehaviorIntervention(ctx, "user-1", "请帮我做一次消费护栏复盘", state.FinancialWorldState{})
+	if err != nil {
+		_ = env1.Close()
+		return scenarioRunOutput{}, err
+	}
+	if err := env1.Close(); err != nil {
+		return scenarioRunOutput{}, err
+	}
+	secondRunCtx := runCtx
+	secondRunCtx.Now = runCtx.Now.Add(time.Second)
+	env2, err := openMockPhase6BEnvironment(secondRunCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	defer func() { _ = env2.Close() }()
+	second, err := env2.RunBehaviorIntervention(ctx, "user-1", "请再做一次消费护栏复盘", state.FinancialWorldState{})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	view, err := env2.ReplayQuery.Query(ctx, observability.ReplayQuery{WorkflowID: second.Result.WorkflowID})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	comparison, err := env2.ReplayQuery.Compare(ctx,
+		observability.ReplayQuery{WorkflowID: first.Result.WorkflowID},
+		observability.ReplayQuery{WorkflowID: second.Result.WorkflowID},
+	)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	return scenarioRunOutput{
+		RuntimeState:     second.Result.RuntimeState,
+		WorkflowID:       second.Result.WorkflowID,
+		Replay:           view,
+		DebugSummary:     observability.BuildDebugSummaryFromReplay(view),
+		Comparison:       &comparison,
+		TokenUsage:       traceTokenUsage(second.Trace),
+		EvidenceComplete: second.Result.CoverageReport.CoverageRatio >= 1,
+	}, nil
+}
+
+func runBehaviorInterventionWaitingApproval(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
+	env1, err := openMockPhase6BEnvironment(runCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	if _, err := env1.RunBehaviorIntervention(ctx, "user-1", "请帮我做一次消费护栏复盘", state.FinancialWorldState{}); err != nil {
+		_ = env1.Close()
+		return scenarioRunOutput{}, err
+	}
+	if err := env1.Close(); err != nil {
+		return scenarioRunOutput{}, err
+	}
+	secondRunCtx := runCtx
+	secondRunCtx.Now = runCtx.Now.Add(time.Second)
+	env2, err := openMockPhase6BEnvironment(secondRunCtx, "holdings_2026-03-safe.csv", nil)
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	defer func() { _ = env2.Close() }()
+	result, err := env2.RunBehaviorIntervention(ctx, "user-1", "请做一次 hard_cap 消费护栏复盘", state.FinancialWorldState{})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	view, err := env2.ReplayQuery.Query(ctx, observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	approvalID := ""
+	if result.Result.PendingApproval != nil {
+		approvalID = result.Result.PendingApproval.ApprovalID
+	}
+	return scenarioRunOutput{
+		RuntimeState:     result.Result.RuntimeState,
+		WorkflowID:       result.Result.WorkflowID,
+		ApprovalID:       approvalID,
+		Replay:           view,
+		DebugSummary:     observability.BuildDebugSummaryFromReplay(view),
+		TokenUsage:       traceTokenUsage(result.Trace),
+		EvidenceComplete: result.Result.CoverageReport.CoverageRatio >= 1,
+	}, nil
+}
+
+func runBehaviorInterventionValidatorFailure(ctx context.Context, runCtx ScenarioRunContext) (scenarioRunOutput, error) {
+	env, err := openMockPhase6BEnvironment(runCtx, "holdings_2026-03-safe.csv", func(base verification.Pipeline) verification.Pipeline {
+		base.GroundingValidator = forcedTrustFailureValidator{
+			validator: "forced_behavior_grounding_failure",
+			code:      "forced_behavior_trust_failure",
+			message:   "test-only grounding failure for behavior intervention corpus scenario",
+		}
+		return base
+	})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	defer func() { _ = env.Close() }()
+	result, err := env.RunBehaviorIntervention(ctx, "user-1", "请帮我做一次订阅清理复盘", state.FinancialWorldState{})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	view, err := env.ReplayQuery.Query(ctx, observability.ReplayQuery{WorkflowID: result.Result.WorkflowID})
+	if err != nil {
+		return scenarioRunOutput{}, err
+	}
+	return scenarioRunOutput{
+		RuntimeState:     result.Result.RuntimeState,
+		WorkflowID:       result.Result.WorkflowID,
+		Replay:           view,
+		DebugSummary:     observability.BuildDebugSummaryFromReplay(view),
+		TokenUsage:       traceTokenUsage(result.Trace),
+		EvidenceComplete: result.Result.CoverageReport.CoverageRatio >= 1,
+	}, nil
+}
+
 func openMockPhase5DEnvironment(
 	runCtx ScenarioRunContext,
 	holdingsFixture string,
 	override func(base verification.Pipeline) verification.Pipeline,
 ) (*app.Phase5DEnvironment, error) {
 	return app.OpenPhase5DEnvironment(app.Phase5DOptions{
+		FixtureDir:      defaultFixtureDir(runCtx),
+		HoldingsFixture: holdingsFixture,
+		MemoryDBPath:    filepath.Join(runCtx.WorkDir, "memory.db"),
+		RuntimeDBPath:   filepath.Join(runCtx.WorkDir, "runtime.db"),
+		EmbeddingModel:  "mock-embedding-model",
+		Now:             func() time.Time { return runCtx.Now.UTC() },
+		ChatModelFactory: func(callRecorder model.CallRecorder, usageRecorder model.UsageRecorder) model.ChatModel {
+			return app.NewMockMonthlyReviewChatModelWithTrace(callRecorder, usageRecorder)
+		},
+		EmbeddingProviderFactory: func(callRecorder memory.EmbeddingCallRecorder, usageRecorder memory.EmbeddingUsageRecorder) memory.EmbeddingProvider {
+			return app.NewMockMonthlyReviewEmbeddingProvider(callRecorder, usageRecorder)
+		},
+		VerificationPipelineOverride: override,
+	})
+}
+
+func openMockPhase6BEnvironment(
+	runCtx ScenarioRunContext,
+	holdingsFixture string,
+	override func(base verification.Pipeline) verification.Pipeline,
+) (*app.Phase6BEnvironment, error) {
+	return app.OpenPhase6BEnvironment(app.Phase6BOptions{
 		FixtureDir:      defaultFixtureDir(runCtx),
 		HoldingsFixture: holdingsFixture,
 		MemoryDBPath:    filepath.Join(runCtx.WorkDir, "memory.db"),

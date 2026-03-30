@@ -1,0 +1,60 @@
+{
+  "left": {
+    "kind": "workflow",
+    "id": "workflow-behavior-intervention-20260330080000"
+  },
+  "right": {
+    "kind": "workflow",
+    "id": "workflow-behavior-intervention-20260330080001"
+  },
+  "diffs": [
+    {
+      "category": "skill",
+      "field": "skill_summary",
+      "left": [
+        "selected=discretionary_guardrail/budget_guardrail.v1",
+        "selection_reasons=the explicit intervention request focused on a spending guardrail, so the selector chose the discretionary guardrail family,retrieved procedural memory shows a prior lower-intensity guardrail already ran against a similar anomaly, so the selector escalated to budget_guardrail.v1",
+        "selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "executed=discretionary_guardrail/budget_guardrail.v1",
+        "outcome_memory=workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "skill_outcome_state=completed"
+      ],
+      "right": [
+        "selected=discretionary_guardrail/budget_guardrail.v1",
+        "selection_reasons=the explicit intervention request focused on a spending guardrail, so the selector chose the discretionary guardrail family,retrieved procedural memory shows a prior lower-intensity guardrail already ran against a similar anomaly, so the selector escalated to budget_guardrail.v1",
+        "selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1",
+        "executed=discretionary_guardrail/budget_guardrail.v1",
+        "outcome_memory=workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1",
+        "skill_outcome_state=completed"
+      ],
+      "details": [
+        "added: selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1 | outcome_memory=workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1",
+        "removed: selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure | outcome_memory=workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "left_count=6",
+        "right_count=6"
+      ],
+      "summary": "skill selection/execution changed"
+    },
+    {
+      "category": "memory",
+      "field": "memory_summary",
+      "left": [
+        "selected=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure"
+      ],
+      "right": [
+        "selected=workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1"
+      ],
+      "details": [
+        "added: selected=workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1",
+        "removed: selected=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "left_count=1",
+        "right_count=1"
+      ],
+      "summary": "memory selection/rejection changed"
+    }
+  ],
+  "summary": [
+    "skill selection/execution changed",
+    "memory selection/rejection changed"
+  ]
+}

@@ -97,6 +97,7 @@ type Service struct {
 	LifeEventAggregator          LifeEventAssessmentAggregator
 	TaxOptimizationAggregator    TaxOptimizationAggregator
 	PortfolioRebalanceAggregator PortfolioRebalanceAggregator
+	BehaviorInterventionAggregator BehaviorInterventionAggregator
 	Artifacts                    ArtifactService
 }
 
@@ -140,6 +141,12 @@ func (s Service) Draft(spec taskspec.TaskSpec, workflowID string, input DraftInp
 			return ReportPayload{}, err
 		}
 		return ReportPayload{PortfolioRebalance: &report}, nil
+	case taskspec.UserIntentBehaviorIntervention:
+		report, err := s.BehaviorInterventionAggregator.Aggregate(spec, workflowID, input)
+		if err != nil {
+			return ReportPayload{}, err
+		}
+		return ReportPayload{BehaviorIntervention: &report}, nil
 	default:
 		return ReportPayload{}, fmt.Errorf("unsupported intent type %q for report draft", spec.UserIntentType)
 	}
@@ -203,6 +210,16 @@ func (s Service) Finalize(workflowID string, taskID string, draft ReportPayload,
 			return ReportPayload{}, nil, err
 		}
 		return ReportPayload{PortfolioRebalance: &report}, []WorkflowArtifact{artifact}, nil
+	case draft.BehaviorIntervention != nil:
+		report := *draft.BehaviorIntervention
+		if disclosureDecision.Outcome == governance.PolicyDecisionRedact {
+			report.Summary = "[REDACTED] " + report.Summary
+		}
+		artifact, err := s.Artifacts.Produce(workflowID, taskID, ArtifactKindBehaviorInterventionReport, report, report.Summary, "report_agent")
+		if err != nil {
+			return ReportPayload{}, nil, err
+		}
+		return ReportPayload{BehaviorIntervention: &report}, []WorkflowArtifact{artifact}, nil
 	default:
 		return ReportPayload{}, nil, fmt.Errorf("report draft payload is empty")
 	}

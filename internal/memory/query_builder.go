@@ -12,6 +12,7 @@ import (
 const (
 	MemoryConsumerPlanner  = "planner_agent"
 	MemoryConsumerCashflow = "cashflow_agent"
+	MemoryConsumerBehaviorSkillSelection = "behavior_skill_selector"
 )
 
 type QueryBuildInput struct {
@@ -64,6 +65,45 @@ type CashflowMemoryQueryBuilder struct {
 	TopK            int
 	RetrievalPolicy string
 	FreshnessPolicy string
+}
+
+type BehaviorSkillSelectionQueryBuilder struct {
+	TopK            int
+	RetrievalPolicy string
+	FreshnessPolicy string
+}
+
+func (b BehaviorSkillSelectionQueryBuilder) Build(input QueryBuildInput) RetrievalQuery {
+	topK := b.TopK
+	if topK == 0 {
+		topK = 5
+	}
+	lexicalTerms := append([]string{}, input.Task.Scope.Areas...)
+	lexicalTerms = append(lexicalTerms, evidenceKeywords(input.Evidence)...)
+	lexicalTerms = append(lexicalTerms, "behavior", "intervention", "skill", "recipe", "guardrail")
+	if input.State.BehaviorState.DuplicateSubscriptionCount > 0 {
+		lexicalTerms = append(lexicalTerms, "subscription", "cleanup")
+	}
+	if input.State.BehaviorState.LateNightSpendingFrequency > 0 {
+		lexicalTerms = append(lexicalTerms, "late-night", "spending", "nudge")
+	}
+	if input.State.CashflowState.MonthlyNetIncomeCents < 0 || input.State.CashflowState.MonthlyVariableExpenseCents > 0 {
+		lexicalTerms = append(lexicalTerms, "discretionary", "guardrail")
+	}
+	return RetrievalQuery{
+		QueryID:         fmt.Sprintf("%s:%s:behavior-skill-selection", input.WorkflowID, input.Task.ID),
+		WorkflowID:      input.WorkflowID,
+		TaskID:          input.Task.ID,
+		TraceID:         input.TraceID,
+		Consumer:        MemoryConsumerBehaviorSkillSelection,
+		ContextView:     "execution",
+		Text:            input.Task.Goal,
+		LexicalTerms:    dedupeTokens(lexicalTerms),
+		SemanticHint:    "behavior intervention skill selection, prior guardrail outcomes, subscription cleanup effectiveness, late-night spend interventions",
+		TopK:            topK,
+		RetrievalPolicy: fallbackQueryString(b.RetrievalPolicy, "behavior_skill_selection"),
+		FreshnessPolicy: fallbackQueryString(b.FreshnessPolicy, "behavior_default"),
+	}
 }
 
 func (b CashflowMemoryQueryBuilder) Build(input QueryBuildInput) RetrievalQuery {

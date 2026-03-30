@@ -107,6 +107,27 @@ func (s DeterministicIntakeService) Parse(raw string) TaskIntakeResult {
 			},
 			TaskSpec: &spec,
 		}
+	case isBehaviorInterventionIntent(lower):
+		spec := buildBehaviorInterventionTaskSpec(input, now)
+		if err := spec.Validate(); err != nil {
+			return TaskIntakeResult{
+				Accepted:      false,
+				RawInput:      raw,
+				Confidence:    TaskIntakeConfidenceMedium,
+				FailureReason: TaskIntakeFailureValidation,
+				Notes:         []string{err.Error()},
+			}
+		}
+		return TaskIntakeResult{
+			Accepted:   true,
+			RawInput:   raw,
+			Confidence: TaskIntakeConfidenceHigh,
+			Notes: []string{
+				"deterministic behavior intervention intent matched",
+				"behavior skill-selection success criteria injected",
+			},
+			TaskSpec: &spec,
+		}
 	default:
 		return TaskIntakeResult{
 			Accepted:        false,
@@ -114,7 +135,7 @@ func (s DeterministicIntakeService) Parse(raw string) TaskIntakeResult {
 			Confidence:      TaskIntakeConfidenceLow,
 			FailureReason:   TaskIntakeFailureUnsupportedInput,
 			RejectionReason: TaskRejectionOutOfScope,
-			Notes:           []string{"phase 2 intake only accepts monthly review and debt-vs-invest intents"},
+			Notes:           []string{"deterministic intake only accepts monthly review, debt-vs-invest, and behavior intervention intents"},
 		}
 	}
 }
@@ -138,6 +159,20 @@ func isDebtVsInvestIntent(input string) bool {
 		"debt vs invest",
 		"pay down debt",
 		"invest",
+	}
+	return containsAny(input, keywords)
+}
+
+func isBehaviorInterventionIntent(input string) bool {
+	keywords := []string{
+		"行为干预",
+		"支出行为复盘",
+		"消费习惯复盘",
+		"订阅清理",
+		"深夜消费",
+		"消费护栏",
+		"behavior intervention",
+		"spending behavior review",
 	}
 	return containsAny(input, keywords)
 }
@@ -214,6 +249,38 @@ func buildDebtVsInvestTaskSpec(goal string, now time.Time) TaskSpec {
 		ApprovalRequirement: ApprovalRequirementMandatory,
 		Deadline:            &deadline,
 		UserIntentType:      UserIntentDebtVsInvest,
+		CreatedAt:           now,
+	}
+}
+
+func buildBehaviorInterventionTaskSpec(goal string, now time.Time) TaskSpec {
+	start := now.AddDate(0, -2, 0)
+	deadline := now.Add(48 * time.Hour)
+	return TaskSpec{
+		ID:    "task-behavior-intervention-" + now.Format("20060102"),
+		Goal:  goal,
+		Scope: TaskScope{Areas: []string{"behavior", "cashflow"}, Start: &start, End: &now},
+		Constraints: ConstraintSet{
+			Hard: []string{
+				"behavior recommendations must stay grounded in deterministic behavior metrics",
+				"high-risk behavior interventions cannot auto-execute without governance approval",
+			},
+			Soft: []string{"prefer procedural-memory-aware skill selection when prior interventions exist"},
+		},
+		RiskLevel: RiskLevelHigh,
+		SuccessCriteria: []SuccessCriteria{
+			{ID: "anomaly_surfaced", Description: "behavior anomalies and trends are surfaced from deterministic evidence and state"},
+			{ID: "skill_selection_explainable", Description: "selected skill family/version/recipe is explainable via evidence, state, and procedural memory"},
+			{ID: "recommendation_grounded_governed", Description: "behavior recommendations are grounded, validated, and governed"},
+		},
+		RequiredEvidence: []RequiredEvidenceRef{
+			{Type: "transaction_batch", Reason: "deterministic discretionary-spend analysis baseline", Mandatory: true},
+			{Type: "recurring_subscription_signal", Reason: "subscription overlap and cleanup detection", Mandatory: false},
+			{Type: "late_night_spending_signal", Reason: "late-night discretionary spend anomaly detection", Mandatory: false},
+		},
+		ApprovalRequirement: ApprovalRequirementRecommended,
+		Deadline:            &deadline,
+		UserIntentType:      UserIntentBehaviorIntervention,
 		CreatedAt:           now,
 	}
 }

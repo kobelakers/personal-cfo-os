@@ -36,6 +36,32 @@ func TestDefaultScenarioCorpusRunsDeterministically(t *testing.T) {
 	}
 }
 
+func TestPhase6BScenarioCorpusRunsDeterministically(t *testing.T) {
+	t.Parallel()
+
+	harness := NewHarness(HarnessOptions{
+		FixtureDir: filepath.Join("..", "..", "tests", "fixtures"),
+		WorkDir:    t.TempDir(),
+		Now: func() time.Time {
+			return time.Date(2026, 3, 30, 8, 0, 0, 0, time.UTC)
+		},
+	})
+
+	runResult, err := harness.RunCorpus(context.Background(), Phase6BDefaultScenarioCorpus())
+	if err != nil {
+		t.Fatalf("run phase 6b scenario corpus: %v", err)
+	}
+	if !runResult.DeterministicOnly {
+		t.Fatalf("expected 6b corpus to remain deterministic-only")
+	}
+	if runResult.Score.ScenarioCount != 4 {
+		t.Fatalf("expected 4 deterministic 6b scenarios, got %d", runResult.Score.ScenarioCount)
+	}
+	if runResult.Score.FailedCount != 0 {
+		t.Fatalf("expected 6b corpus to pass, got %+v", runResult)
+	}
+}
+
 func TestHarnessReportsRegressionFailures(t *testing.T) {
 	t.Parallel()
 

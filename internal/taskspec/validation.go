@@ -101,7 +101,7 @@ func validApprovalRequirement(requirement ApprovalRequirement) bool {
 
 func validUserIntentType(intent UserIntentType) bool {
 	switch intent {
-	case UserIntentUnknown, UserIntentMonthlyReview, UserIntentDebtVsInvest, UserIntentLifeEventTrigger, UserIntentTaxOptimization, UserIntentPortfolioRebalance:
+	case UserIntentUnknown, UserIntentMonthlyReview, UserIntentDebtVsInvest, UserIntentBehaviorIntervention, UserIntentLifeEventTrigger, UserIntentTaxOptimization, UserIntentPortfolioRebalance:
 		return true
 	default:
 		return false

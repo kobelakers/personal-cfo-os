@@ -146,6 +146,34 @@ func (p Pipeline) VerifyPortfolioRebalance(
 	)
 }
 
+func (p Pipeline) VerifyBehaviorIntervention(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	currentState state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	memories []memory.MemoryRecord,
+	plan planning.ExecutionPlan,
+	blockResults []analysis.BlockResultEnvelope,
+	blockVerificationContexts []contextview.BlockVerificationContext,
+	finalVerificationContext contextview.BlockVerificationContext,
+	output any,
+) (PipelineResult, error) {
+	return p.verify(
+		ctx,
+		"behavior-intervention",
+		spec,
+		currentState,
+		evidence,
+		memories,
+		plan,
+		blockResults,
+		blockVerificationContexts,
+		finalVerificationContext,
+		output,
+		false,
+	)
+}
+
 func (p Pipeline) VerifyLifeEventBlockPass(
 	ctx context.Context,
 	spec taskspec.TaskSpec,
@@ -400,6 +428,8 @@ func (p Pipeline) verifyBlocks(
 			blockResult = TaxBlockValidator{}.Validate(spec, block, *envelope.Tax, verificationContext, currentState)
 		case envelope.Portfolio != nil:
 			blockResult = PortfolioBlockValidator{}.Validate(spec, block, *envelope.Portfolio, verificationContext, currentState)
+		case envelope.Behavior != nil:
+			blockResult = BehaviorBlockValidator{}.Validate(spec, block, *envelope.Behavior, verificationContext, currentState)
 		default:
 			blockResult = VerificationResult{
 				Status:                  VerificationStatusFail,
@@ -498,6 +528,23 @@ func (p Pipeline) verifyFinal(
 		}
 		finalResults = append(finalResults, withScope(deterministicResult, VerificationScopeFinal, "", ""))
 		businessResult, err := PortfolioRebalanceBusinessValidator{}.Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(businessResult, VerificationScopeFinal, "", ""))
+		trustResults, err := p.verifyTrust(ctx, spec, currentState, evidence, memories, finalVerificationContext, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, trustResults...)
+		return finalResults, nil
+	case taskspec.UserIntentBehaviorIntervention:
+		deterministicResult, err := BehaviorInterventionDeterministicValidator{}.Validate(ctx, spec, currentState, evidence, output)
+		if err != nil {
+			return nil, err
+		}
+		finalResults = append(finalResults, withScope(deterministicResult, VerificationScopeFinal, "", ""))
+		businessResult, err := BehaviorInterventionBusinessValidator{}.Validate(ctx, spec, currentState, evidence, output)
 		if err != nil {
 			return nil, err
 		}

@@ -10,6 +10,7 @@ import (
 func BuildReplaySummaryFromTrace(trace WorkflowTraceDump, finalState string) ReplaySummary {
 	return ReplaySummary{
 		PlanSummary:          tracePlanSummary(trace),
+		SkillSummary:         traceSkillSummary(trace),
 		MemorySummary:        traceMemorySummary(trace),
 		ValidatorSummary:     traceValidatorSummary(trace),
 		GovernanceSummary:    traceGovernanceSummary(trace),
@@ -20,6 +21,7 @@ func BuildReplaySummaryFromTrace(trace WorkflowTraceDump, finalState string) Rep
 
 func BuildReplayExplanationFromTrace(trace WorkflowTraceDump, finalState string) ReplayExplanation {
 	explanation := ReplayExplanation{
+		WhySkillSelected:    traceSkillSelectionExplanation(trace),
 		WhyGeneratedTask:    traceEventSummary(trace, []string{"generated_task_graph"}),
 		WhyChildExecuted:    traceEventSummary(trace, []string{"life_event_follow_up_execution", "follow_up_execution"}),
 		WhyMemoryDecision:   traceMemoryDecisionExplanation(trace),
@@ -50,6 +52,7 @@ func BuildDebugSummaryFromTrace(workflowID string, trace WorkflowTraceDump, fina
 	if explanation.WhyWaitingApproval != "" {
 		lines = append(lines, explanation.WhyWaitingApproval)
 	}
+	lines = append(lines, explanation.WhySkillSelected...)
 	lines = append(lines, explanation.WhyValidationFailed...)
 	lines = append(lines, explanation.WhyMemoryDecision...)
 	lines = dedupeStrings(lines)
@@ -57,6 +60,7 @@ func BuildDebugSummaryFromTrace(workflowID string, trace WorkflowTraceDump, fina
 		WorkflowID:        workflowID,
 		FinalRuntimeState: finalState,
 		PlanSummary:       summary.PlanSummary,
+		SkillSummary:      summary.SkillSummary,
 		MemorySummary:     summary.MemorySummary,
 		ValidatorSummary:  summary.ValidatorSummary,
 		GovernanceSummary: summary.GovernanceSummary,
@@ -73,11 +77,13 @@ func BuildDebugSummaryFromReplay(view ReplayView) DebugSummary {
 	if view.Explanation.WhyWaitingApproval != "" {
 		explanation = append(explanation, view.Explanation.WhyWaitingApproval)
 	}
+	explanation = append(explanation, view.Explanation.WhySkillSelected...)
 	explanation = append(explanation, view.Explanation.WhyValidationFailed...)
 	explanation = append(explanation, view.Explanation.WhyMemoryDecision...)
 	summary := DebugSummary{
 		FinalRuntimeState: view.Summary.FinalState,
 		PlanSummary:       append([]string{}, view.Summary.PlanSummary...),
+		SkillSummary:      append([]string{}, view.Summary.SkillSummary...),
 		MemorySummary:     append([]string{}, view.Summary.MemorySummary...),
 		ValidatorSummary:  append([]string{}, view.Summary.ValidatorSummary...),
 		GovernanceSummary: append([]string{}, view.Summary.GovernanceSummary...),
@@ -92,6 +98,55 @@ func BuildDebugSummaryFromReplay(view ReplayView) DebugSummary {
 		summary.TaskGraphID = view.TaskGraph.TaskGraphID
 	}
 	return summary
+}
+
+func traceSkillSummary(trace WorkflowTraceDump) []string {
+	result := make([]string, 0)
+	for _, item := range trace.Events {
+		switch item.Category {
+		case "skill_selected":
+			result = append(result, fmt.Sprintf("selected=%s/%s", item.Details["skill_family"], item.Details["recipe_id"]))
+			if details := strings.TrimSpace(item.Details["reason_details"]); details != "" {
+				result = append(result, fmt.Sprintf("selection_reasons=%s", details))
+			}
+			if refs := strings.TrimSpace(item.Details["memory_refs"]); refs != "" {
+				result = append(result, fmt.Sprintf("selection_memory_refs=%s", refs))
+			}
+		case "skill_execution":
+			result = append(result, fmt.Sprintf("executed=%s/%s", item.Details["skill_family"], item.Details["recipe_id"]))
+			if rules := strings.TrimSpace(item.Details["policy_rule_refs"]); rules != "" {
+				result = append(result, fmt.Sprintf("skill_policy_refs=%s", rules))
+			}
+		case "skill_outcome_memory_written":
+			result = append(result, fmt.Sprintf("outcome_memory=%s", item.Details["memory_ids"]))
+			if state := strings.TrimSpace(item.Details["final_runtime_state"]); state != "" {
+				result = append(result, fmt.Sprintf("skill_outcome_state=%s", state))
+			}
+		}
+	}
+	return dedupeStrings(result)
+}
+
+func traceSkillSelectionExplanation(trace WorkflowTraceDump) []string {
+	result := make([]string, 0)
+	for _, item := range trace.Events {
+		switch item.Category {
+		case "skill_selected":
+			if details := strings.TrimSpace(item.Details["reason_details"]); details != "" {
+				result = append(result, fmt.Sprintf("skill selected because %s", details))
+			} else if strings.TrimSpace(item.Message) != "" {
+				result = append(result, item.Message)
+			}
+			if refs := strings.TrimSpace(item.Details["memory_refs"]); refs != "" {
+				result = append(result, fmt.Sprintf("procedural memory influenced selection: %s", refs))
+			}
+		case "skill_outcome_memory_written":
+			if ids := strings.TrimSpace(item.Details["memory_ids"]); ids != "" {
+				result = append(result, fmt.Sprintf("skill outcome memory written: %s", ids))
+			}
+		}
+	}
+	return dedupeStrings(result)
 }
 
 func tracePlanSummary(trace WorkflowTraceDump) []string {

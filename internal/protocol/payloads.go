@@ -99,6 +99,14 @@ type PortfolioAnalysisRequestPayload struct {
 	ExecutionContext contextview.BlockExecutionContext `json:"execution_context"`
 }
 
+type BehaviorAnalysisRequestPayload struct {
+	CurrentState     state.FinancialWorldState         `json:"current_state"`
+	RelevantMemories []memory.MemoryRecord             `json:"relevant_memories,omitempty"`
+	RelevantEvidence []observation.EvidenceRecord      `json:"relevant_evidence,omitempty"`
+	Block            planning.ExecutionBlock           `json:"block"`
+	ExecutionContext contextview.BlockExecutionContext `json:"execution_context"`
+}
+
 type TaskGenerationRequestPayload struct {
 	CurrentState          state.FinancialWorldState      `json:"current_state"`
 	EventEvidence         []observation.EvidenceRecord   `json:"event_evidence"`
@@ -152,6 +160,10 @@ type PortfolioAnalysisResultPayload struct {
 	Result analysis.PortfolioBlockResult `json:"result"`
 }
 
+type BehaviorAnalysisResultPayload struct {
+	Result analysis.BehaviorBlockResult `json:"result"`
+}
+
 type TaskGenerationResultPayload struct {
 	TaskGraph taskspec.TaskGraph `json:"task_graph"`
 }
@@ -167,6 +179,7 @@ type AgentRequestBody struct {
 	DebtAnalysisRequest         *DebtAnalysisRequestPayload         `json:"debt_analysis_request,omitempty"`
 	TaxAnalysisRequest          *TaxAnalysisRequestPayload          `json:"tax_analysis_request,omitempty"`
 	PortfolioAnalysisRequest    *PortfolioAnalysisRequestPayload    `json:"portfolio_analysis_request,omitempty"`
+	BehaviorAnalysisRequest     *BehaviorAnalysisRequestPayload     `json:"behavior_analysis_request,omitempty"`
 	TaskGenerationRequest       *TaskGenerationRequestPayload       `json:"task_generation_request,omitempty"`
 }
 
@@ -181,5 +194,6 @@ type AgentResultBody struct {
 	DebtAnalysisResult         *DebtAnalysisResultPayload         `json:"debt_analysis_result,omitempty"`
 	TaxAnalysisResult          *TaxAnalysisResultPayload          `json:"tax_analysis_result,omitempty"`
 	PortfolioAnalysisResult    *PortfolioAnalysisResultPayload    `json:"portfolio_analysis_result,omitempty"`
+	BehaviorAnalysisResult     *BehaviorAnalysisResultPayload     `json:"behavior_analysis_result,omitempty"`
 	TaskGenerationResult       *TaskGenerationResultPayload       `json:"task_generation_result,omitempty"`
 }

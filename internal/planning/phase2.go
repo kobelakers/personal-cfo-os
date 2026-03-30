@@ -131,6 +131,35 @@ func (p *DeterministicPlanner) CreatePlan(spec taskspec.TaskSpec, slice contextv
 				},
 			},
 		}
+	case taskspec.UserIntentBehaviorIntervention:
+		blocks := behaviorInterventionBlocks(spec, slice)
+		return ExecutionPlan{
+			WorkflowID: workflowID,
+			TaskID:     spec.ID,
+			PlanID:     planID,
+			CreatedAt:  now,
+			Blocks:     blocks,
+			Steps: []PlanStep{
+				{
+					ID:                    "collect-behavior-evidence",
+					Name:                  "收集行为证据",
+					Description:           "拉取交易、订阅和深夜消费信号，形成行为干预的 deterministic evidence baseline。",
+					RequiredEvidenceTypes: requiredEvidenceTypes(spec.RequiredEvidence),
+				},
+				{
+					ID:             "select-behavior-skill",
+					Name:           "选择 behavior skill",
+					Description:    "在 planner 输出的 allowed skill family 范围内，用 evidence、state 和 procedural memory 解析具体 family/version/recipe。",
+					RequiredSkills: []string{"behavior_intervention"},
+				},
+				{
+					ID:             "execute-behavior-intervention",
+					Name:           "执行 behavior intervention block",
+					Description:    "由 behavior agent 产出 grounded behavior recommendations，并进入 verification / governance 主链。",
+					RequiredSkills: []string{"behavior_intervention"},
+				},
+			},
+		}
 	case taskspec.UserIntentLifeEventTrigger:
 		blocks := lifeEventBlocks(spec, slice)
 		return ExecutionPlan{

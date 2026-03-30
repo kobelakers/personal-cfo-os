@@ -18,6 +18,7 @@ const (
 	ArtifactKindLifeEventAssessment      ArtifactKind = "life_event_assessment_report"
 	ArtifactKindTaxOptimizationReport    ArtifactKind = "tax_optimization_report"
 	ArtifactKindPortfolioRebalanceReport ArtifactKind = "portfolio_rebalance_report"
+	ArtifactKindBehaviorInterventionReport ArtifactKind = "behavior_intervention_report"
 	ArtifactKindWorkflowTimeline         ArtifactKind = "workflow_timeline"
 	ArtifactKindVerificationReport       ArtifactKind = "verification_report"
 	ArtifactKindCheckpointDump           ArtifactKind = "checkpoint_dump"
@@ -161,12 +162,37 @@ type PortfolioRebalanceReport struct {
 	GeneratedAt          time.Time                 `json:"generated_at"`
 }
 
+type BehaviorInterventionReport struct {
+	TaskID               string                    `json:"task_id"`
+	WorkflowID           string                    `json:"workflow_id"`
+	Summary              string                    `json:"summary"`
+	DeterministicMetrics map[string]any            `json:"deterministic_metrics"`
+	SelectedSkillFamily  string                    `json:"selected_skill_family"`
+	SelectedSkillVersion string                    `json:"selected_skill_version"`
+	SelectedRecipeID     string                    `json:"selected_recipe_id"`
+	SkillSelectionReasons []string                 `json:"skill_selection_reasons,omitempty"`
+	Recommendations      []analysis.Recommendation `json:"recommendations,omitempty"`
+	MetricRecords        []finance.MetricRecord    `json:"metric_records,omitempty"`
+	SourceBlockIDs       []string                  `json:"source_block_ids,omitempty"`
+	SourceMemoryIDs      []string                  `json:"source_memory_ids,omitempty"`
+	SourceEvidenceIDs    []observation.EvidenceID  `json:"source_evidence_ids,omitempty"`
+	RiskFlags            []analysis.RiskFlag       `json:"risk_flags,omitempty"`
+	GroundingRefs        []string                  `json:"grounding_refs,omitempty"`
+	Caveats              []string                  `json:"caveats,omitempty"`
+	ApprovalRequired     bool                      `json:"approval_required"`
+	ApprovalReason       string                    `json:"approval_reason,omitempty"`
+	PolicyRuleRefs       []string                  `json:"policy_rule_refs,omitempty"`
+	Confidence           float64                   `json:"confidence"`
+	GeneratedAt          time.Time                 `json:"generated_at"`
+}
+
 type ReportPayload struct {
 	MonthlyReview       *MonthlyReviewReport       `json:"monthly_review,omitempty"`
 	DebtDecision        *DebtDecisionReport        `json:"debt_decision,omitempty"`
 	LifeEventAssessment *LifeEventAssessmentReport `json:"life_event_assessment,omitempty"`
 	TaxOptimization     *TaxOptimizationReport     `json:"tax_optimization,omitempty"`
 	PortfolioRebalance  *PortfolioRebalanceReport  `json:"portfolio_rebalance,omitempty"`
+	BehaviorIntervention *BehaviorInterventionReport `json:"behavior_intervention,omitempty"`
 }
 
 func (p ReportPayload) Validate() error {
@@ -184,6 +210,9 @@ func (p ReportPayload) Validate() error {
 		count++
 	}
 	if p.PortfolioRebalance != nil {
+		count++
+	}
+	if p.BehaviorIntervention != nil {
 		count++
 	}
 	if count != 1 {
@@ -204,6 +233,8 @@ func (p ReportPayload) Summary() string {
 		return p.TaxOptimization.Summary
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.Summary
+	case p.BehaviorIntervention != nil:
+		return p.BehaviorIntervention.Summary
 	default:
 		return ""
 	}
@@ -221,6 +252,8 @@ func (p ReportPayload) ArtifactKind() ArtifactKind {
 		return ArtifactKindTaxOptimizationReport
 	case p.PortfolioRebalance != nil:
 		return ArtifactKindPortfolioRebalanceReport
+	case p.BehaviorIntervention != nil:
+		return ArtifactKindBehaviorInterventionReport
 	default:
 		return ""
 	}
@@ -238,6 +271,8 @@ func (p ReportPayload) ProducedAt() time.Time {
 		return p.TaxOptimization.GeneratedAt
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.GeneratedAt
+	case p.BehaviorIntervention != nil:
+		return p.BehaviorIntervention.GeneratedAt
 	default:
 		return time.Time{}
 	}
@@ -255,6 +290,8 @@ func (p ReportPayload) WorkflowID() string {
 		return p.TaxOptimization.WorkflowID
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.WorkflowID
+	case p.BehaviorIntervention != nil:
+		return p.BehaviorIntervention.WorkflowID
 	default:
 		return ""
 	}
@@ -270,6 +307,8 @@ func (p ReportPayload) Recommendations() []analysis.Recommendation {
 		return append([]analysis.Recommendation{}, p.TaxOptimization.Recommendations...)
 	case p.PortfolioRebalance != nil:
 		return append([]analysis.Recommendation{}, p.PortfolioRebalance.Recommendations...)
+	case p.BehaviorIntervention != nil:
+		return append([]analysis.Recommendation{}, p.BehaviorIntervention.Recommendations...)
 	default:
 		return nil
 	}
@@ -285,6 +324,8 @@ func (p ReportPayload) RiskFlags() []analysis.RiskFlag {
 		return append([]analysis.RiskFlag{}, p.TaxOptimization.RiskFlags...)
 	case p.PortfolioRebalance != nil:
 		return append([]analysis.RiskFlag{}, p.PortfolioRebalance.RiskFlags...)
+	case p.BehaviorIntervention != nil:
+		return append([]analysis.RiskFlag{}, p.BehaviorIntervention.RiskFlags...)
 	default:
 		return nil
 	}
@@ -300,6 +341,8 @@ func (p ReportPayload) MetricRecords() []finance.MetricRecord {
 		return append([]finance.MetricRecord{}, p.TaxOptimization.MetricRecords...)
 	case p.PortfolioRebalance != nil:
 		return append([]finance.MetricRecord{}, p.PortfolioRebalance.MetricRecords...)
+	case p.BehaviorIntervention != nil:
+		return append([]finance.MetricRecord{}, p.BehaviorIntervention.MetricRecords...)
 	default:
 		return nil
 	}
@@ -315,6 +358,8 @@ func (p ReportPayload) GroundingRefs() []string {
 		return append([]string{}, p.TaxOptimization.GroundingRefs...)
 	case p.PortfolioRebalance != nil:
 		return append([]string{}, p.PortfolioRebalance.GroundingRefs...)
+	case p.BehaviorIntervention != nil:
+		return append([]string{}, p.BehaviorIntervention.GroundingRefs...)
 	default:
 		return nil
 	}
@@ -330,6 +375,8 @@ func (p ReportPayload) Caveats() []string {
 		return append([]string{}, p.TaxOptimization.Caveats...)
 	case p.PortfolioRebalance != nil:
 		return append([]string{}, p.PortfolioRebalance.Caveats...)
+	case p.BehaviorIntervention != nil:
+		return append([]string{}, p.BehaviorIntervention.Caveats...)
 	default:
 		return nil
 	}
@@ -345,6 +392,8 @@ func (p ReportPayload) PolicyRuleRefs() []string {
 		return append([]string{}, p.TaxOptimization.PolicyRuleRefs...)
 	case p.PortfolioRebalance != nil:
 		return append([]string{}, p.PortfolioRebalance.PolicyRuleRefs...)
+	case p.BehaviorIntervention != nil:
+		return append([]string{}, p.BehaviorIntervention.PolicyRuleRefs...)
 	default:
 		return nil
 	}
@@ -360,6 +409,8 @@ func (p ReportPayload) ApprovalRequired() bool {
 		return p.TaxOptimization.ApprovalRequired
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.ApprovalRequired
+	case p.BehaviorIntervention != nil:
+		return p.BehaviorIntervention.ApprovalRequired
 	default:
 		return false
 	}
@@ -375,6 +426,8 @@ func (p ReportPayload) ApprovalReason() string {
 		return p.TaxOptimization.ApprovalReason
 	case p.PortfolioRebalance != nil:
 		return p.PortfolioRebalance.ApprovalReason
+	case p.BehaviorIntervention != nil:
+		return p.BehaviorIntervention.ApprovalReason
 	default:
 		return ""
 	}

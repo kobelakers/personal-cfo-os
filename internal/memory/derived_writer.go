@@ -17,6 +17,7 @@ type WorkflowMemoryResult struct {
 	Retrieved         []MemoryRecord `json:"retrieved,omitempty"`
 	PlanningRetrieved []MemoryRecord `json:"planning_retrieved,omitempty"`
 	CashflowRetrieved []MemoryRecord `json:"cashflow_retrieved,omitempty"`
+	BehaviorRetrieved []MemoryRecord `json:"behavior_retrieved,omitempty"`
 }
 
 type WorkflowMemoryService struct {
@@ -25,6 +26,7 @@ type WorkflowMemoryService struct {
 	Retriever            HybridRetriever
 	PlannerQueryBuilder  MemoryQueryBuilder
 	CashflowQueryBuilder MemoryQueryBuilder
+	BehaviorQueryBuilder MemoryQueryBuilder
 	TraceRecorder        MemoryTraceRecorder
 	TraceIDBuilder       func(workflowID string, taskID string, consumer string) string
 	Now                  func() time.Time
@@ -223,6 +225,40 @@ func (s WorkflowMemoryService) SyncPortfolioRebalance(
 	}, nil
 }
 
+func (s WorkflowMemoryService) SyncBehaviorIntervention(
+	ctx context.Context,
+	spec taskspec.TaskSpec,
+	workflowID string,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+) (WorkflowMemoryResult, error) {
+	now := s.now()
+	traceID := s.traceID(workflowID, spec.ID, "memory_steward")
+	writeCtx := MemoryWriteContext{WorkflowID: workflowID, TaskID: spec.ID, TraceID: traceID, Actor: "memory_steward"}
+	behaviorQuery, behaviorRetrieved, behaviorResults, err := s.retrieveQuery(ctx, s.behaviorBuilder(), QueryBuildInput{
+		WorkflowID: workflowID,
+		Task:       spec,
+		State:      current,
+		Evidence:   evidence,
+		TraceID:    traceID,
+	})
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	s.recordSelection(behaviorQuery, behaviorResults)
+	records := deriveBehaviorInterventionMemories(spec, writeCtx, current, evidence, now)
+	generatedIDs, err := s.writeRecords(ctx, records)
+	if err != nil {
+		return WorkflowMemoryResult{}, err
+	}
+	return WorkflowMemoryResult{
+		GeneratedIDs:     generatedIDs,
+		GeneratedRecords: records,
+		Retrieved:        behaviorRetrieved,
+		BehaviorRetrieved: behaviorRetrieved,
+	}, nil
+}
+
 func (s WorkflowMemoryService) retrieve(ctx context.Context, query RetrievalQuery) ([]MemoryRecord, error) {
 	if s.Retriever == nil {
 		return nil, nil
@@ -300,6 +336,13 @@ func (s WorkflowMemoryService) cashflowBuilder() MemoryQueryBuilder {
 		return s.CashflowQueryBuilder
 	}
 	return CashflowMemoryQueryBuilder{}
+}
+
+func (s WorkflowMemoryService) behaviorBuilder() MemoryQueryBuilder {
+	if s.BehaviorQueryBuilder != nil {
+		return s.BehaviorQueryBuilder
+	}
+	return BehaviorSkillSelectionQueryBuilder{}
 }
 
 func (s WorkflowMemoryService) recordQuery(query RetrievalQuery) {
@@ -657,6 +700,55 @@ func deriveLifeEventMemories(
 		Summary: "Life event workflows should update state, verify generated tasks, and register follow-up TaskSpec objects in runtime.",
 		Facts: []MemoryFact{
 			{Key: "workflow_c_checklist", Value: "observe,reduce,memory,plan,domain,verify,task_generate,govern,register"},
+		},
+		Source: MemorySource{
+			TaskID:     spec.ID,
+			WorkflowID: writeCtx.WorkflowID,
+			TraceID:    writeCtx.TraceID,
+			Actor:      writeCtx.Actor,
+		},
+		Confidence: MemoryConfidence{Score: 0.95, Rationale: "workflow-generated procedural memory"},
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	})
+	return records
+}
+
+func deriveBehaviorInterventionMemories(
+	spec taskspec.TaskSpec,
+	writeCtx MemoryWriteContext,
+	current state.FinancialWorldState,
+	evidence []observation.EvidenceRecord,
+	now time.Time,
+) []MemoryRecord {
+	records := make([]MemoryRecord, 0, 2)
+	if current.BehaviorState.DuplicateSubscriptionCount >= 2 || current.BehaviorState.LateNightSpendingFrequency >= 0.30 {
+		records = append(records, MemoryRecord{
+			ID:      writeCtx.WorkflowID + "-memory-behavior-anomaly",
+			Kind:    MemoryKindSemantic,
+			Summary: "Behavior intervention should weigh duplicate subscriptions, late-night spend spikes, and discretionary pressure before recommending an intervention skill.",
+			Facts: []MemoryFact{
+				{Key: "duplicate_subscription_count", Value: fmt.Sprintf("%d", current.BehaviorState.DuplicateSubscriptionCount)},
+				{Key: "late_night_spending_frequency", Value: fmt.Sprintf("%.4f", current.BehaviorState.LateNightSpendingFrequency)},
+			},
+			Source: MemorySource{
+				EvidenceIDs: evidenceIDsByType(evidence, observation.EvidenceTypeTransactionBatch, observation.EvidenceTypeRecurringSubscription, observation.EvidenceTypeLateNightSpendingSignal),
+				TaskID:      spec.ID,
+				WorkflowID:  writeCtx.WorkflowID,
+				TraceID:     writeCtx.TraceID,
+				Actor:       writeCtx.Actor,
+			},
+			Confidence: MemoryConfidence{Score: 0.9, Rationale: "deterministic behavior anomaly baseline for skill selection"},
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+	records = append(records, MemoryRecord{
+		ID:      writeCtx.WorkflowID + "-memory-behavior-procedure",
+		Kind:    MemoryKindProcedural,
+		Summary: "Behavior intervention workflows should retrieve prior intervention outcomes before selecting a behavior skill family and recipe.",
+		Facts: []MemoryFact{
+			{Key: "behavior_intervention_checklist", Value: "observe,memory,plan,select_skill,execute,verify,govern,finalize"},
 		},
 		Source: MemorySource{
 			TaskID:     spec.ID,

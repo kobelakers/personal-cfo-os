@@ -198,6 +198,7 @@ func printReplayView(stdout io.Writer, view observability.ReplayView, format str
 			fmt.Fprintf(stdout, "task_graph_id=%s\n", summary.TaskGraphID)
 		}
 		printSection(stdout, "plan", summary.PlanSummary)
+		printSection(stdout, "skill", summary.SkillSummary)
 		printSection(stdout, "memory", summary.MemorySummary)
 		printSection(stdout, "validation", summary.ValidatorSummary)
 		printSection(stdout, "governance", summary.GovernanceSummary)

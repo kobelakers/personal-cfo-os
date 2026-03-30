@@ -299,8 +299,9 @@ func loadFixtureDeps(fixtureDir string, nowFn func() time.Time) (fixtureDeps, er
 
 func buildSystemStepBus(deps fixtureDeps, eventLog *observability.EventLog, agentTrace *observability.AgentTraceLog) (agents.SystemStepBus, error) {
 	memoryService := memory.WorkflowMemoryService{
-		Writer:    deps.Writer,
-		Retriever: deps.Retriever,
+		Writer:               deps.Writer,
+		Retriever:            deps.Retriever,
+		BehaviorQueryBuilder: memory.BehaviorSkillSelectionQueryBuilder{},
 		Gate: governance.MemoryWriteGateService{
 			PolicyEngine: governance.StaticPolicyEngine{},
 			Policy: governance.MemoryWritePolicy{
@@ -332,6 +333,9 @@ func buildSystemStepBus(deps fixtureDeps, eventLog *observability.EventLog, agen
 			Now: deps.LedgerAdapter.Now,
 		},
 		PortfolioRebalanceAggregator: reporting.PortfolioRebalanceAggregator{
+			Now: deps.LedgerAdapter.Now,
+		},
+		BehaviorInterventionAggregator: reporting.BehaviorInterventionAggregator{
 			Now: deps.LedgerAdapter.Now,
 		},
 		Artifacts: reporting.ArtifactService{
@@ -371,6 +375,7 @@ func buildSystemStepBus(deps fixtureDeps, eventLog *observability.EventLog, agen
 		agents.DebtAgentHandler{Engine: finance.DeterministicEngine{}},
 		agents.TaxAgentHandler{Engine: finance.DeterministicEngine{}},
 		agents.PortfolioAgentHandler{Engine: finance.DeterministicEngine{}},
+		agents.BehaviorAgentHandler{},
 		agents.TaskGenerationAgentHandler{},
 		agents.ReportDraftAgentHandler{Service: reportService},
 		agents.ReportFinalizeAgentHandler{Service: reportService},

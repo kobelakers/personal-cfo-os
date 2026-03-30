@@ -100,6 +100,8 @@ func (a MemoryStewardHandler) Handle(handlerCtx AgentHandlerContext, envelope pr
 		result, err = service.SyncMonthlyReview(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	case taskspec.UserIntentDebtVsInvest:
 		result, err = service.SyncDebtDecision(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence, payload.ConclusionHint)
+	case taskspec.UserIntentBehaviorIntervention:
+		result, err = service.SyncBehaviorIntervention(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	case taskspec.UserIntentLifeEventTrigger:
 		result, err = service.SyncLifeEvent(handlerCtx.Context, envelope.Task, envelope.Metadata.CorrelationID, payload.CurrentState, payload.Evidence)
 	case taskspec.UserIntentTaxOptimization:
@@ -378,6 +380,26 @@ func (a VerificationAgentHandler) Handle(handlerCtx AgentHandlerContext, envelop
 			payload.BlockVerificationContexts,
 			payload.FinalVerificationContext,
 			*payload.Report.PortfolioRebalance,
+		)
+	case taskspec.UserIntentBehaviorIntervention:
+		if payload.Report.BehaviorIntervention == nil {
+			return AgentHandlerResult{}, &AgentExecutionError{
+				Recipient: RecipientVerificationAgent,
+				Kind:      envelope.Kind,
+				Failure:   protocol.AgentFailure{Category: protocol.AgentFailureBadPayload, Message: "behavior intervention verification requires behavior intervention report payload"},
+			}
+		}
+		result, err = a.Pipeline.VerifyBehaviorIntervention(
+			handlerCtx.Context,
+			envelope.Task,
+			payload.CurrentState,
+			payload.Evidence,
+			payload.Memories,
+			payload.Plan,
+			payload.BlockResults,
+			payload.BlockVerificationContexts,
+			payload.FinalVerificationContext,
+			*payload.Report.BehaviorIntervention,
 		)
 	default:
 		err = fmt.Errorf("unsupported verification intent %q", envelope.Task.UserIntentType)

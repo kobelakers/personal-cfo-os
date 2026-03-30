@@ -37,6 +37,10 @@ type PortfolioRebalanceAggregator struct {
 	Now func() time.Time
 }
 
+type BehaviorInterventionAggregator struct {
+	Now func() time.Time
+}
+
 func (a MonthlyReviewAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (MonthlyReviewReport, error) {
 	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
 	if err != nil {
@@ -258,6 +262,47 @@ func (a PortfolioRebalanceAggregator) Aggregate(spec taskspec.TaskSpec, workflow
 		PolicyRuleRefs:       append([]string{}, result.PolicyRuleRefs...),
 		Confidence:           result.Confidence,
 		GeneratedAt:          a.now(),
+	}, nil
+}
+
+func (a BehaviorInterventionAggregator) Aggregate(spec taskspec.TaskSpec, workflowID string, input DraftInput) (BehaviorInterventionReport, error) {
+	ordered, err := orderedBlockResults(input.Plan, input.BlockResults)
+	if err != nil {
+		return BehaviorInterventionReport{}, err
+	}
+	if len(ordered) != 1 || ordered[0].Behavior == nil {
+		return BehaviorInterventionReport{}, fmt.Errorf("behavior intervention draft requires exactly one behavior block result")
+	}
+	sourceBlockIDs, sourceMemoryIDs, sourceEvidenceIDs := collectProvenance(ordered)
+	result := ordered[0].Behavior
+	return BehaviorInterventionReport{
+		TaskID:                spec.ID,
+		WorkflowID:            workflowID,
+		Summary:               result.Summary,
+		DeterministicMetrics: map[string]any{
+			"duplicate_subscription_count": result.DeterministicMetrics.DuplicateSubscriptionCount,
+			"late_night_spend_count":       result.DeterministicMetrics.LateNightSpendCount,
+			"late_night_spend_ratio":       result.DeterministicMetrics.LateNightSpendRatio,
+			"discretionary_pressure_score": result.DeterministicMetrics.DiscretionaryPressureScore,
+			"recurring_subscription_count": result.DeterministicMetrics.RecurringSubscriptionCount,
+		},
+		SelectedSkillFamily:   string(result.SelectedSkill.Family),
+		SelectedSkillVersion:  string(result.SelectedSkill.Version),
+		SelectedRecipeID:      result.SelectedSkill.RecipeID,
+		SkillSelectionReasons: append([]string{}, result.SkillSelectionReasons...),
+		Recommendations:       append([]analysis.Recommendation{}, result.Recommendations...),
+		MetricRecords:         append([]finance.MetricRecord{}, result.MetricRecords...),
+		SourceBlockIDs:        sourceBlockIDs,
+		SourceMemoryIDs:       sourceMemoryIDs,
+		SourceEvidenceIDs:     sourceEvidenceIDs,
+		RiskFlags:             append([]analysis.RiskFlag{}, result.RiskFlags...),
+		GroundingRefs:         append([]string{}, result.GroundingRefs...),
+		Caveats:               append([]string{}, result.Caveats...),
+		ApprovalRequired:      result.ApprovalRequired,
+		ApprovalReason:        result.ApprovalReason,
+		PolicyRuleRefs:        append([]string{}, result.PolicyRuleRefs...),
+		Confidence:            result.Confidence,
+		GeneratedAt:           a.now(),
 	}, nil
 }
 
@@ -507,6 +552,13 @@ func (a TaxOptimizationAggregator) now() time.Time {
 }
 
 func (a PortfolioRebalanceAggregator) now() time.Time {
+	if a.Now != nil {
+		return a.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (a BehaviorInterventionAggregator) now() time.Time {
 	if a.Now != nil {
 		return a.Now().UTC()
 	}

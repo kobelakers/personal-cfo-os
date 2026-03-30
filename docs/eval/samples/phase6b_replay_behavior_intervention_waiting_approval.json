@@ -1,0 +1,313 @@
+{
+  "query": {
+    "workflow_id": "workflow-behavior-intervention-20260330080001"
+  },
+  "scope": {
+    "kind": "workflow",
+    "id": "workflow-behavior-intervention-20260330080001"
+  },
+  "workflow": {
+    "workflow_id": "workflow-behavior-intervention-20260330080001",
+    "task_id": "task-behavior-intervention-20260330",
+    "intent": "behavior_intervention",
+    "runtime_state": "waiting_approval",
+    "approval_id": "workflow-behavior-intervention-20260330080001-approval",
+    "root_correlation_id": "workflow-behavior-intervention-20260330080001",
+    "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。",
+    "artifacts": [
+      {
+        "id": "workflow-behavior-intervention-20260330080001-replay_bundle",
+        "kind": "replay_bundle",
+        "workflow_id": "workflow-behavior-intervention-20260330080001",
+        "task_id": "task-behavior-intervention-20260330",
+        "location": "/Users/kuzfu/Desktop/Personal CFO OS/var/phase6b-evidence/behavior_intervention_waiting_approval/artifacts/workflow-behavior-intervention-20260330080001-replay_bundle.json",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "workflow-behavior-intervention-20260330080001-replay_summary",
+        "kind": "replay_summary",
+        "workflow_id": "workflow-behavior-intervention-20260330080001",
+        "task_id": "task-behavior-intervention-20260330",
+        "location": "/Users/kuzfu/Desktop/Personal CFO OS/var/phase6b-evidence/behavior_intervention_waiting_approval/artifacts/workflow-behavior-intervention-20260330080001-replay_summary.json",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      }
+    ]
+  },
+  "provenance": {
+    "scope": {
+      "kind": "workflow",
+      "id": "workflow-behavior-intervention-20260330080001"
+    },
+    "nodes": [
+      {
+        "id": "approval:workflow-behavior-intervention-20260330080001-approval",
+        "type": "approval",
+        "ref_id": "workflow-behavior-intervention-20260330080001-approval",
+        "label": "workflow-behavior-intervention-20260330080001-approval"
+      },
+      {
+        "id": "artifact:workflow-behavior-intervention-20260330080001-replay_bundle",
+        "type": "artifact",
+        "ref_id": "workflow-behavior-intervention-20260330080001-replay_bundle",
+        "label": "replay_bundle",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "artifact:workflow-behavior-intervention-20260330080001-replay_summary",
+        "type": "artifact",
+        "ref_id": "workflow-behavior-intervention-20260330080001-replay_summary",
+        "label": "replay_summary",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "label": "workflow-behavior-intervention-20260330080000-memory-behavior-anomaly"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "label": "workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "label": "workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080001-memory-behavior-anomaly",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080001-memory-behavior-anomaly",
+        "label": "workflow-behavior-intervention-20260330080001-memory-behavior-anomaly"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "label": "workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1"
+      },
+      {
+        "id": "policy_decision:workflow-behavior-intervention-20260330080001:0",
+        "type": "policy_decision",
+        "label": "workflow_output",
+        "summary": "高强度 discretionary guardrail 需要治理审批"
+      },
+      {
+        "id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "type": "selected_skill",
+        "label": "discretionary_guardrail",
+        "summary": "selected discretionary_guardrail/hard_cap.v1",
+        "attributes": {
+          "recipe_id": "hard_cap.v1",
+          "skill_family": "discretionary_guardrail",
+          "skill_version": "v1"
+        }
+      },
+      {
+        "id": "skill_execution:workflow-behavior-intervention-20260330080001:12",
+        "type": "skill_execution",
+        "label": "hard_cap.v1",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。",
+        "attributes": {
+          "approval_required": "true",
+          "recipe_id": "hard_cap.v1",
+          "skill_family": "discretionary_guardrail",
+          "skill_selection_reasons": "the explicit intervention request focused on a spending guardrail, so the selector chose the discretionary guardrail family,repeated discretionary-pressure anomaly plus prior procedural memory escalated the recipe to hard_cap.v1",
+          "skill_version": "v1"
+        }
+      },
+      {
+        "id": "task:task-behavior-intervention-20260330",
+        "type": "task",
+        "ref_id": "task-behavior-intervention-20260330",
+        "label": "task-behavior-intervention-20260330"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080001:business:0",
+        "type": "validator_verdict",
+        "label": "financial_business_rule_validator",
+        "summary": "financial business-rule checks passed"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080001:grounding:0",
+        "type": "validator_verdict",
+        "label": "financial_grounding_validator",
+        "summary": "finance recommendation grounding checks passed"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080001:numeric:0",
+        "type": "validator_verdict",
+        "label": "financial_numeric_consistency_validator",
+        "summary": "numeric consistency checks passed"
+      },
+      {
+        "id": "workflow:workflow-behavior-intervention-20260330080001",
+        "type": "workflow",
+        "ref_id": "workflow-behavior-intervention-20260330080001",
+        "label": "workflow-behavior-intervention-20260330080001",
+        "summary": "行为干预块选择了 discretionary_guardrail/hard_cap.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      }
+    ],
+    "edges": [
+      {
+        "id": "memory-skill-influence:workflow-behavior-intervention-20260330080001:8:workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "from_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "type": "influenced_by_memory"
+      },
+      {
+        "id": "memory-skill-influence:workflow-behavior-intervention-20260330080001:8:workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "from_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "type": "influenced_by_memory"
+      },
+      {
+        "id": "memory-skill-influence:workflow-behavior-intervention-20260330080001:8:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "from_node_id": "memory:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "type": "influenced_by_memory"
+      },
+      {
+        "id": "skill-execution:workflow-behavior-intervention-20260330080001:12",
+        "from_node_id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "to_node_id": "skill_execution:workflow-behavior-intervention-20260330080001:12",
+        "type": "executed_as"
+      },
+      {
+        "id": "skill-outcome-memory:workflow-behavior-intervention-20260330080001:24:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "from_node_id": "skill_execution:workflow-behavior-intervention-20260330080001:12",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "type": "produced_skill_outcome_memory"
+      },
+      {
+        "id": "workflow-approval:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080001-approval",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "approval:workflow-behavior-intervention-20260330080001-approval",
+        "type": "requested_approval"
+      },
+      {
+        "id": "workflow-artifact:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080001-replay_bundle",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "artifact:workflow-behavior-intervention-20260330080001-replay_bundle",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-artifact:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080001-replay_summary",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "artifact:workflow-behavior-intervention-20260330080001-replay_summary",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080001-memory-behavior-anomaly",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080001-memory-behavior-anomaly",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080001:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-policy_decision:workflow-behavior-intervention-20260330080001:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "policy_decision:workflow-behavior-intervention-20260330080001:0",
+        "type": "blocked_by_policy"
+      },
+      {
+        "id": "workflow-selected-skill:workflow-behavior-intervention-20260330080001:8",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080001:8",
+        "type": "selected_skill"
+      },
+      {
+        "id": "workflow-task:workflow-behavior-intervention-20260330080001:task-behavior-intervention-20260330",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "task:task-behavior-intervention-20260330",
+        "type": "executed_as"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080001:business:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080001:business:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080001:grounding:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080001:grounding:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080001:numeric:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080001",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080001:numeric:0",
+        "type": "validated_by"
+      }
+    ]
+  },
+  "summary": {
+    "goal_summary": "behavior_intervention",
+    "plan_summary": [
+      "generated 1 execution blocks blocks=behavior-intervention"
+    ],
+    "skill_summary": [
+      "selected=discretionary_guardrail/hard_cap.v1",
+      "selection_reasons=the explicit intervention request focused on a spending guardrail, so the selector chose the discretionary guardrail family,repeated discretionary-pressure anomaly plus prior procedural memory escalated the recipe to hard_cap.v1",
+      "selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+      "executed=discretionary_guardrail/hard_cap.v1",
+      "skill_policy_refs=behavior.guardrail.hard_cap.approval_required",
+      "outcome_memory=workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1",
+      "skill_outcome_state=waiting_approval"
+    ],
+    "memory_summary": [
+      "selected=workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly"
+    ],
+    "validator_summary": [
+      "grounding:financial_grounding_validator:pass",
+      "numeric:financial_numeric_consistency_validator:pass",
+      "business:financial_business_rule_validator:pass"
+    ],
+    "governance_summary": [
+      "workflow_output:require_approval"
+    ],
+    "final_state": "waiting_approval"
+  },
+  "explanation": {
+    "why_waiting_approval": "高强度 discretionary guardrail 需要治理审批",
+    "why_skill_selected": [
+      "skill selected because the explicit intervention request focused on a spending guardrail, so the selector chose the discretionary guardrail family,repeated discretionary-pressure anomaly plus prior procedural memory escalated the recipe to hard_cap.v1",
+      "procedural memory influenced selection: workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1",
+      "skill outcome memory written: workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1"
+    ],
+    "why_memory_decision": [
+      "memory selected: workflow-behavior-intervention-20260330080000-skill-outcome-soft_nudge.v1,workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080001-skill-outcome-hard_cap.v1,workflow-behavior-intervention-20260330080000-skill-outcome-budget_guardrail.v1,workflow-behavior-intervention-20260330080001-memory-behavior-anomaly",
+      "selected memories injected into downstream context"
+    ]
+  },
+  "degraded": false,
+  "projection_status": "complete",
+  "projection_version": 1
+}

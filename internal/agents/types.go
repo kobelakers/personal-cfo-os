@@ -27,6 +27,7 @@ const (
 	RecipientDebtAgent           = "debt_agent"
 	RecipientTaxAgent            = "tax_agent"
 	RecipientPortfolioAgent      = "portfolio_agent"
+	RecipientBehaviorAgent       = "behavior_agent"
 	RecipientTaskGenerationAgent = "task_generation_agent"
 )
 

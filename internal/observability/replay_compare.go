@@ -53,6 +53,7 @@ func BuildReplayComparison(left ReplayView, right ReplayView) ReplayComparison {
 
 	appendScalarDiff("runtime", "final_state", left.Summary.FinalState, right.Summary.FinalState, "final runtime state changed")
 	appendSectionDiff("planning", "plan_summary", left.Summary.PlanSummary, right.Summary.PlanSummary, "planning summary changed")
+	appendSectionDiff("skill", "skill_summary", left.Summary.SkillSummary, right.Summary.SkillSummary, "skill selection/execution changed")
 	appendSectionDiff("memory", "memory_summary", left.Summary.MemorySummary, right.Summary.MemorySummary, "memory selection/rejection changed")
 	appendSectionDiff("validation", "validator_summary", left.Summary.ValidatorSummary, right.Summary.ValidatorSummary, "validator verdicts changed")
 	appendSectionDiff("governance", "governance_summary", left.Summary.GovernanceSummary, right.Summary.GovernanceSummary, "governance outcome changed")

@@ -55,3 +55,23 @@ func TestRunPhase5DMockRemainsSupported(t *testing.T) {
 		t.Fatalf("expected backward-compatible phase output, got %s", output)
 	}
 }
+
+func TestRunPhase6BCorpusSummaryRemainsSupported(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{
+		"--mode", "corpus",
+		"--corpus", "phase6b-default",
+		"--fixture-dir", filepath.Join("..", "..", "tests", "fixtures"),
+		"--workdir", t.TempDir(),
+		"--format", "summary",
+	}, &stdout, &stderr); err != nil {
+		t.Fatalf("run phase 6b corpus summary: %v stderr=%s", err, stderr.String())
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "corpus=phase6b-default") || !strings.Contains(output, "behavior_intervention_happy_path") {
+		t.Fatalf("expected phase 6b corpus summary output, got %s", output)
+	}
+}

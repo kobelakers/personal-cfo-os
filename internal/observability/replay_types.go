@@ -120,6 +120,7 @@ type FailureAttribution struct {
 type ReplaySummary struct {
 	GoalSummary          string   `json:"goal_summary,omitempty"`
 	PlanSummary          []string `json:"plan_summary,omitempty"`
+	SkillSummary         []string `json:"skill_summary,omitempty"`
 	MemorySummary        []string `json:"memory_summary,omitempty"`
 	ValidatorSummary     []string `json:"validator_summary,omitempty"`
 	GovernanceSummary    []string `json:"governance_summary,omitempty"`
@@ -130,6 +131,7 @@ type ReplaySummary struct {
 type ReplayExplanation struct {
 	WhyFailed           string   `json:"why_failed,omitempty"`
 	WhyWaitingApproval  string   `json:"why_waiting_approval,omitempty"`
+	WhySkillSelected    []string `json:"why_skill_selected,omitempty"`
 	WhyGeneratedTask    []string `json:"why_generated_task,omitempty"`
 	WhyChildExecuted    []string `json:"why_child_executed,omitempty"`
 	WhyMemoryDecision   []string `json:"why_memory_decision,omitempty"`
@@ -175,6 +177,7 @@ type DebugSummary struct {
 	FinalRuntimeState string   `json:"final_runtime_state,omitempty"`
 	Goal              string   `json:"goal,omitempty"`
 	PlanSummary       []string `json:"plan_summary,omitempty"`
+	SkillSummary      []string `json:"skill_summary,omitempty"`
 	MemorySummary     []string `json:"memory_summary,omitempty"`
 	ValidatorSummary  []string `json:"validator_summary,omitempty"`
 	GovernanceSummary []string `json:"governance_summary,omitempty"`

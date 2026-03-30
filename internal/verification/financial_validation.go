@@ -438,7 +438,7 @@ func reportPayloadFromOutput(output any) (trustReportData, error) {
 	if data, ok := extractTrustReportData(value); ok {
 		return data, nil
 	}
-	for _, name := range []string{"MonthlyReview", "DebtDecision", "TaxOptimization", "PortfolioRebalance"} {
+	for _, name := range []string{"MonthlyReview", "DebtDecision", "TaxOptimization", "PortfolioRebalance", "BehaviorIntervention"} {
 		field := value.FieldByName(name)
 		if !field.IsValid() || (field.Kind() == reflect.Pointer && field.IsNil()) {
 			continue

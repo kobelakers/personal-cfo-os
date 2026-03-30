@@ -266,6 +266,8 @@ func (PortfolioRebalanceDeterministicValidator) Validate(_ context.Context, spec
 }
 
 type PortfolioRebalanceBusinessValidator struct{}
+type BehaviorInterventionDeterministicValidator struct{}
+type BehaviorInterventionBusinessValidator struct{}
 
 func (PortfolioRebalanceBusinessValidator) Validate(_ context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
 	payload, err := toMap(output)
@@ -377,6 +379,68 @@ func fullCoverage(taskID string) EvidenceCoverageReport {
 		CoverageRatio: 1,
 		Items:         nil,
 	}
+}
+
+func (BehaviorInterventionDeterministicValidator) Validate(_ context.Context, spec taskspec.TaskSpec, _ state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	requiredKeys := []string{"summary", "deterministic_metrics", "selected_skill_family", "selected_recipe_id", "recommendations", "risk_flags"}
+	missing := missingKeys(payload, requiredKeys)
+	status := VerificationStatusPass
+	message := "behavior intervention output structure is valid"
+	failedRules := []string{}
+	if len(missing) > 0 {
+		status = VerificationStatusFail
+		message = "missing behavior intervention keys: " + strings.Join(missing, ", ")
+		failedRules = append(failedRules, "required_output_keys")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "behavior_intervention_deterministic_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "repair behavior report structure and regenerate the intervention output",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
+}
+
+func (BehaviorInterventionBusinessValidator) Validate(_ context.Context, spec taskspec.TaskSpec, currentState state.FinancialWorldState, _ []observation.EvidenceRecord, output any) (VerificationResult, error) {
+	payload, err := toMap(output)
+	if err != nil {
+		return VerificationResult{}, err
+	}
+	reportText := flattenOutput(payload)
+	status := VerificationStatusPass
+	message := "behavior intervention business checks passed"
+	failedRules := []string{}
+	switch {
+	case currentState.BehaviorState.DuplicateSubscriptionCount >= 2 && !containsAny(reportText, "订阅", "subscription"):
+		status = VerificationStatusFail
+		message = "duplicate subscription anomaly is not reflected in behavior intervention output"
+		failedRules = append(failedRules, "duplicate_subscription_coverage")
+	case currentState.BehaviorState.LateNightSpendingFrequency >= 0.30 && !containsAny(reportText, "深夜", "late-night", "spend"):
+		status = VerificationStatusFail
+		message = "late-night spending anomaly is not reflected in behavior intervention output"
+		failedRules = append(failedRules, "late_night_signal_coverage")
+	case extractString(payload, "selected_recipe_id") == "hard_cap.v1" && !extractBool(payload, "approval_required"):
+		status = VerificationStatusFail
+		message = "hard_cap.v1 must require approval"
+		failedRules = append(failedRules, "hard_cap_requires_approval")
+	}
+	return VerificationResult{
+		Status:                  status,
+		Validator:               "behavior_intervention_business_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		RecommendedReplanAction: "rebuild behavior intervention output with explicit anomaly justification and approval semantics",
+		Severity:                severityForStatus(status),
+		EvidenceCoverage:        fullCoverage(spec.ID),
+		CheckedAt:               time.Now().UTC(),
+	}, nil
 }
 
 func toMap(output any) (map[string]any, error) {

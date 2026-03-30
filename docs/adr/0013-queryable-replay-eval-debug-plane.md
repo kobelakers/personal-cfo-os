@@ -36,6 +36,8 @@ Phase 6A adds replay/eval/debug as a load-bearing layer with these boundaries:
 9. canonical 6A regression corpus is deterministic/mock only; live provider paths remain smoke/manual evidence
 10. the deterministic corpus now includes an explicit memory-rejection visibility scenario so replay/debug regressions cover why memory was selected or rejected
 
+This ADR remains the canonical replay/eval/debug story even after Phase 6B. Skill selection, behavior execution, procedural-memory influence, and behavior approval outcomes extend this same plane rather than creating a second skill-specific replay system.
+
 ## Consequences
 
 ### Positive

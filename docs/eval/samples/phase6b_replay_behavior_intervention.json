@@ -1,0 +1,289 @@
+{
+  "query": {
+    "workflow_id": "workflow-behavior-intervention-20260330080000"
+  },
+  "scope": {
+    "kind": "workflow",
+    "id": "workflow-behavior-intervention-20260330080000"
+  },
+  "workflow": {
+    "workflow_id": "workflow-behavior-intervention-20260330080000",
+    "task_id": "task-behavior-intervention-20260330",
+    "intent": "behavior_intervention",
+    "runtime_state": "completed",
+    "root_correlation_id": "workflow-behavior-intervention-20260330080000",
+    "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。",
+    "artifacts": [
+      {
+        "id": "workflow-behavior-intervention-20260330080000-behavior_intervention_report",
+        "kind": "behavior_intervention_report",
+        "workflow_id": "workflow-behavior-intervention-20260330080000",
+        "task_id": "task-behavior-intervention-20260330",
+        "location": "/Users/kuzfu/Desktop/Personal CFO OS/var/phase6b-evidence/behavior_intervention_happy_path/artifacts/workflow-behavior-intervention-20260330080000-behavior_intervention_report.json",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "workflow-behavior-intervention-20260330080000-replay_bundle",
+        "kind": "replay_bundle",
+        "workflow_id": "workflow-behavior-intervention-20260330080000",
+        "task_id": "task-behavior-intervention-20260330",
+        "location": "/Users/kuzfu/Desktop/Personal CFO OS/var/phase6b-evidence/behavior_intervention_happy_path/artifacts/workflow-behavior-intervention-20260330080000-replay_bundle.json",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "workflow-behavior-intervention-20260330080000-replay_summary",
+        "kind": "replay_summary",
+        "workflow_id": "workflow-behavior-intervention-20260330080000",
+        "task_id": "task-behavior-intervention-20260330",
+        "location": "/Users/kuzfu/Desktop/Personal CFO OS/var/phase6b-evidence/behavior_intervention_happy_path/artifacts/workflow-behavior-intervention-20260330080000-replay_summary.json",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      }
+    ]
+  },
+  "provenance": {
+    "scope": {
+      "kind": "workflow",
+      "id": "workflow-behavior-intervention-20260330080000"
+    },
+    "nodes": [
+      {
+        "id": "artifact:workflow-behavior-intervention-20260330080000-behavior_intervention_report",
+        "type": "artifact",
+        "ref_id": "workflow-behavior-intervention-20260330080000-behavior_intervention_report",
+        "label": "behavior_intervention_report",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "artifact:workflow-behavior-intervention-20260330080000-replay_bundle",
+        "type": "artifact",
+        "ref_id": "workflow-behavior-intervention-20260330080000-replay_bundle",
+        "label": "replay_bundle",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "artifact:workflow-behavior-intervention-20260330080000-replay_summary",
+        "type": "artifact",
+        "ref_id": "workflow-behavior-intervention-20260330080000-replay_summary",
+        "label": "replay_summary",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "label": "workflow-behavior-intervention-20260330080000-memory-behavior-anomaly"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "label": "workflow-behavior-intervention-20260330080000-memory-behavior-procedure"
+      },
+      {
+        "id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "type": "memory",
+        "ref_id": "workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "label": "workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1"
+      },
+      {
+        "id": "policy_decision:workflow-behavior-intervention-20260330080000:0",
+        "type": "policy_decision",
+        "label": "workflow_output",
+        "summary": "action allowed by default"
+      },
+      {
+        "id": "selected_skill:workflow-behavior-intervention-20260330080000:8",
+        "type": "selected_skill",
+        "label": "subscription_cleanup",
+        "summary": "selected subscription_cleanup/subscription_cleanup.v1",
+        "attributes": {
+          "recipe_id": "subscription_cleanup.v1",
+          "skill_family": "subscription_cleanup",
+          "skill_version": "v1"
+        }
+      },
+      {
+        "id": "skill_execution:workflow-behavior-intervention-20260330080000:12",
+        "type": "skill_execution",
+        "label": "subscription_cleanup.v1",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。",
+        "attributes": {
+          "approval_required": "false",
+          "recipe_id": "subscription_cleanup.v1",
+          "skill_family": "subscription_cleanup",
+          "skill_selection_reasons": "the explicit intervention request focused on subscriptions, so the selector chose the subscription cleanup family",
+          "skill_version": "v1"
+        }
+      },
+      {
+        "id": "task:task-behavior-intervention-20260330",
+        "type": "task",
+        "ref_id": "task-behavior-intervention-20260330",
+        "label": "task-behavior-intervention-20260330"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080000:business:0",
+        "type": "validator_verdict",
+        "label": "financial_business_rule_validator",
+        "summary": "financial business-rule checks passed"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080000:grounding:0",
+        "type": "validator_verdict",
+        "label": "financial_grounding_validator",
+        "summary": "finance recommendation grounding checks passed"
+      },
+      {
+        "id": "validator:workflow-behavior-intervention-20260330080000:numeric:0",
+        "type": "validator_verdict",
+        "label": "financial_numeric_consistency_validator",
+        "summary": "numeric consistency checks passed"
+      },
+      {
+        "id": "workflow:workflow-behavior-intervention-20260330080000",
+        "type": "workflow",
+        "ref_id": "workflow-behavior-intervention-20260330080000",
+        "label": "workflow-behavior-intervention-20260330080000",
+        "summary": "行为干预块选择了 subscription_cleanup/subscription_cleanup.v1。 当前识别到异常：duplicate_subscriptions、late_night_spend_spike。"
+      }
+    ],
+    "edges": [
+      {
+        "id": "memory-skill-influence:workflow-behavior-intervention-20260330080000:8:workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "from_node_id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080000:8",
+        "type": "influenced_by_memory"
+      },
+      {
+        "id": "memory-skill-influence:workflow-behavior-intervention-20260330080000:8:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "from_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080000:8",
+        "type": "influenced_by_memory"
+      },
+      {
+        "id": "skill-execution:workflow-behavior-intervention-20260330080000:12",
+        "from_node_id": "selected_skill:workflow-behavior-intervention-20260330080000:8",
+        "to_node_id": "skill_execution:workflow-behavior-intervention-20260330080000:12",
+        "type": "executed_as"
+      },
+      {
+        "id": "skill-outcome-memory:workflow-behavior-intervention-20260330080000:25:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "from_node_id": "skill_execution:workflow-behavior-intervention-20260330080000:12",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "type": "produced_skill_outcome_memory"
+      },
+      {
+        "id": "workflow-artifact:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-behavior_intervention_report",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "artifact:workflow-behavior-intervention-20260330080000-behavior_intervention_report",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-artifact:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-replay_bundle",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "artifact:workflow-behavior-intervention-20260330080000-replay_bundle",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-artifact:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-replay_summary",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "artifact:workflow-behavior-intervention-20260330080000-replay_summary",
+        "type": "produced_artifact"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-anomaly",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-memory-selected:workflow-behavior-intervention-20260330080000:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "memory:workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+        "type": "selected_memory"
+      },
+      {
+        "id": "workflow-policy_decision:workflow-behavior-intervention-20260330080000:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "policy_decision:workflow-behavior-intervention-20260330080000:0",
+        "type": "blocked_by_policy"
+      },
+      {
+        "id": "workflow-selected-skill:workflow-behavior-intervention-20260330080000:8",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "selected_skill:workflow-behavior-intervention-20260330080000:8",
+        "type": "selected_skill"
+      },
+      {
+        "id": "workflow-task:workflow-behavior-intervention-20260330080000:task-behavior-intervention-20260330",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "task:task-behavior-intervention-20260330",
+        "type": "executed_as"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080000:business:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080000:business:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080000:grounding:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080000:grounding:0",
+        "type": "validated_by"
+      },
+      {
+        "id": "workflow-validator:workflow-behavior-intervention-20260330080000:numeric:0",
+        "from_node_id": "workflow:workflow-behavior-intervention-20260330080000",
+        "to_node_id": "validator:workflow-behavior-intervention-20260330080000:numeric:0",
+        "type": "validated_by"
+      }
+    ]
+  },
+  "summary": {
+    "goal_summary": "behavior_intervention",
+    "plan_summary": [
+      "generated 1 execution blocks blocks=behavior-intervention"
+    ],
+    "skill_summary": [
+      "selected=subscription_cleanup/subscription_cleanup.v1",
+      "selection_reasons=the explicit intervention request focused on subscriptions, so the selector chose the subscription cleanup family",
+      "selection_memory_refs=workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+      "executed=subscription_cleanup/subscription_cleanup.v1",
+      "outcome_memory=workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1",
+      "skill_outcome_state=completed"
+    ],
+    "memory_summary": [
+      "selected=workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure"
+    ],
+    "validator_summary": [
+      "grounding:financial_grounding_validator:pass",
+      "numeric:financial_numeric_consistency_validator:pass",
+      "business:financial_business_rule_validator:pass"
+    ],
+    "governance_summary": [
+      "workflow_output:allow"
+    ],
+    "final_state": "completed"
+  },
+  "explanation": {
+    "why_skill_selected": [
+      "skill selected because the explicit intervention request focused on subscriptions, so the selector chose the subscription cleanup family",
+      "procedural memory influenced selection: workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+      "skill outcome memory written: workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1"
+    ],
+    "why_memory_decision": [
+      "memory selected: workflow-behavior-intervention-20260330080000-memory-behavior-anomaly,workflow-behavior-intervention-20260330080000-skill-outcome-subscription_cleanup.v1,workflow-behavior-intervention-20260330080000-memory-behavior-procedure",
+      "selected memories injected into downstream context"
+    ]
+  },
+  "degraded": false,
+  "projection_status": "complete",
+  "projection_version": 1
+}

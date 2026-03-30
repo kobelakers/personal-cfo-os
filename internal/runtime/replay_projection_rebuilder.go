@@ -456,6 +456,8 @@ func failureAttributionRecords(scope ReplayProjectionScope, items []observabilit
 func workflowProvenanceFromTrace(record WorkflowRunRecord, artifacts []observability.ReplayArtifactRef, trace observability.WorkflowTraceDump) observability.ProvenanceGraph {
 	graph := bestEffortWorkflowProvenance(record, artifacts)
 	workflowNodeID := "workflow:" + record.WorkflowID
+	lastSelectedSkillNodeID := ""
+	lastSkillExecutionNodeID := ""
 	for _, selection := range trace.MemorySelections {
 		for _, memoryID := range selection.SelectedMemoryIDs {
 			nodeID := "memory:" + memoryID
@@ -486,6 +488,96 @@ func workflowProvenanceFromTrace(record WorkflowRunRecord, artifacts []observabi
 				ToNodeID:   nodeID,
 				Type:       "rejected_memory",
 			})
+		}
+	}
+	for i, entry := range trace.Events {
+		switch entry.Category {
+		case "skill_selected":
+			skillNodeID := fmt.Sprintf("selected_skill:%s:%d", record.WorkflowID, i)
+			family := entry.Details["skill_family"]
+			version := entry.Details["skill_version"]
+			recipeID := entry.Details["recipe_id"]
+			graph.Nodes = append(graph.Nodes, observability.ProvenanceNode{
+				ID:      skillNodeID,
+				Type:    "selected_skill",
+				Label:   firstNonEmpty(family, "selected_skill"),
+				Summary: entry.Message,
+				Attributes: map[string]string{
+					"skill_family":  family,
+					"skill_version": version,
+					"recipe_id":     recipeID,
+				},
+			})
+			graph.Edges = append(graph.Edges, observability.ProvenanceEdge{
+				ID:         fmt.Sprintf("workflow-selected-skill:%s:%d", record.WorkflowID, i),
+				FromNodeID: workflowNodeID,
+				ToNodeID:   skillNodeID,
+				Type:       "selected_skill",
+			})
+			for _, memoryID := range splitCSVValues(entry.Details["memory_refs"]) {
+				memoryNodeID := "memory:" + memoryID
+				graph.Nodes = append(graph.Nodes, observability.ProvenanceNode{
+					ID:    memoryNodeID,
+					Type:  "memory",
+					RefID: memoryID,
+					Label: memoryID,
+				})
+				graph.Edges = append(graph.Edges, observability.ProvenanceEdge{
+					ID:         fmt.Sprintf("memory-skill-influence:%s:%d:%s", record.WorkflowID, i, memoryID),
+					FromNodeID: memoryNodeID,
+					ToNodeID:   skillNodeID,
+					Type:       "influenced_by_memory",
+				})
+			}
+			lastSelectedSkillNodeID = skillNodeID
+		case "skill_execution":
+			executionNodeID := fmt.Sprintf("skill_execution:%s:%d", record.WorkflowID, i)
+			family := entry.Details["skill_family"]
+			version := entry.Details["skill_version"]
+			recipeID := entry.Details["recipe_id"]
+			graph.Nodes = append(graph.Nodes, observability.ProvenanceNode{
+				ID:      executionNodeID,
+				Type:    "skill_execution",
+				Label:   firstNonEmpty(recipeID, family, "skill_execution"),
+				Summary: entry.Message,
+				Attributes: map[string]string{
+					"skill_family":            family,
+					"skill_version":           version,
+					"recipe_id":               recipeID,
+					"approval_required":       entry.Details["approval_required"],
+					"skill_selection_reasons": entry.Details["skill_selection_reasons"],
+				},
+			})
+			fromNodeID := workflowNodeID
+			edgeType := "executed_as"
+			if lastSelectedSkillNodeID != "" {
+				fromNodeID = lastSelectedSkillNodeID
+				edgeType = "executed_as"
+			}
+			graph.Edges = append(graph.Edges, observability.ProvenanceEdge{
+				ID:         fmt.Sprintf("skill-execution:%s:%d", record.WorkflowID, i),
+				FromNodeID: fromNodeID,
+				ToNodeID:   executionNodeID,
+				Type:       edgeType,
+			})
+			lastSkillExecutionNodeID = executionNodeID
+		case "skill_outcome_memory_written":
+			fromNodeID := firstNonEmpty(lastSkillExecutionNodeID, lastSelectedSkillNodeID, workflowNodeID)
+			for _, memoryID := range splitCSVValues(entry.Details["memory_ids"]) {
+				memoryNodeID := "memory:" + memoryID
+				graph.Nodes = append(graph.Nodes, observability.ProvenanceNode{
+					ID:    memoryNodeID,
+					Type:  "memory",
+					RefID: memoryID,
+					Label: memoryID,
+				})
+				graph.Edges = append(graph.Edges, observability.ProvenanceEdge{
+					ID:         fmt.Sprintf("skill-outcome-memory:%s:%d:%s", record.WorkflowID, i, memoryID),
+					FromNodeID: fromNodeID,
+					ToNodeID:   memoryNodeID,
+					Type:       "produced_skill_outcome_memory",
+				})
+			}
 		}
 	}
 	addValidatorNodes := func(prefix string, items []observability.PolicyDecisionRecord) {
@@ -556,6 +648,22 @@ func workflowProvenanceFromTrace(record WorkflowRunRecord, artifacts []observabi
 		Nodes: dedupeNodes(graph.Nodes),
 		Edges: dedupeEdges(graph.Edges),
 	}
+}
+
+func splitCSVValues(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	return result
 }
 
 func workflowFailureAttributionsFromTrace(record WorkflowRunRecord, trace observability.WorkflowTraceDump) []observability.FailureAttribution {

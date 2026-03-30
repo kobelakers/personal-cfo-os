@@ -25,6 +25,7 @@ type SQLiteRuntimeStores struct {
 	WorkflowRuns    WorkflowRunStore
 	TaskGraphs      TaskGraphStore
 	Executions      TaskExecutionStore
+	SkillExecutions SkillExecutionStore
 	Approvals       ApprovalStateStore
 	OperatorActions OperatorActionStore
 	Checkpoints     CheckpointStore
@@ -44,6 +45,7 @@ func NewSQLiteRuntimeStores(dbPath string) (*SQLiteRuntimeStores, error) {
 		WorkflowRuns:     &sqliteWorkflowRunStore{db: db},
 		TaskGraphs:       &sqliteTaskGraphStore{db: db},
 		Executions:       &sqliteTaskExecutionStore{db: db},
+		SkillExecutions:  &sqliteSkillExecutionStore{db: db},
 		Approvals:        &sqliteApprovalStateStore{db: db},
 		OperatorActions:  &sqliteOperatorActionStore{db: db},
 		Checkpoints:      &sqliteCheckpointStore{db: db},
@@ -162,6 +164,17 @@ func (db *SQLiteRuntimeDB) EnsureSchema() error {
 			version INTEGER NOT NULL,
 			record_json TEXT NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS skill_executions (
+			execution_id TEXT PRIMARY KEY,
+			workflow_id TEXT NOT NULL,
+			task_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			record_json TEXT NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_skill_executions_workflow
+			ON skill_executions(workflow_id, updated_at DESC);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS uq_task_executions_execution_id
 			ON task_executions(execution_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_task_executions_task_started

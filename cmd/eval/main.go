@@ -276,6 +276,8 @@ func loadCorpus(id string) (inteval.ScenarioCorpus, error) {
 	switch strings.TrimSpace(id) {
 	case "", "default", "phase6a-default":
 		return inteval.DefaultScenarioCorpus(), nil
+	case "phase6b-default":
+		return inteval.Phase6BDefaultScenarioCorpus(), nil
 	default:
 		return inteval.ScenarioCorpus{}, fmt.Errorf("unsupported corpus %q", id)
 	}

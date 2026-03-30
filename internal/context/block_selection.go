@@ -5,6 +5,7 @@ import (
 
 	"github.com/kobelakers/personal-cfo-os/internal/memory"
 	"github.com/kobelakers/personal-cfo-os/internal/observation"
+	"github.com/kobelakers/personal-cfo-os/internal/skills"
 )
 
 type BlockContextSpec struct {
@@ -18,6 +19,7 @@ type BlockContextSpec struct {
 	RequiredStateBlocks  []string            `json:"required_state_blocks,omitempty"`
 	ExecutionView        ContextView         `json:"execution_view"`
 	VerificationRules    []string            `json:"verification_rules,omitempty"`
+	SelectedSkill        *skills.SkillSelection `json:"selected_skill,omitempty"`
 }
 
 func filterStateBlocksByNames(blocks []InjectedStateBlock, names []string) []InjectedStateBlock {

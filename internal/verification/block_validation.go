@@ -18,6 +18,7 @@ type CashflowBlockValidator struct{}
 type DebtBlockValidator struct{}
 type TaxBlockValidator struct{}
 type PortfolioBlockValidator struct{}
+type BehaviorBlockValidator struct{}
 
 func (CashflowBlockValidator) Validate(
 	spec taskspec.TaskSpec,
@@ -231,6 +232,62 @@ func (PortfolioBlockValidator) Validate(
 	}
 }
 
+func (BehaviorBlockValidator) Validate(
+	spec taskspec.TaskSpec,
+	block planning.ExecutionBlock,
+	result analysis.BehaviorBlockResult,
+	verificationContext contextview.BlockVerificationContext,
+	currentState state.FinancialWorldState,
+) VerificationResult {
+	failedRules := make([]string, 0)
+	missingEvidence := missingMandatoryEvidence(block, verificationContext)
+	if len(missingEvidence) > 0 {
+		failedRules = append(failedRules, "mandatory_evidence_gap")
+	}
+	if result.BlockID == "" || result.Summary == "" || len(result.EvidenceIDs) == 0 {
+		failedRules = append(failedRules, "schema_invalid")
+	}
+	if result.SelectedSkill.Family == "" || result.SelectedSkill.RecipeID == "" {
+		failedRules = append(failedRules, "selected_skill_missing")
+	}
+	if !recommendationsGrounded(result.Recommendations, verificationContext.SelectedEvidenceIDs) {
+		failedRules = append(failedRules, "grounding_failure")
+	}
+	if result.DeterministicMetrics.DiscretionaryPressureScore >= 0.55 && len(result.RiskFlags) == 0 {
+		failedRules = append(failedRules, "risk_flags_missing")
+	}
+	if !behaviorMetricsConsistent(result.DeterministicMetrics, currentState) {
+		failedRules = append(failedRules, "metric_consistency")
+	}
+	if recommendationTypeMismatch(result) {
+		failedRules = append(failedRules, "skill_recommendation_mismatch")
+	}
+
+	status, message := verificationOutcome(failedRules, "behavior block verification passed", "behavior block validation failed")
+	return VerificationResult{
+		Status:                  status,
+		Scope:                   VerificationScopeBlock,
+		BlockID:                 string(block.ID),
+		BlockKind:               string(block.Kind),
+		Validator:               "behavior_block_validator",
+		Message:                 message,
+		FailedRules:             failedRules,
+		MissingEvidence:         missingEvidence,
+		RecommendedReplanAction: "repair behavior grounding, selected skill metadata, or anomaly justification before publishing the intervention",
+		Severity:                severityForStatus(status),
+		Details: map[string]any{
+			"task_id":               spec.ID,
+			"selected_skill_family": result.SelectedSkill.Family,
+			"selected_recipe_id":    result.SelectedSkill.RecipeID,
+			"selected_evidence_ids": verificationContext.SelectedEvidenceIDs,
+			"selected_memory_ids":   verificationContext.SelectedMemoryIDs,
+			"selected_state_blocks": verificationContext.SelectedStateBlocks,
+		},
+		EvidenceCoverage: fullCoverage(spec.ID),
+		CheckedAt:        time.Now().UTC(),
+	}
+}
+
 func missingMandatoryEvidence(block planning.ExecutionBlock, verificationContext contextview.BlockVerificationContext) []string {
 	typeSet := make(map[string]struct{}, len(verificationContext.Slice.EvidenceBlocks))
 	for _, item := range verificationContext.Slice.EvidenceBlocks {
@@ -279,6 +336,27 @@ func cashflowMetricsConsistent(metrics analysis.CashflowDeterministicMetrics, cu
 		metrics.MonthlyOutflowCents == current.MonthlyOutflowCents &&
 		metrics.MonthlyNetIncomeCents == current.MonthlyNetIncomeCents &&
 		floatClose(metrics.SavingsRate, current.SavingsRate)
+}
+
+func behaviorMetricsConsistent(metrics analysis.BehaviorMetricBundle, current state.FinancialWorldState) bool {
+	return metrics.DuplicateSubscriptionCount == current.BehaviorState.DuplicateSubscriptionCount &&
+		math.Abs(metrics.LateNightSpendRatio-current.BehaviorState.LateNightSpendingFrequency) < 0.0001 &&
+		metrics.MonthlyVariableExpenseCents == current.CashflowState.MonthlyVariableExpenseCents &&
+		metrics.MonthlyNetIncomeCents == current.CashflowState.MonthlyNetIncomeCents
+}
+
+func recommendationTypeMismatch(result analysis.BehaviorBlockResult) bool {
+	if len(result.Recommendations) == 0 {
+		return true
+	}
+	switch result.SelectedSkill.Family {
+	case "subscription_cleanup":
+		return result.Recommendations[0].Type != analysis.RecommendationTypeBehaviorSubscriptionCleanup
+	case "late_night_spend_nudge":
+		return result.Recommendations[0].Type != analysis.RecommendationTypeBehaviorSpendNudge
+	default:
+		return result.Recommendations[0].Type != analysis.RecommendationTypeBehaviorGuardrail
+	}
 }
 
 func debtMetricsConsistent(metrics analysis.DebtDeterministicMetrics, current state.LiabilityState, overallRisk string) bool {
