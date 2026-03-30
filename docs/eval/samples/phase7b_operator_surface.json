@@ -1,0 +1,24 @@
+{
+  "surface": "operator_ui_reference",
+  "profile_meta": {
+    "runtime_profile": "interview-demo",
+    "runtime_backend": "sqlite",
+    "blob_backend": "localfs",
+    "ui_mode": "served-dist",
+    "supported_schema_versions": ["v1"]
+  },
+  "panels": [
+    "task_graph_viewer",
+    "approval_panel",
+    "replay_viewer",
+    "memory_skill_runtime_summary",
+    "token_cost_report_artifact",
+    "benchmark_panel"
+  ],
+  "canonical_api_base": "/api/v1",
+  "notes": [
+    "UI is a visualization layer over typed services and canonical replay truth",
+    "unversioned endpoints remain compatibility aliases only",
+    "AgentEnvelope is documented as reference/internal execution protocol exposure only"
+  ]
+}

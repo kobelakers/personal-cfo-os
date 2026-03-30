@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/operator-action-result.schema.json",
+  "title": "OperatorActionResult",
+  "description": "Result contract returned by operator actions in /api/v1.",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "object",
+      "properties": {
+        "action_id": { "type": "string" },
+        "request_id": { "type": "string" },
+        "action_type": { "type": "string" },
+        "actor": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "graph_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "approval_id": { "type": "string" },
+    "execution_id": { "type": "string" },
+    "status": { "type": "string" },
+    "failure_summary": { "type": "string" },
+    "enqueued_work_kinds": { "type": "array", "items": { "type": "string" } },
+    "async_dispatch_accepted": { "type": "boolean" }
+  }
+}

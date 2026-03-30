@@ -77,6 +77,34 @@ func (s *QueryService) ListPendingApprovals(context.Context) ([]ApprovalStateRec
 	return s.service.runtime.Approvals.ListPending()
 }
 
+func (s *QueryService) GetApproval(_ context.Context, approvalID string) (ApprovalStateRecord, error) {
+	if s.service.runtime.Approvals == nil {
+		return ApprovalStateRecord{}, fmt.Errorf("approval state store is required")
+	}
+	record, ok, err := s.service.runtime.Approvals.Load(approvalID)
+	if err != nil {
+		return ApprovalStateRecord{}, err
+	}
+	if !ok {
+		return ApprovalStateRecord{}, &NotFoundError{Resource: "approval", ID: approvalID}
+	}
+	return record, nil
+}
+
+func (s *QueryService) GetArtifact(_ context.Context, artifactID string) (reporting.WorkflowArtifact, error) {
+	if s.service.runtime.Artifacts == nil {
+		return reporting.WorkflowArtifact{}, fmt.Errorf("artifact metadata store is required")
+	}
+	artifact, ok, err := s.service.runtime.Artifacts.LoadArtifact(artifactID)
+	if err != nil {
+		return reporting.WorkflowArtifact{}, err
+	}
+	if !ok {
+		return reporting.WorkflowArtifact{}, &NotFoundError{Resource: "artifact", ID: artifactID}
+	}
+	return artifact, nil
+}
+
 func (s *QueryService) GetExecutionRecord(_ context.Context, query ExecutionQuery) (TaskExecutionRecord, error) {
 	switch {
 	case query.ExecutionID != "":

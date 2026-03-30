@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/replay-view.schema.json",
+  "title": "ReplayView",
+  "description": "Canonical replay response surfaced through /api/v1. Authoritative runtime truth remains inside the runtime plane.",
+  "type": "object",
+  "required": ["scope", "summary", "explanation", "provenance", "degraded"],
+  "properties": {
+    "query": { "$ref": "./replay-query.schema.json" },
+    "scope": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string" },
+        "id": { "type": "string" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "goal_summary": { "type": "string" },
+        "plan_summary": { "type": "array", "items": { "type": "string" } },
+        "skill_summary": { "type": "array", "items": { "type": "string" } },
+        "memory_summary": { "type": "array", "items": { "type": "string" } },
+        "validator_summary": { "type": "array", "items": { "type": "string" } },
+        "governance_summary": { "type": "array", "items": { "type": "string" } },
+        "async_runtime_summary": { "type": "array", "items": { "type": "string" } },
+        "child_workflow_summary": { "type": "array", "items": { "type": "string" } },
+        "final_state": { "type": "string" }
+      }
+    },
+    "explanation": {
+      "type": "object",
+      "properties": {
+        "why_failed": { "type": "string" },
+        "why_waiting_approval": { "type": "string" },
+        "why_skill_selected": { "type": "array", "items": { "type": "string" } },
+        "why_generated_task": { "type": "array", "items": { "type": "string" } },
+        "why_child_executed": { "type": "array", "items": { "type": "string" } },
+        "why_memory_decision": { "type": "array", "items": { "type": "string" } },
+        "why_validation_failed": { "type": "array", "items": { "type": "string" } },
+        "why_async_runtime": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "nodes": { "type": "array", "items": { "type": "object" } },
+        "edges": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "execution_attributions": { "type": "array", "items": { "type": "object" } },
+    "failure_attributions": { "type": "array", "items": { "type": "object" } },
+    "degraded": { "type": "boolean" },
+    "degradation_reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reason": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "projection_status": { "type": "string" },
+    "projection_version": { "type": "integer" }
+  }
+}

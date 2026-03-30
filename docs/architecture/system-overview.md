@@ -65,6 +65,22 @@ Phase 7A upgrades the runtime backbone rather than widening the system into UI o
 7. `SkillExecutionStore` now has runtime-promotion parity, so the Postgres profile preserves the 6B skill-runtime truth surface
 8. replay/debug still uses the same canonical `internal/runtime.ReplayQueryService`, but now it can explain claim/lease/heartbeat/reclaim/retry/scheduler chains across workers
 
+## Productization / Externalization (Phase 7B)
+
+Phase 7B does not reopen runtime promotion. It turns the existing kernel into an operator-usable, externally legible product surface:
+
+1. `web/` is now a real operator console with task-graph, approval, replay, memory/skill/runtime, artifact, and benchmark panels
+2. `cmd/api` can now serve the built operator UI directly in `interview-demo` and `runtime-promotion`
+3. `/api/v1` is now the canonical operator/read surface; unversioned routes remain compatibility aliases that reuse the same adapter/service logic
+4. deployment is now expressed as four operator-facing profiles:
+   - `local-lite`
+   - `runtime-promotion`
+   - `interview-demo`
+   - `dev-stack`
+5. versioned external legibility now exists through `schemas/public/v1/*`
+6. `AgentEnvelope` is documented only as reference/internal execution protocol exposure, not as a public write contract
+7. benchmark/reporting is now a formal read/compare/export surface built on deterministic sample/eval truth instead of only internal CLI output
+
 ## Trustworthy Finance Reasoning (Phase 5D)
 
 Phase 5D hardens the current live path without widening the system into a larger workflow or infra expansion:
@@ -155,7 +171,7 @@ The current chain now looks like:
 
 ## Current Narrative Boundary
 
-The repository is now best described as **system-agent backbone + first real domain-agent execution path + first proactive life-event loop + first capability-backed follow-up execution + promoted async-capable durable runtime backbone + real-intelligence-backed Monthly Review golden path + first real memory substrate + trustworthy finance reasoning substrate + first operator-grade replay/eval/debug plane + first versioned skill runtime + first formal behavior domain + procedural-memory-influenced skill selection**.
+The repository is now best described as **a governed, verifiable, observable agent system with a usable operator surface, deployment profiles, versioned external legibility, and formal benchmark/reporting outputs on top of a closeout-hardened async runtime backbone**.
 
 - It is stronger than a workflow engine that merely has “agent interfaces on paper”.
 - It is weaker than a fully actorized, durable, remote-executable strong multi-agent system.
@@ -168,6 +184,7 @@ The repository is now best described as **system-agent backbone + first real dom
 - semantic retrieval is now real for the Monthly Review path through provider-backed embeddings, but still uses local brute-force vector scoring instead of ANN/pgvector
 - runtime is still Temporal-aligned rather than connected to a live Temporal cluster
 - stronger persistence now exists through `runtime-promotion` with Postgres + MinIO-compatible blob refs, but the system is still local-first rather than a fully externalized production deployment
+- 7B now provides productized operator/read surfaces and versioned schema docs, but it still does not externalize the internal execution bus or provide a public writable agent protocol
 - observability is now durable and queryable for runtime replay/debug, but not yet backed by full tracing infrastructure
 - system-agent execution is still local synchronous dispatch; 7A promotes the runtime around those handlers rather than turning agents into remote inbox/outbox actors
 - only `PlannerAgent` and `CashflowAgent` currently use real provider-backed reasoning, and only inside Monthly Review
@@ -178,4 +195,4 @@ The repository is now best described as **system-agent backbone + first real dom
 - broader finance-engine expansion, deeper rule coverage, stronger memory infra promotion, and richer blocked/deferred/capability regression coverage remain explicitly out of scope for this phase
 - richer provider/prompt A/B evaluation and full external observability infra promotion remain explicitly out of scope for this phase
 
-The system is still intentionally local-first. Postgres and MinIO are now real runtime-promotion backends, but live Temporal, pgvector-backed memory infra, remote agentization, and full observability infrastructure are still deferred behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a Phase 2 demo.
+The system is still intentionally local-first. Postgres and MinIO are now real runtime-promotion backends, and 7B adds real operator/product surfaces, but live Temporal, pgvector-backed memory infra, remote agentization, public protocol servers, and full observability infrastructure are still deferred behind already-fixed interfaces. That keeps the direction aligned with a 2026 agent system instead of collapsing into a thin demo or a generic backend dashboard.

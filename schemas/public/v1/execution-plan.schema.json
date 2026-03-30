@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/execution-plan.schema.json",
+  "title": "ExecutionPlan",
+  "description": "External-readable execution plan summary. Internal planner may hold richer metadata.",
+  "type": "object",
+  "required": ["workflow_id", "task_id", "plan_id", "created_at", "blocks", "steps"],
+  "properties": {
+    "workflow_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "plan_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "summary": { "type": "string" },
+    "rationale": { "type": "string" },
+    "verification_focus_notes": { "type": "array", "items": { "type": "string" } },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "prompt_id": { "type": "string" },
+        "prompt_version": { "type": "string" },
+        "model_profile": { "type": "string" },
+        "total_tokens": { "type": "integer" },
+        "estimated_cost_usd": { "type": "number" },
+        "fallback_used": { "type": "boolean" }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "block_id": { "type": "string" },
+          "kind": { "type": "string" },
+          "recipient": { "type": "string" },
+          "allowed_skill_families": { "type": "array", "items": { "type": "string" } },
+          "skill_selection_hint": { "type": "string" }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

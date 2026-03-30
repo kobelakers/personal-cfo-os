@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/agent-envelope.schema.json",
+  "title": "AgentEnvelope",
+  "description": "Reference/internal execution protocol exposure only. This schema exists for documentation and interview legibility, not as a public write contract.",
+  "$comment": "Do not treat AgentEnvelope as an external writable API contract. /api/v1 remains the canonical public operator/read surface.",
+  "type": "object",
+  "required": ["metadata", "sender", "recipient", "task", "state_ref", "required_evidence", "risk_level", "kind", "payload"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["message_id", "correlation_id", "causation_id", "emitted_at"],
+      "properties": {
+        "message_id": { "type": "string" },
+        "correlation_id": { "type": "string" },
+        "causation_id": { "type": "string" },
+        "emitted_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "sender": { "type": "string" },
+    "recipient": { "type": "string" },
+    "task": { "$ref": "./taskspec.schema.json" },
+    "state_ref": {
+      "type": "object",
+      "required": ["user_id", "snapshot_id", "version"],
+      "properties": {
+        "user_id": { "type": "string" },
+        "snapshot_id": { "type": "string" },
+        "version": { "type": "integer" }
+      }
+    },
+    "required_evidence": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "deadline": { "type": "string", "format": "date-time" },
+    "risk_level": { "type": "string" },
+    "kind": { "type": "string" },
+    "payload": { "type": "object" }
+  }
+}

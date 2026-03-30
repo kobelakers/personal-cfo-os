@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/benchmark-compare.schema.json",
+  "title": "BenchmarkCompare",
+  "description": "Comparison surface for two deterministic benchmark runs.",
+  "type": "object",
+  "required": ["left", "right", "diff"],
+  "properties": {
+    "left": { "$ref": "./benchmark-run.schema.json#/properties/summary" },
+    "right": { "$ref": "./benchmark-run.schema.json#/properties/summary" },
+    "diff": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "array", "items": { "type": "string" } },
+        "differences": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "summary": { "type": "array", "items": { "type": "string" } },
+    "description": { "type": "string" }
+  }
+}

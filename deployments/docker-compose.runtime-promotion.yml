@@ -78,6 +78,10 @@ services:
       - ${MINIO_ROOT_USER}
       - --blob-secret-key
       - ${MINIO_ROOT_PASSWORD}
+      - --benchmark-dir
+      - ./docs/eval/samples
+      - --ui-dist
+      - ./web/dist
     ports:
       - "${API_PORT}:8080"
 

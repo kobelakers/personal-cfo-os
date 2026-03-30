@@ -1,0 +1,30 @@
+{
+  "profile": "interview-demo",
+  "surface": "benchmark_summary",
+  "runs": [
+    {
+      "id": "phase6a_eval_default_corpus",
+      "title": "phase6a-default",
+      "corpus_id": "phase6a-default",
+      "deterministic_only": true,
+      "passed_count": 11,
+      "failed_count": 0,
+      "average_latency_ms": 37.0,
+      "total_token_usage": 640,
+      "approval_frequency": 0.18,
+      "validator_pass_rate": 1.0
+    },
+    {
+      "id": "phase6b_eval_default_corpus",
+      "title": "phase6b-default",
+      "corpus_id": "phase6b-default",
+      "deterministic_only": true,
+      "passed_count": 4,
+      "failed_count": 0,
+      "average_latency_ms": 42.0,
+      "total_token_usage": 780,
+      "approval_frequency": 0.25,
+      "validator_pass_rate": 1.0
+    }
+  ]
+}

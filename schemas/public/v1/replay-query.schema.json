@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/replay-query.schema.json",
+  "title": "ReplayQuery",
+  "description": "Canonical replay query surface exposed through /api/v1.",
+  "type": "object",
+  "properties": {
+    "workflow_id": { "type": "string" },
+    "task_graph_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "execution_id": { "type": "string" },
+    "approval_id": { "type": "string" }
+  },
+  "minProperties": 1,
+  "maxProperties": 1
+}

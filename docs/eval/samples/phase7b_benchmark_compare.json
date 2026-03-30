@@ -1,0 +1,16 @@
+{
+  "surface": "benchmark_compare",
+  "left": {
+    "id": "phase6b_eval_default_corpus",
+    "corpus_id": "phase6b-default"
+  },
+  "right": {
+    "id": "phase6a_eval_default_corpus",
+    "corpus_id": "phase6a-default"
+  },
+  "summary": [
+    "scenario set changed",
+    "approval frequency shifted",
+    "behavior-domain coverage exists only in phase6b-default"
+  ]
+}

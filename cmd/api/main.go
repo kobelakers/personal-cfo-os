@@ -26,6 +26,8 @@ func main() {
 	blobAccessKey := flag.String("blob-access-key", "", "minio access key")
 	blobSecretKey := flag.String("blob-secret-key", "", "minio secret key")
 	fixtureDir := flag.String("fixture-dir", "./tests/fixtures", "fixture directory for local observation seeds")
+	benchmarkDir := flag.String("benchmark-dir", "./docs/eval/samples", "benchmark sample directory")
+	uiDist := flag.String("ui-dist", "./web/dist", "served operator ui dist directory")
 	flag.Parse()
 
 	plane, err := app.OpenRuntimePlane(app.RuntimePlaneOptions{
@@ -52,7 +54,14 @@ func main() {
 
 	server := &http.Server{
 		Addr:    *addr,
-		Handler: api.NewServer(plane.Query, plane.ReplayQuery, plane.Operator, plane.Service).Handler(),
+		Handler: api.NewServer(plane.Query, plane.ReplayQuery, plane.Operator, plane.Service, api.ServerOptions{
+			RuntimeProfile:          *runtimeProfile,
+			RuntimeBackend:          *runtimeBackend,
+			BlobBackend:             *blobBackend,
+			BenchmarkCatalogDir:     *benchmarkDir,
+			SupportedSchemaVersions: []string{"v1"},
+			UIDistDir:               *uiDist,
+		}).Handler(),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

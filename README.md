@@ -58,6 +58,21 @@ Phase 7A is now in closeout-hardened state: the runtime backbone is promoted wit
 - checkpoint payloads, final report payloads, and replay bundles now support ref-backed blob storage through LocalFS or MinIO-compatible backends
 - replay/debug stays on the same canonical `internal/runtime.ReplayQueryService` plane and can now explain worker claim, lease heartbeat, reclaim, retry scheduling, and approval resume across workers
 
+## Phase 7B Productization / Externalization
+
+Phase 7B does not change the kernel truth surface. It productizes the existing typed runtime/operator/replay/eval surfaces:
+
+- `web/` is now a real operator console instead of a placeholder and is served by `cmd/api` in `interview-demo` and `runtime-promotion`
+- `/api/v1` is now the canonical operator/read surface; existing unversioned endpoints remain compatibility aliases only
+- deployment profiles are now formalized as:
+  - `local-lite`
+  - `runtime-promotion`
+  - `interview-demo`
+  - `dev-stack`
+- versioned external legibility now exists through `schemas/public/v1/*`
+- `AgentEnvelope` is documented only as reference/internal execution protocol exposure, not as a public write contract
+- benchmark/reporting is now a formal read/compare/export surface on top of deterministic corpus truth and checked-in samples
+
 ## Phase 5C Real Memory Substrate
 
 Phase 5C upgrades memory from a shaped interface to a load-bearing substrate for Monthly Review:
@@ -216,12 +231,12 @@ The codebase is no longer just an **agent-ready substrate**. It is now best desc
 cmd/                 Entrypoints for api, worker, eval, replay
 internal/            Core application layers and domain contracts
 var/                 Local durable runtime state and artifact refs (generated at runtime)
-web/                 Minimal operator UI placeholder
+web/                 React + TypeScript operator console
 deployments/         Docker Compose skeleton and deployment notes
 schemas/             JSON schemas for core contracts
 docs/                Architecture, ADRs, workflows, threat model, eval notes
 tests/               Cross-package test notes and fixture inputs
-scripts/             Reproducible run helpers, including the Phase 5B Monthly Review golden path runner
+scripts/             Reproducible run helpers, including runtime and product profile launchers
 ```
 
 ## Quick Start
@@ -239,6 +254,9 @@ go run ./cmd/eval --mode corpus --corpus phase6b-default --format summary
 ./scripts/run_monthly_review_5c.sh mock
 ./scripts/run_monthly_review_5d.sh mock
 ./scripts/run_behavior_intervention_6b.sh mock
+./scripts/run_interview_demo_7b.sh all
+./scripts/run_dev_stack_7b.sh all
+./scripts/run_runtime_promotion_7b.sh smoke
 ```
 
 ### Phase 5B Monthly Review Golden Path
@@ -415,7 +433,30 @@ Stable 7A sample outputs checked into the repo:
 
 These samples now reflect closeout-hardened promoted-backend proofs instead of only in-memory/runtime-contract evidence.
 
-The `web/` directory is intentionally minimal in this phase. Install dependencies with `npm install` inside `web/` when you are ready to iterate on the UI skeleton.
+### Phase 7B Productization / Externalization
+
+7B turns the same kernel into a usable operator surface instead of starting a new logic layer:
+
+```bash
+./scripts/run_interview_demo_7b.sh all
+./scripts/run_dev_stack_7b.sh all
+./scripts/run_runtime_promotion_7b.sh smoke
+```
+
+Versioned external legibility now lives at:
+
+- `/api/v1`
+- `schemas/public/v1/*`
+- `docs/product/operator-ui.md`
+- `docs/product/deployment-profiles.md`
+- `docs/product/protocol-exposure.md`
+- `docs/product/benchmark-reporting.md`
+
+Stable 7B operator-facing sample outputs checked into the repo:
+
+- `docs/eval/samples/phase7b_benchmark_summary.json`
+- `docs/eval/samples/phase7b_benchmark_compare.json`
+- `docs/eval/samples/phase7b_operator_surface.json`
 
 ## What Is Still Stubbed
 
@@ -433,7 +474,7 @@ The `web/` directory is intentionally minimal in this phase. Install dependencie
 - behavior is now formalized, but only through the narrow `behavior_intervention` workflow rather than every existing workflow
 - capability-backed follow-up execution is still intentionally narrow: only `tax_optimization` and `portfolio_rebalance` are live child workflow capabilities, and only for first-level auto-execution
 - no live Temporal cluster, pgvector-backed memory plane, or remote actor mailbox runtime is required yet
-- richer provider/prompt A/B regression, broader replay coverage for blocked/deferred capability cases, fuller observability infra promotion, broader behavior-follow-up rollout, and 7B productization/externalization are intentionally deferred instead of being mixed into 7A
+- richer provider/prompt A/B regression, broader replay coverage for blocked/deferred capability cases, fuller observability infra promotion, broader behavior-follow-up rollout, and stronger external protocol / remote-agent seams are still deferred after 7B
 
 These are deliberate trade-offs. The important part is that business logic now talks to stable protocol contracts, typed agent boundaries, and deterministic subsystem services, so replacing the stubbed pieces in later phases does not require rewriting workflow logic or collapsing the 12-layer structure.
 

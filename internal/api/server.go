@@ -7,28 +7,59 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kobelakers/personal-cfo-os/internal/observability"
+	"github.com/kobelakers/personal-cfo-os/internal/product"
 	"github.com/kobelakers/personal-cfo-os/internal/runtime"
 )
 
-type Server struct {
-	query  *runtime.QueryService
-	replay *runtime.ReplayQueryService
-	operator *runtime.OperatorService
-	service  *runtime.Service
-	mux      *http.ServeMux
+type ServerOptions struct {
+	RuntimeProfile          string
+	RuntimeBackend          string
+	BlobBackend             string
+	BenchmarkCatalogDir     string
+	SupportedSchemaVersions []string
+	UIDistDir               string
+	UIMode                  string
 }
 
-func NewServer(query *runtime.QueryService, replay *runtime.ReplayQueryService, operator *runtime.OperatorService, service *runtime.Service) *Server {
-	server := &Server{
-		query:    query,
-		replay:   replay,
-		operator: operator,
-		service:  service,
-		mux:      http.NewServeMux(),
+type Server struct {
+	surface   *product.OperatorSurfaceService
+	mux       *http.ServeMux
+	uiDistDir string
+	uiHandler http.Handler
+}
+
+func NewServer(query *runtime.QueryService, replay *runtime.ReplayQueryService, operator *runtime.OperatorService, service *runtime.Service, opts ...ServerOptions) *Server {
+	var options ServerOptions
+	if len(opts) > 0 {
+		options = opts[0]
 	}
+	supportedVersions := append([]string{}, options.SupportedSchemaVersions...)
+	if len(supportedVersions) == 0 {
+		supportedVersions = []string{"v1"}
+	}
+	surface := product.NewOperatorSurfaceService(product.OperatorSurfaceOptions{
+		Query:                   query,
+		Replay:                  replay,
+		Operator:                operator,
+		Service:                 service,
+		Benchmarks:              product.NewBenchmarkSurfaceService(options.BenchmarkCatalogDir),
+		RuntimeProfile:          options.RuntimeProfile,
+		RuntimeBackend:          options.RuntimeBackend,
+		BlobBackend:             options.BlobBackend,
+		UIMode:                  firstNonEmpty(strings.TrimSpace(options.UIMode), uiModeForDist(options.UIDistDir)),
+		SupportedSchemaVersions: supportedVersions,
+	})
+	server := &Server{
+		surface:   surface,
+		mux:       http.NewServeMux(),
+		uiDistDir: strings.TrimSpace(options.UIDistDir),
+	}
+	server.uiHandler = newStaticUIHandler(server.uiDistDir)
 	server.routes()
 	return server
 }
@@ -38,19 +69,60 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) routes() {
-	s.mux.HandleFunc("GET /task-graphs", s.handleListTaskGraphs)
-	s.mux.HandleFunc("GET /task-graphs/{id}", s.handleGetTaskGraph)
-	s.mux.HandleFunc("GET /replay/workflows/{id}", s.handleGetWorkflowReplay)
-	s.mux.HandleFunc("GET /replay/task-graphs/{id}", s.handleGetTaskGraphReplay)
-	s.mux.HandleFunc("GET /replay/executions/{id}", s.handleGetExecutionReplay)
-	s.mux.HandleFunc("GET /replay/approvals/{id}", s.handleGetApprovalReplay)
-	s.mux.HandleFunc("GET /replay/compare", s.handleCompareReplay)
-	s.mux.HandleFunc("GET /approvals/pending", s.handleListPendingApprovals)
-	s.mux.HandleFunc("POST /approvals/{id}/approve", s.handleApproveTask)
-	s.mux.HandleFunc("POST /approvals/{id}/deny", s.handleDenyTask)
-	s.mux.HandleFunc("POST /follow-ups/{task_id}/resume", s.handleResumeFollowUp)
-	s.mux.HandleFunc("POST /follow-ups/{task_id}/retry", s.handleRetryFollowUp)
-	s.mux.HandleFunc("POST /task-graphs/{id}/reevaluate", s.handleReevaluateTaskGraph)
+	// canonical /api/v1 routes
+	s.handle("GET", "/api/v1/meta/profile", s.handleGetMetaProfile)
+	s.handle("GET", "/api/v1/task-graphs", s.handleListTaskGraphs)
+	s.handle("GET", "/api/v1/task-graphs/{id}", s.handleGetTaskGraph)
+	s.handle("GET", "/api/v1/approvals/pending", s.handleListPendingApprovals)
+	s.handle("GET", "/api/v1/approvals/{id}", s.handleGetApprovalDetail)
+	s.handle("POST", "/api/v1/approvals/{id}/approve", s.handleApproveTask)
+	s.handle("POST", "/api/v1/approvals/{id}/deny", s.handleDenyTask)
+	s.handle("POST", "/api/v1/follow-ups/{task_id}/resume", s.handleResumeFollowUp)
+	s.handle("POST", "/api/v1/follow-ups/{task_id}/retry", s.handleRetryFollowUp)
+	s.handle("POST", "/api/v1/task-graphs/{id}/reevaluate", s.handleReevaluateTaskGraph)
+	s.handle("GET", "/api/v1/replay/workflows/{id}", s.handleGetWorkflowReplay)
+	s.handle("GET", "/api/v1/replay/task-graphs/{id}", s.handleGetTaskGraphReplay)
+	s.handle("GET", "/api/v1/replay/tasks/{id}", s.handleGetTaskReplay)
+	s.handle("GET", "/api/v1/replay/executions/{id}", s.handleGetExecutionReplay)
+	s.handle("GET", "/api/v1/replay/approvals/{id}", s.handleGetApprovalReplay)
+	s.handle("GET", "/api/v1/replay/compare", s.handleCompareReplay)
+	s.handle("GET", "/api/v1/artifacts/{id}", s.handleGetArtifact)
+	s.handle("GET", "/api/v1/artifacts/{id}/content", s.handleGetArtifactContent)
+	s.handle("GET", "/api/v1/benchmarks/runs", s.handleListBenchmarkRuns)
+	s.handle("GET", "/api/v1/benchmarks/runs/{id}", s.handleGetBenchmarkRun)
+	s.handle("GET", "/api/v1/benchmarks/compare", s.handleCompareBenchmarks)
+	s.handle("GET", "/api/v1/benchmarks/exports/{id}", s.handleExportBenchmarkRun)
+
+	// compatibility aliases that must reuse the same handlers
+	s.handle("GET", "/task-graphs", s.handleListTaskGraphs)
+	s.handle("GET", "/task-graphs/{id}", s.handleGetTaskGraph)
+	s.handle("GET", "/approvals/pending", s.handleListPendingApprovals)
+	s.handle("GET", "/approvals/{id}", s.handleGetApprovalDetail)
+	s.handle("POST", "/approvals/{id}/approve", s.handleApproveTask)
+	s.handle("POST", "/approvals/{id}/deny", s.handleDenyTask)
+	s.handle("POST", "/follow-ups/{task_id}/resume", s.handleResumeFollowUp)
+	s.handle("POST", "/follow-ups/{task_id}/retry", s.handleRetryFollowUp)
+	s.handle("POST", "/task-graphs/{id}/reevaluate", s.handleReevaluateTaskGraph)
+	s.handle("GET", "/replay/workflows/{id}", s.handleGetWorkflowReplay)
+	s.handle("GET", "/replay/task-graphs/{id}", s.handleGetTaskGraphReplay)
+	s.handle("GET", "/replay/tasks/{id}", s.handleGetTaskReplay)
+	s.handle("GET", "/replay/executions/{id}", s.handleGetExecutionReplay)
+	s.handle("GET", "/replay/approvals/{id}", s.handleGetApprovalReplay)
+	s.handle("GET", "/replay/compare", s.handleCompareReplay)
+	s.handle("GET", "/artifacts/{id}", s.handleGetArtifact)
+	s.handle("GET", "/artifacts/{id}/content", s.handleGetArtifactContent)
+	s.handle("GET", "/benchmarks/runs", s.handleListBenchmarkRuns)
+	s.handle("GET", "/benchmarks/runs/{id}", s.handleGetBenchmarkRun)
+	s.handle("GET", "/benchmarks/compare", s.handleCompareBenchmarks)
+	s.handle("GET", "/benchmarks/exports/{id}", s.handleExportBenchmarkRun)
+
+	if s.uiHandler != nil {
+		s.mux.Handle("/", s.uiHandler)
+	}
+}
+
+func (s *Server) handle(method string, path string, handler http.HandlerFunc) {
+	s.mux.HandleFunc(method+" "+path, handler)
 }
 
 type actionRequest struct {
@@ -77,8 +149,17 @@ type badRequestError struct {
 
 func (e badRequestError) Error() string { return e.message }
 
+func (s *Server) handleGetMetaProfile(w http.ResponseWriter, r *http.Request) {
+	meta, err := s.surface.Meta(r.Context())
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, meta)
+}
+
 func (s *Server) handleListTaskGraphs(w http.ResponseWriter, r *http.Request) {
-	views, err := s.query.ListTaskGraphs(r.Context())
+	views, err := s.surface.ListTaskGraphs(r.Context())
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -87,7 +168,7 @@ func (s *Server) handleListTaskGraphs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetTaskGraph(w http.ResponseWriter, r *http.Request) {
-	view, err := s.query.GetTaskGraph(r.Context(), r.PathValue("id"))
+	view, err := s.surface.GetTaskGraph(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -96,7 +177,7 @@ func (s *Server) handleGetTaskGraph(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetWorkflowReplay(w http.ResponseWriter, r *http.Request) {
-	view, err := s.replay.Query(r.Context(), runtimeReplayQueryWorkflow(r.PathValue("id")))
+	view, err := s.surface.QueryReplay(r.Context(), observability.ReplayQuery{WorkflowID: r.PathValue("id")})
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -105,7 +186,16 @@ func (s *Server) handleGetWorkflowReplay(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleGetTaskGraphReplay(w http.ResponseWriter, r *http.Request) {
-	view, err := s.replay.Query(r.Context(), runtimeReplayQueryTaskGraph(r.PathValue("id")))
+	view, err := s.surface.QueryReplay(r.Context(), observability.ReplayQuery{TaskGraphID: r.PathValue("id")})
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (s *Server) handleGetTaskReplay(w http.ResponseWriter, r *http.Request) {
+	view, err := s.surface.QueryReplay(r.Context(), observability.ReplayQuery{TaskID: r.PathValue("id")})
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -114,7 +204,7 @@ func (s *Server) handleGetTaskGraphReplay(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleGetExecutionReplay(w http.ResponseWriter, r *http.Request) {
-	view, err := s.replay.Query(r.Context(), runtimeReplayQueryExecution(r.PathValue("id")))
+	view, err := s.surface.QueryReplay(r.Context(), observability.ReplayQuery{ExecutionID: r.PathValue("id")})
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -123,7 +213,7 @@ func (s *Server) handleGetExecutionReplay(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleGetApprovalReplay(w http.ResponseWriter, r *http.Request) {
-	view, err := s.replay.Query(r.Context(), runtimeReplayQueryApproval(r.PathValue("id")))
+	view, err := s.surface.QueryReplay(r.Context(), observability.ReplayQuery{ApprovalID: r.PathValue("id")})
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -142,7 +232,7 @@ func (s *Server) handleCompareReplay(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, badRequestError{message: err.Error()})
 		return
 	}
-	comparison, err := s.replay.Compare(r.Context(), left, right)
+	comparison, err := s.surface.CompareReplay(r.Context(), left, right)
 	if err != nil {
 		writeAPIError(w, err)
 		return
@@ -151,12 +241,21 @@ func (s *Server) handleCompareReplay(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListPendingApprovals(w http.ResponseWriter, r *http.Request) {
-	items, err := s.query.ListPendingApprovals(r.Context())
+	items, err := s.surface.ListPendingApprovals(r.Context())
 	if err != nil {
 		writeAPIError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleGetApprovalDetail(w http.ResponseWriter, r *http.Request) {
+	item, err := s.surface.GetApprovalDetail(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (s *Server) handleApproveTask(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +268,7 @@ func (s *Server) handleApproveTask(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, badRequestError{message: "request_id and actor are required"})
 		return
 	}
-	result, err := s.operator.ApproveTask(r.Context(), runtime.ApproveTaskCommand{
+	result, err := s.surface.Approve(r.Context(), runtime.ApproveTaskCommand{
 		RequestID:       req.RequestID,
 		ApprovalID:      r.PathValue("id"),
 		Actor:           req.Actor,
@@ -194,7 +293,7 @@ func (s *Server) handleDenyTask(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, badRequestError{message: "request_id and actor are required"})
 		return
 	}
-	result, err := s.operator.DenyTask(r.Context(), runtime.DenyTaskCommand{
+	result, err := s.surface.Deny(r.Context(), runtime.DenyTaskCommand{
 		RequestID:       req.RequestID,
 		ApprovalID:      r.PathValue("id"),
 		Actor:           req.Actor,
@@ -219,7 +318,7 @@ func (s *Server) handleResumeFollowUp(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, badRequestError{message: "request_id and actor are required"})
 		return
 	}
-	result, err := s.operator.ResumeFollowUpTask(r.Context(), runtime.ResumeFollowUpTaskCommand{
+	result, err := s.surface.Resume(r.Context(), runtime.ResumeFollowUpTaskCommand{
 		RequestID:       req.RequestID,
 		GraphID:         req.GraphID,
 		TaskID:          r.PathValue("task_id"),
@@ -245,7 +344,7 @@ func (s *Server) handleRetryFollowUp(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, badRequestError{message: "request_id and actor are required"})
 		return
 	}
-	result, err := s.operator.RetryFailedFollowUpTask(r.Context(), runtime.RetryFailedFollowUpTaskCommand{
+	result, err := s.surface.Retry(r.Context(), runtime.RetryFailedFollowUpTaskCommand{
 		RequestID:       req.RequestID,
 		GraphID:         req.GraphID,
 		TaskID:          r.PathValue("task_id"),
@@ -271,7 +370,7 @@ func (s *Server) handleReevaluateTaskGraph(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, badRequestError{message: "request_id and actor are required"})
 		return
 	}
-	activation, result, err := s.service.ReevaluateTaskGraph(r.Context(), runtime.ReevaluateTaskGraphCommand{
+	activation, result, err := s.surface.Reevaluate(r.Context(), runtime.ReevaluateTaskGraphCommand{
 		RequestID: req.RequestID,
 		GraphID:   r.PathValue("id"),
 		Actor:     req.Actor,
@@ -283,6 +382,102 @@ func (s *Server) handleReevaluateTaskGraph(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusOK, reevaluateResponse{Activation: activation, Command: result})
+}
+
+func (s *Server) handleGetArtifact(w http.ResponseWriter, r *http.Request) {
+	view, err := s.surface.LoadArtifact(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view.Artifact)
+}
+
+func (s *Server) handleGetArtifactContent(w http.ResponseWriter, r *http.Request) {
+	view, err := s.surface.LoadArtifact(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (s *Server) handleListBenchmarkRuns(w http.ResponseWriter, r *http.Request) {
+	bench := s.surface.Benchmarks()
+	if bench == nil {
+		writeJSON(w, http.StatusOK, []product.BenchmarkRunSummary{})
+		return
+	}
+	items, err := bench.ListRuns()
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleGetBenchmarkRun(w http.ResponseWriter, r *http.Request) {
+	bench := s.surface.Benchmarks()
+	if bench == nil {
+		writeAPIError(w, badRequestError{message: "benchmark surface is not configured"})
+		return
+	}
+	item, err := bench.GetRun(r.PathValue("id"))
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (s *Server) handleCompareBenchmarks(w http.ResponseWriter, r *http.Request) {
+	bench := s.surface.Benchmarks()
+	if bench == nil {
+		writeAPIError(w, badRequestError{message: "benchmark surface is not configured"})
+		return
+	}
+	leftID := strings.TrimSpace(r.URL.Query().Get("left"))
+	rightID := strings.TrimSpace(r.URL.Query().Get("right"))
+	if leftID == "" || rightID == "" {
+		writeAPIError(w, badRequestError{message: "left and right benchmark ids are required"})
+		return
+	}
+	view, err := bench.Compare(leftID, rightID)
+	if err != nil {
+		writeAPIError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (s *Server) handleExportBenchmarkRun(w http.ResponseWriter, r *http.Request) {
+	bench := s.surface.Benchmarks()
+	if bench == nil {
+		writeAPIError(w, badRequestError{message: "benchmark surface is not configured"})
+		return
+	}
+	runID := r.PathValue("id")
+	format := firstNonEmpty(strings.TrimSpace(r.URL.Query().Get("format")), "json")
+	switch format {
+	case "json":
+		item, err := bench.GetRun(runID)
+		if err != nil {
+			writeAPIError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case "md", "markdown", "summary":
+		payload, err := bench.ExportRunMarkdown(runID)
+		if err != nil {
+			writeAPIError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(payload))
+	default:
+		writeAPIError(w, badRequestError{message: fmt.Sprintf("unsupported export format %q", format)})
+	}
 }
 
 func decodeJSONBody(r *http.Request, target any) error {
@@ -299,22 +494,6 @@ func decodeJSONBody(r *http.Request, target any) error {
 	return nil
 }
 
-func runtimeReplayQueryWorkflow(id string) observability.ReplayQuery {
-	return observability.ReplayQuery{WorkflowID: id}
-}
-
-func runtimeReplayQueryTaskGraph(id string) observability.ReplayQuery {
-	return observability.ReplayQuery{TaskGraphID: id}
-}
-
-func runtimeReplayQueryExecution(id string) observability.ReplayQuery {
-	return observability.ReplayQuery{ExecutionID: id}
-}
-
-func runtimeReplayQueryApproval(id string) observability.ReplayQuery {
-	return observability.ReplayQuery{ApprovalID: id}
-}
-
 func parseReplayCompareQuery(raw string) (observability.ReplayQuery, error) {
 	scope, id, ok := strings.Cut(strings.TrimSpace(raw), ":")
 	if !ok || strings.TrimSpace(id) == "" {
@@ -322,13 +501,15 @@ func parseReplayCompareQuery(raw string) (observability.ReplayQuery, error) {
 	}
 	switch strings.TrimSpace(scope) {
 	case "workflow":
-		return runtimeReplayQueryWorkflow(strings.TrimSpace(id)), nil
+		return observability.ReplayQuery{WorkflowID: strings.TrimSpace(id)}, nil
 	case "task_graph":
-		return runtimeReplayQueryTaskGraph(strings.TrimSpace(id)), nil
+		return observability.ReplayQuery{TaskGraphID: strings.TrimSpace(id)}, nil
+	case "task":
+		return observability.ReplayQuery{TaskID: strings.TrimSpace(id)}, nil
 	case "execution":
-		return runtimeReplayQueryExecution(strings.TrimSpace(id)), nil
+		return observability.ReplayQuery{ExecutionID: strings.TrimSpace(id)}, nil
 	case "approval":
-		return runtimeReplayQueryApproval(strings.TrimSpace(id)), nil
+		return observability.ReplayQuery{ApprovalID: strings.TrimSpace(id)}, nil
 	default:
 		return observability.ReplayQuery{}, fmt.Errorf("unsupported replay scope %q", scope)
 	}
@@ -359,4 +540,46 @@ func Shutdown(ctx context.Context, server *http.Server) error {
 		return nil
 	}
 	return server.Shutdown(ctx)
+}
+
+func newStaticUIHandler(distDir string) http.Handler {
+	root := strings.TrimSpace(distDir)
+	if root == "" {
+		return nil
+	}
+	if info, err := os.Stat(root); err != nil || !info.IsDir() {
+		return nil
+	}
+	fileServer := http.FileServer(http.Dir(root))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(filepath.Clean(r.URL.Path), "/")
+		if path == "." || path == "" {
+			http.ServeFile(w, r, filepath.Join(root, "index.html"))
+			return
+		}
+		candidate := filepath.Join(root, path)
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(root, "index.html"))
+	})
+}
+
+func uiModeForDist(distDir string) string {
+	if root := strings.TrimSpace(distDir); root != "" {
+		if info, err := os.Stat(root); err == nil && info.IsDir() {
+			return "served-dist"
+		}
+	}
+	return "api-only"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

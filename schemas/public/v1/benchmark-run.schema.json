@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/benchmark-run.schema.json",
+  "title": "BenchmarkRun",
+  "description": "Productized benchmark run surface backed by deterministic corpus samples and eval artifacts.",
+  "type": "object",
+  "required": ["summary", "run"],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "required": ["id", "corpus_id", "run_id", "deterministic_only", "scenario_count", "passed_count", "failed_count"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "title": { "type": "string" },
+        "corpus_id": { "type": "string" },
+        "run_id": { "type": "string" },
+        "deterministic_only": { "type": "boolean" },
+        "scenario_count": { "type": "integer" },
+        "passed_count": { "type": "integer" },
+        "failed_count": { "type": "integer" },
+        "approval_frequency": { "type": "number" },
+        "average_latency_ms": { "type": "number" },
+        "total_token_usage": { "type": "integer" },
+        "validator_pass_rate": { "type": "number" },
+        "policy_violation_rate": { "type": "number" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "object" },
+        "results": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}

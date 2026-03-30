@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-cfo-os/schemas/public/v1/report-artifact.schema.json",
+  "title": "ReportArtifact",
+  "description": "Artifact metadata contract for report/replay/checkpoint-related payload references.",
+  "type": "object",
+  "required": ["id", "workflow_id", "task_id", "kind", "produced_by", "ref", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "workflow_id": { "type": "string" },
+    "task_id": { "type": "string" },
+    "kind": { "type": "string" },
+    "produced_by": { "type": "string" },
+    "consumed_by": { "type": "array", "items": { "type": "string" } },
+    "ref": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string" },
+        "id": { "type": "string" },
+        "location": { "type": "string" },
+        "summary": { "type": "string" }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

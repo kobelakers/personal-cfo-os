@@ -138,3 +138,17 @@ The 7A proof surface is intentionally different from 6A/6B:
 - it proves queue correctness on the promoted backend rather than only through in-memory semantics
 - it uses MinIO-compatible blob refs for checkpoint/report/replay payload storage
 - it keeps canonical replay/debug on the same durable runtime truth plane instead of introducing a second async debugger
+
+## Phase 7B
+
+Stable productization / externalization reference outputs:
+
+- `phase7b_benchmark_summary.json`
+- `phase7b_benchmark_compare.json`
+- `phase7b_operator_surface.json`
+
+These 7B samples are intentionally different from 7A runtime proofs:
+
+- they are operator-facing surface samples, not kernel correctness proofs
+- they document `/api/v1`, deployment profiles, benchmark reporting, and UI-facing evidence density
+- they do not introduce a second protocol truth or replay truth
